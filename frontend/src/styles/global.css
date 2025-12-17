@@ -1,0 +1,47 @@
+:root {
+  /* --- Pro Light Mode --- */
+  --bg-main: #f8fafc;
+  --bg-glass: rgba(255, 255, 255, 0.75);
+  --bg-card: #ffffff;
+  --glass-border: 1px solid rgba(226, 232, 240, 0.8);
+
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+  --primary: #4f46e5;
+  --primary-glow: rgba(79, 70, 229, 0.15);
+
+  --sidebar-width: 240px;
+  --sidebar-width-collapsed: 72px;
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+}
+
+/* Dark Mode Variables */
+[data-theme="dark"] {
+  --bg-main: #020617;
+  --bg-glass: rgba(15, 23, 42, 0.85);
+  --bg-card: #1e293b;
+  --glass-border: 1px solid rgba(255, 255, 255, 0.1);
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --primary: #6366f1;
+  --shadow-lg: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg-main);
+  color: var(--text-primary);
+  font-family: "Inter", sans-serif;
+  min-height: 100vh;
+
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+/* The Glass Effect Utility Class */
+.glass-panel {
+  background: var(--bg-glass);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: var(--glass-border);
+  box-shadow: var(--shadow-lg);
+}

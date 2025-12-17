@@ -1,0 +1,340 @@
+/* src/components/layout/Sidebar.css */
+
+.sidebar {
+  /* --- STRUCTURAL FIXES (Keeps it locked to screen) --- */
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  z-index: 50;
+  box-sizing: border-box; /* Fixes the width overflow issue */
+
+  /* --- RESTORED VISUALS (From your original file) --- */
+  background: var(--bg-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-right: var(--glass-border);
+
+  /* The "Previous Effect": Radius + Shadow */
+  border-top-right-radius: 12px;
+  border-bottom-right-radius: 12px;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.02);
+
+  /* The "Previous Transition": Smooth cubic-bezier */
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Layout Internals */
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+}
+
+.sidebar.collapsed {
+  width: var(--sidebar-width-collapsed);
+  padding: 1.5rem 0.75rem;
+}
+
+/* --- Header --- */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 2rem;
+  flex-shrink: 0;
+  height: 48px;
+  overflow: hidden;
+}
+
+.logo-icon {
+  min-width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, var(--primary), #818cf8);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
+  font-size: 1.2rem;
+}
+
+/* RESTORED: The "Strong Fill" Gradient */
+.logo-text {
+  font-size: 1.25rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--text-primary), var(--primary));
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  white-space: nowrap;
+  opacity: 1;
+  transition: opacity 0.2s;
+}
+
+.sidebar.collapsed .logo-text {
+  opacity: 0;
+  width: 0;
+  pointer-events: none;
+}
+
+/* --- Nav Section --- */
+.sidebar-nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  margin-bottom: 1rem;
+  min-height: 0;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+  display: none;
+}
+.sidebar-nav a {
+  text-decoration: none;
+  width: 100%;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.nav-item:hover {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  width: 95%;
+  transform: translateX(4px);
+}
+
+.nav-item.active {
+  background: var(--primary);
+  color: #ffffff;
+  width: 95%;
+  box-shadow: 0 8px 16px -4px var(--primary-glow);
+}
+
+/* --- Footer Section --- */
+.sidebar-footer {
+  flex-shrink: 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  padding-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Fixed Logout Button */
+.logout-btn {
+  width: 100%;
+  justify-content: flex-start;
+  box-sizing: border-box;
+}
+.logout-btn:hover {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+/* Fixed Minimize Button */
+.collapse-btn {
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  color: var(--text-muted);
+  width: 100%;
+  padding: 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.collapse-btn:hover {
+  background: white;
+  color: var(--primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* --- Mobile Logic (Strictly Hide Desktop Elements) --- */
+.mobile-close-btn {
+  display: none !important;
+}
+.mobile-backdrop {
+  display: none;
+}
+/* Sidebar.css - Add this to the bottom */
+
+/* The dark background overlay */
+.logout-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 2000; /* Super high to sit on top of everything */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.2s ease-out;
+}
+
+/* The actual white box */
+.logout-modal {
+  background: white;
+  padding: 2rem;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 320px;
+  text-align: center;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  transform: scale(0.95);
+  animation: popIn 0.2s ease-out forwards;
+}
+
+.logout-icon-container {
+  width: 60px;
+  height: 60px;
+  background: #fee2e2; /* Light Red */
+  color: #ef4444; /* Red Icon */
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1rem auto;
+}
+
+.logout-modal h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 0.5rem;
+}
+
+.logout-modal p {
+  color: #64748b;
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+}
+
+.logout-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.logout-actions button {
+  flex: 1;
+  padding: 0.75rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.logout-actions .cancel-btn {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid transparent;
+}
+
+.logout-actions .cancel-btn:hover {
+  background: #e2e8f0;
+}
+
+.logout-actions .confirm-logout-btn {
+  background: #ef4444; /* Red button for danger action */
+  color: white;
+  border: none;
+}
+
+.logout-actions .confirm-logout-btn:hover {
+  background: #dc2626;
+  transform: translateY(-1px);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes popIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    left: -100%;
+    width: 280px !important;
+    height: 100vh;
+    box-shadow: none;
+    border-radius: 0; /* No round corners on mobile */
+  }
+
+  .sidebar.mobile-open {
+    left: 0;
+    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.2);
+  }
+
+  /* Backdrop */
+  .mobile-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    z-index: 40;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .mobile-backdrop.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Mobile Close Button */
+  .mobile-close-btn {
+    display: flex !important;
+    margin-left: auto;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+  }
+
+  .desktop-only {
+    display: none !important;
+  }
+}
