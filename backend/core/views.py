@@ -215,3 +215,22 @@ class CurrentUserView(APIView):
             "role": profile.get_role_display(),
             "organization": profile.organization.name if profile.organization else "No Campus"
         })
+    
+# for sidebar 
+class CurrentUserView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        if not hasattr(user, 'profile'):
+            return Response({"error": "Profile not found"}, status=404)
+            
+        profile = user.profile
+        return Response({
+            "id": user.id,
+            "name": user.get_full_name() or user.email.split('@')[0],
+            "email": user.email,
+            "role": profile.get_role_display(),   # Human readable: "Organization Admin"
+            "role_code": profile.role,            # Code: "ORG_ADMIN" (We need this!)
+            "organization": profile.organization.name if profile.organization else "No Campus"
+        })

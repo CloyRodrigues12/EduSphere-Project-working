@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext"; // <--- 1. Import Auth
 import {
   LayoutDashboard,
   UploadCloud,
@@ -10,14 +11,17 @@ import {
   ChevronRight,
   LogOut,
   X,
-  AlertCircle, // <--- New icon for the popup
+  AlertCircle,
+  Shield, // <--- New Icon for Team
 } from "lucide-react";
 import "./Sidebar.css";
 
 const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
   const navigate = useNavigate();
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false); // <--- Controls the popup
+  const { user } = useAuth(); // <--- 2. Get current User
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
+  // 3. Dynamic Menu Logic
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/" },
     { icon: Users, label: "Students", path: "/students" },
@@ -26,13 +30,20 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
     { icon: BookOpenCheck, label: "Research AI", path: "/research" },
   ];
 
-  // 1. This just opens the popup
+  // 4. Only add "Team" if user is an Admin
+  if (user?.role_code === "ORG_ADMIN" || user?.role_code === "SUPER_ADMIN") {
+    navItems.splice(1, 0, {
+      icon: Shield,
+      label: "Team & Perms",
+      path: "/staff",
+    });
+  }
+
   const handleLogoutClick = () => {
     setShowLogoutConfirm(true);
     setMobileOpen(false);
   };
 
-  // 2. This actually logs you out
   const confirmLogout = () => {
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
@@ -52,7 +63,6 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
           mobileOpen ? "mobile-open" : ""
         }`}
       >
-        {/* Header */}
         <div className="sidebar-header">
           <div className="logo-icon">E</div>
           {(!collapsed || mobileOpen) && (
@@ -66,7 +76,6 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
           </button>
         </div>
 
-        {/* Navigation Links */}
         <div className="sidebar-nav">
           {navItems.map((item) => (
             <NavLink
@@ -84,7 +93,6 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
           ))}
         </div>
 
-        {/* Footer */}
         <div className="sidebar-footer">
           <button className="nav-item logout-btn" onClick={handleLogoutClick}>
             <LogOut size={20} />
@@ -100,7 +108,7 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
         </div>
       </aside>
 
-      {/* --- CONFIRMATION POPUP --- */}
+      {/* Logout Popup */}
       {showLogoutConfirm && (
         <div className="logout-overlay">
           <div className="logout-modal">
