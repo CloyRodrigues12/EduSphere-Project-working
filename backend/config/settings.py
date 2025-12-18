@@ -207,14 +207,16 @@ SOCIALACCOUNT_QUERY_EMAIL = True
 
 # --- EMAIL CONFIGURATION ---
 
-# OPTION 1: For Testing (Prints email to your Terminal/Command Prompt)
-# Use this right now to test without setting up a real Gmail account.
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# backend/config/settings.py
 
-# OPTION 2: For Real Emails (Gmail) - Uncomment this when ready
-# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-# EMAIL_HOST = 'smtp.gmail.com'
-# EMAIL_PORT = 587
-# EMAIL_USE_TLS = True
-# EMAIL_HOST_USER = 'your-email@gmail.com'  # Replace with your email
-# EMAIL_HOST_PASSWORD = 'your-app-password' # Replace with App Password (not login password)
+# ... existing code ...
+
+# --- REAL EMAIL CONFIGURATION (Gmail) ---
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+
+# REPLACE THESE WITH YOUR REAL CREDENTIALS
+EMAIL_HOST_USER = 'edusphere4proj@gmail.com'  # <--- Put your Gmail address here
+EMAIL_HOST_PASSWORD = 'obdd kyoc rcwy umcq' # <--- Put your 16-char App Password here (spaces are fine)

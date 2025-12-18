@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import {
@@ -118,6 +119,16 @@ const StaffManagement = () => {
 
   // 3. ADD MEMBER
   const handleAddMember = async () => {
+    // --- 1. EMAIL VALIDATION CHECK ---
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!newUser.email || !emailRegex.test(newUser.email)) {
+      showToast(
+        "Please enter a valid email address (e.g., user@example.com)",
+        "error"
+      );
+      return;
+    }
     try {
       const token = localStorage.getItem("access_token");
       await axios.post(`${import.meta.env.VITE_API_URL}/api/staff/`, newUser, {

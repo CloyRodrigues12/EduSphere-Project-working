@@ -107,8 +107,10 @@ class StaffManagementView(APIView):
             return Response({"error": str(e)}, status=500)
 
 
+    # In backend/core/views.py
+
     def post(self, request):
-        """ Robust Invite System with Email Notification """
+        """ Robust Invite System with Styled Email Notification """
         if not self.check_admin_access(request):
             return Response({"error": "Permission denied"}, status=403)
 
@@ -141,32 +143,80 @@ class StaffManagementView(APIView):
             profile.is_setup_complete = True 
             profile.save()
 
-            # --- 5. SEND EMAIL NOTIFICATION ---
+            # --- 5. PREPARE EMAIL DATA ---
             try:
-                login_url = "http://localhost:5173/login" # Adjust if your frontend port differs
+                login_url = "http://localhost:5173/login" 
                 
-                subject = f"Invitation to join {admin_org.name}"
-                message = (
+                # Get Sender Name (The Admin who clicked invite)
+                sender_name = request.user.get_full_name()
+                if not sender_name:
+                    sender_name = "The Administrator"
+
+                subject = f"You're invited to join {admin_org.name} on EduSphere"
+                
+                # --- PLAIN TEXT VERSION (Fallback) ---
+                plain_message = (
                     f"Hello,\n\n"
-                    f"You have been invited to join the staff at {admin_org.name} as a {role}.\n\n"
-                    f"Please click the link below to log in or create your account using this email address:\n"
-                    f"{login_url}\n\n"
-                    f"Welcome to the team!\n"
-                    f"- EduSphere Admin"
+                    f"{sender_name} has invited you to join the staff at {admin_org.name} as a {role}.\n\n"
+                    f"Click here to get started: {login_url}\n\n"
+                    f"Welcome to the team!"
                 )
+
+                # --- HTML STYLED VERSION ---
+                html_message = f"""
+                <!DOCTYPE html>
+                <html>
+                <body style="margin:0; padding:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f9;">
+                    <div style="max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+                        
+                        <div style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding: 30px; text-align: center;">
+                            <h1 style="color: white; margin: 0; font-size: 24px;">Welcome to EduSphere</h1>
+                        </div>
+
+                        <div style="padding: 40px 30px; text-align: center; color: #333333;">
+                            <h2 style="color: #1e1b4b; margin-top: 0;">You've been invited!</h2>
+                            <p style="font-size: 16px; line-height: 1.6; color: #4b5563; margin-bottom: 25px;">
+                                <strong>{sender_name}</strong> has invited you to join the team at <strong>{admin_org.name}</strong>.
+                            </p>
+                            
+                            <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin-bottom: 30px; display: inline-block;">
+                                <p style="margin: 0; font-size: 14px; color: #6b7280;">Your Role</p>
+                                <p style="margin: 5px 0 0 0; font-size: 18px; font-weight: bold; color: #4f46e5;">{role}</p>
+                            </div>
+
+                            <br/>
+
+                            <a href="{login_url}" style="background-color: #4f46e5; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; box-shadow: 0 4px 6px rgba(79, 70, 229, 0.25);">
+                                Accept Invitation
+                            </a>
+
+                            <p style="margin-top: 30px; font-size: 14px; color: #9ca3af;">
+                                If the button above doesn't work, verify your email at: <br/>
+                                <a href="{login_url}" style="color: #4f46e5;">{login_url}</a><br/>
+                                  or contact {sender_name} for assistance.
+                            </p>
+                        </div>
+
+                        <div style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
+                            <p style="margin: 0; font-size: 12px; color: #9ca3af;">&copy; 2026 EduSphere. All rights reserved.</p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+                """
                 
                 send_mail(
                     subject,
-                    message,
-                    settings.EMAIL_HOST_USER or 'noreply@edusphere.com',
+                    plain_message, # Plain text fallback
+                    settings.EMAIL_HOST_USER,
                     [email],
                     fail_silently=False,
+                    html_message=html_message # <--- The Styled Version
                 )
                 print(f"Email sent successfully to {email}")
 
             except Exception as mail_error:
                 print(f"Failed to send email: {mail_error}")
-                # We don't stop the process, but we log the error
             
             return Response({
                 "message": f"Invite sent to {email}",
