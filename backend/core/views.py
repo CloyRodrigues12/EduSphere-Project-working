@@ -296,12 +296,17 @@ class CurrentUserView(APIView):
             return Response({"error": "Profile not found"}, status=404)
             
         profile = user.profile
+        org = profile.organization
         return Response({
             "id": user.id,
             "name": user.get_full_name() or user.email.split('@')[0],
             "email": user.email,
             "role": profile.get_role_display(),
-            "organization": profile.organization.name if profile.organization else "No Campus"
+            "organization": profile.organization.name if profile.organization else "No Campus",
+            "designation": profile.designation or "Staff Member", 
+            "location": org.address if org else "",
+            "org_type": org.type if org else "Institute",       
+            "is_setup_complete": profile.is_setup_complete
         })
     
 # for sidebar 

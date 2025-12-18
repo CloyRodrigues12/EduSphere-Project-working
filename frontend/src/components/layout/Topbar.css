@@ -1,3 +1,6 @@
+/* src/components/layout/Topbar.css */
+
+/* --- TOPBAR CONTAINER --- */
 .topbar {
   height: 70px;
   margin: 1.5rem 2rem 0 2rem;
@@ -8,8 +11,19 @@
   padding: 0 1.5rem;
   position: sticky;
   top: 1.5rem;
-  z-index: 40;
+  z-index: 100;
   transition: all 0.3s ease;
+
+  /* Glass Effect for Topbar itself */
+  background: var(--glass-bg, rgba(255, 255, 255, 0.8));
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.3));
+}
+
+/* Dark Mode Override for Topbar Background */
+[data-theme="dark"] .topbar {
+  background: rgba(30, 41, 59, 0.7); /* Darker glass for dark mode */
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .page-title {
@@ -26,9 +40,9 @@
   gap: 1.2rem;
 }
 
-/* Search Bar */
+/* --- SEARCH BAR --- */
 .search-container {
-  background: var(--bg-card);
+  background: var(--bg-main, #f1f5f9); /* Adapts to theme */
   border-radius: 10px;
   padding: 8px 12px;
   display: flex;
@@ -36,6 +50,11 @@
   width: 240px;
   border: 1px solid transparent;
   transition: all 0.2s ease;
+}
+
+/* Dark Mode fix for search input */
+[data-theme="dark"] .search-container {
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .search-container:focus-within {
@@ -54,7 +73,11 @@
   font-size: 0.9rem;
 }
 
-/* Actions */
+.search-icon {
+  color: var(--text-secondary);
+}
+
+/* --- ACTION BUTTONS --- */
 .icon-btn {
   background: transparent;
   border: none;
@@ -86,20 +109,28 @@
   border: 2px solid var(--bg-card);
 }
 
-/* Profile Chip */
+/* --- PROFILE CHIP (Trigger) --- */
+.profile-container {
+  position: relative;
+}
+
 .profile-chip {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 4px 12px 4px 4px;
-  background: var(--bg-card);
+  background: transparent; /* Transparent by default */
   border-radius: 30px;
   cursor: pointer;
   border: 1px solid transparent;
   transition: all 0.2s;
+  user-select: none;
 }
 
-.profile-chip:hover {
+/* Hover/Active State */
+.profile-chip:hover,
+.profile-chip.active {
+  background: var(--bg-card); /* Adapts to dark mode */
   border-color: var(--glass-border);
   box-shadow: var(--shadow-sm);
 }
@@ -108,6 +139,7 @@
   width: 36px;
   height: 36px;
   border-radius: 50%;
+  border: 2px solid var(--bg-main); /* Ring ensures visibility */
 }
 
 .profile-info {
@@ -119,10 +151,209 @@
 .profile-info .name {
   font-weight: 600;
   font-size: 0.9rem;
+  color: var(--text-primary);
 }
 .profile-info .role {
   font-size: 0.75rem;
   color: var(--text-secondary);
+}
+
+.dropdown-arrow {
+  color: var(--text-secondary);
+  transition: transform 0.2s;
+}
+.dropdown-arrow.rotate {
+  transform: rotate(180deg);
+}
+
+/* --- DROPDOWN MENU (The Popup) --- */
+.profile-dropdown {
+  position: absolute;
+  top: 120%;
+  right: 0;
+  width: 260px;
+
+  /* DARK MODE OPTIMIZED BACKGROUND */
+  background: var(--bg-card, #ffffff);
+  /* If var(--bg-card) isn't set, use white. In dark mode, it should be dark. */
+
+  /* Fallback for glass effect if supported */
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+
+  border-radius: 16px;
+  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.2); /* Slightly darker shadow for contrast */
+  border: 1px solid var(--border-color, rgba(0, 0, 0, 0.1));
+
+  padding: 0;
+  overflow: hidden;
+  transform-origin: top right;
+}
+
+/* Ensure background is dark in dark mode */
+[data-theme="dark"] .profile-dropdown {
+  background: #1e293b; /* Slate-800 */
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
+}
+
+/* Header Section */
+.dropdown-header {
+  padding: 1.5rem;
+  text-align: center;
+  /* Subtle gradient that looks good in both modes */
+  background: linear-gradient(
+    to bottom,
+    var(--primary-glow, rgba(99, 102, 241, 0.1)),
+    transparent
+  );
+}
+
+.large-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 4px solid var(--bg-card); /* Adapts to theme background */
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  margin-bottom: 0.75rem;
+}
+
+.header-info h4 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.header-info p {
+  margin: 0.2rem 0 0.5rem 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.org-badge {
+  display: inline-block;
+  background: var(--primary-glow);
+  color: var(--primary);
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+  text-transform: uppercase;
+}
+
+/* Divider */
+.dropdown-divider {
+  height: 1px;
+  background: var(--border-color, #e2e8f0);
+  margin: 0;
+}
+[data-theme="dark"] .dropdown-divider {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Menu List */
+.dropdown-menu {
+  list-style: none;
+  padding: 0.5rem;
+  margin: 0;
+}
+
+.dropdown-menu li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.dropdown-menu .info-item {
+  cursor: default; /* Not clickable */
+  background: transparent !important; /* No hover effect */
+  align-items: flex-start; /* Align icon to top */
+}
+
+.item-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.item-text .label {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.item-text .value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.text-primary {
+  color: var(--primary-color);
+}
+
+.org-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.org-location {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+.dropdown-menu li:hover {
+  background: var(--bg-main, #f8fafc); /* Adapts to theme */
+  color: var(--primary-color);
+}
+[data-theme="dark"] .dropdown-menu li:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Footer (Logout) */
+.dropdown-footer {
+  padding: 0.5rem;
+}
+
+.logout-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  /* Use RGBA for transparency so it works on Dark Mode */
+  background: rgba(239, 68, 68, 0.1); /* Red with 10% opacity */
+  color: #ef4444; /* Red Text */
+
+  border: 1px solid transparent;
+  padding: 10px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.logout-btn:hover {
+  background: rgba(239, 68, 68, 0.2); /* Red with 20% opacity */
+  transform: translateY(-1px);
 }
 
 /* Mobile */
@@ -138,5 +369,21 @@
   }
   .search-container {
     display: none;
-  } /* Hide search on small screens */
+  }
+}
+
+/* Animation */
+@keyframes slideDownFade {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.slide-down-fade {
+  animation: slideDownFade 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
