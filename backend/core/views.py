@@ -217,6 +217,8 @@ class CurrentUserView(APIView):
         })
     
 # for sidebar 
+# backend/core/views.py (Bottom of the file)
+
 class CurrentUserView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -231,6 +233,7 @@ class CurrentUserView(APIView):
             "name": user.get_full_name() or user.email.split('@')[0],
             "email": user.email,
             "role": profile.get_role_display(),   # Human readable: "Organization Admin"
-            "role_code": profile.role,            # Code: "ORG_ADMIN" (We need this!)
-            "organization": profile.organization.name if profile.organization else "No Campus"
+            "role_code": profile.role,            # Code: "ORG_ADMIN" (Critical for Sidebar!)
+            "organization": profile.organization.name if profile.organization else "No Campus",
+            "is_setup_complete": profile.is_setup_complete  # <--- CRITICAL FIX for Loop
         })

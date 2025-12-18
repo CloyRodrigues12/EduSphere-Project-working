@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Plus, Trash2, CheckCircle, Clock } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  CheckCircle,
+  Clock,
+  X,
+  AlertTriangle,
+  Check,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import "./StaffManagement.css";
 
@@ -8,18 +16,31 @@ const StaffManagement = () => {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Modal State
-  const [showModal, setShowModal] = useState(false);
+  // Modals & UI State
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null); // Stores ID of user to delete
   const [newUser, setNewUser] = useState({ email: "", role: "STAFF" });
+
+  // Toast Notification State
+  const [toast, setToast] = useState({
+    show: false,
+    message: "",
+    type: "success",
+  });
 
   const navigate = useNavigate();
 
-  // Define available features to toggle
   const FEATURE_FLAGS = [
     { key: "can_manage_fees", label: "Fees" },
     { key: "can_upload_data", label: "Uploads" },
     { key: "can_manage_students", label: "Students" },
   ];
+
+  // Helper to show notifications
+  const showToast = (message, type = "success") => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: "", type: "" }), 3000);
+  };
 
   const fetchMembers = async () => {
     try {
@@ -33,7 +54,6 @@ const StaffManagement = () => {
       setMembers(res.data);
     } catch (err) {
       if (err.response && err.response.status === 403) {
-        alert("Access Denied: Only Admins can view this page.");
         navigate("/");
       } else {
         console.error("Failed to fetch staff", err);
@@ -47,32 +67,28 @@ const StaffManagement = () => {
     fetchMembers();
   }, []);
 
-  // 1. DELETE FUNCTION
-  const handleDelete = async (userId) => {
-    if (
-      !confirm(
-        "Are you sure you want to remove this user? This cannot be undone."
-      )
-    )
-      return;
-
+  // 1. DELETE LOGIC (Now opens a modal first)
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
     try {
       const token = localStorage.getItem("access_token");
       await axios.delete(
-        `${import.meta.env.VITE_API_URL}/api/staff/?id=${userId}`,
+        `${import.meta.env.VITE_API_URL}/api/staff/?id=${deleteTarget}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-      fetchMembers(); // Refresh list
+      showToast("User removed successfully", "success");
+      fetchMembers();
     } catch (err) {
-      alert(err.response?.data?.error || "Delete failed");
+      showToast(err.response?.data?.error || "Delete failed", "error");
+    } finally {
+      setDeleteTarget(null); // Close modal
     }
   };
 
   // 2. PERMISSION TOGGLE
   const togglePermission = async (memberId, permissionKey, currentValue) => {
-    // Optimistic Update
     const updatedMembers = members.map((m) => {
       if (m.id === memberId) {
         const newPerms = { ...m.permissions, [permissionKey]: !currentValue };
@@ -82,7 +98,6 @@ const StaffManagement = () => {
     });
     setMembers(updatedMembers);
 
-    // Send to Backend
     try {
       const token = localStorage.getItem("access_token");
       const targetMember = updatedMembers.find((m) => m.id === memberId);
@@ -96,12 +111,12 @@ const StaffManagement = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
     } catch (err) {
-      console.error("Failed to update permission", err);
-      fetchMembers(); // Revert on error
+      showToast("Failed to save permission", "error");
+      fetchMembers();
     }
   };
 
-  // 3. ADD MEMBER FUNCTION (RESTORED)
+  // 3. ADD MEMBER
   const handleAddMember = async () => {
     try {
       const token = localStorage.getItem("access_token");
@@ -109,24 +124,37 @@ const StaffManagement = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      // Success: Close modal and refresh list
-      alert(`Invitation sent to ${newUser.email}!`);
-      setShowModal(false);
+      showToast(`Invitation sent to ${newUser.email}!`, "success");
+      setShowAddModal(false);
       setNewUser({ email: "", role: "STAFF" });
       fetchMembers();
     } catch (error) {
-      alert(error.response?.data?.error || "Failed to add user");
+      showToast(error.response?.data?.error || "Failed to add user", "error");
     }
   };
 
   return (
     <div className="staff-page">
+      {/* Toast Notification */}
+      <div
+        className={`toast-notification ${toast.type} ${
+          toast.show ? "show" : ""
+        }`}
+      >
+        {toast.type === "success" ? (
+          <Check size={18} />
+        ) : (
+          <AlertTriangle size={18} />
+        )}
+        <span>{toast.message}</span>
+      </div>
+
       <div className="page-header">
         <div>
           <h1>Team & Permissions</h1>
           <p>Manage access and features for your staff.</p>
         </div>
-        <button className="add-btn" onClick={() => setShowModal(true)}>
+        <button className="add-btn" onClick={() => setShowAddModal(true)}>
           <Plus size={18} /> Add Member
         </button>
       </div>
@@ -164,8 +192,6 @@ const StaffManagement = () => {
                       {m.role}
                     </span>
                   </td>
-
-                  {/* Status Badge */}
                   <td>
                     {m.status === "Active" ? (
                       <span className="status-badge active">
@@ -177,8 +203,6 @@ const StaffManagement = () => {
                       </span>
                     )}
                   </td>
-
-                  {/* Permissions */}
                   <td>
                     <div className="perm-toggles">
                       {FEATURE_FLAGS.map((feat) => (
@@ -204,13 +228,11 @@ const StaffManagement = () => {
                       ))}
                     </div>
                   </td>
-
-                  {/* Delete Action */}
                   <td>
                     {m.role_code !== "ORG_ADMIN" && (
                       <button
                         className="icon-btn delete"
-                        onClick={() => handleDelete(m.id)}
+                        onClick={() => setDeleteTarget(m.id)}
                       >
                         <Trash2 size={16} color="#ef4444" />
                       </button>
@@ -223,43 +245,88 @@ const StaffManagement = () => {
         )}
       </div>
 
-      {/* 4. MODAL POPUP (RESTORED) */}
-      {showModal && (
-        <div className="modal-overlay">
-          <div className="modal-card">
-            <h2>Invite New Member</h2>
-            <div className="form-group">
-              <label>Email</label>
-              <input
-                type="email"
-                placeholder="teacher@school.edu"
-                value={newUser.email}
-                onChange={(e) =>
-                  setNewUser({ ...newUser, email: e.target.value })
-                }
-              />
-            </div>
-            <div className="form-group">
-              <label>Role</label>
-              <select
-                value={newUser.role}
-                onChange={(e) =>
-                  setNewUser({ ...newUser, role: e.target.value })
-                }
+      {/* --- ADD USER MODAL --- */}
+      {showAddModal && (
+        <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Invite New Member</h2>
+              <button
+                className="close-btn"
+                onClick={() => setShowAddModal(false)}
               >
-                <option value="STAFF">Staff / Teacher</option>
-                <option value="ORG_ADMIN">Co-Admin</option>
-              </select>
+                <X size={20} />
+              </button>
             </div>
+
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Email Address</label>
+                <input
+                  type="email"
+                  placeholder="teacher@school.edu"
+                  value={newUser.email}
+                  onChange={(e) =>
+                    setNewUser({ ...newUser, email: e.target.value })
+                  }
+                  autoFocus
+                />
+              </div>
+              <div className="form-group">
+                <label>Role</label>
+                <div className="select-wrapper">
+                  <select
+                    value={newUser.role}
+                    onChange={(e) =>
+                      setNewUser({ ...newUser, role: e.target.value })
+                    }
+                  >
+                    <option value="STAFF">Staff / Teacher</option>
+                    <option value="ORG_ADMIN">Co-Admin</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
             <div className="modal-actions">
               <button
                 className="cancel-btn"
-                onClick={() => setShowModal(false)}
+                onClick={() => setShowAddModal(false)}
               >
                 Cancel
               </button>
               <button className="confirm-btn" onClick={handleAddMember}>
                 Send Invite
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- DELETE CONFIRMATION MODAL --- */}
+      {deleteTarget && (
+        <div className="modal-overlay" onClick={() => setDeleteTarget(null)}>
+          <div
+            className="modal-card delete-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="delete-icon-wrapper">
+              <Trash2 size={32} />
+            </div>
+            <h3>Remove User?</h3>
+            <p>
+              Are you sure you want to remove this user? They will lose access
+              immediately.
+            </p>
+            <div className="modal-actions">
+              <button
+                className="cancel-btn"
+                onClick={() => setDeleteTarget(null)}
+              >
+                Keep User
+              </button>
+              <button className="delete-confirm-btn" onClick={confirmDelete}>
+                Yes, Remove
               </button>
             </div>
           </div>

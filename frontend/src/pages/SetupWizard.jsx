@@ -1,153 +1,260 @@
-/* eslint-disable no-unused-vars */
 import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  Building2,
-  MapPin,
-  GraduationCap,
-  ArrowRight,
-  CheckCircle2,
-} from "lucide-react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import {
+  Building2,
+  UserCircle,
+  ArrowRight,
+  CheckCircle2,
+  School,
+  GraduationCap,
+  BookOpen,
+  Briefcase,
+  Monitor,
+  UserCog,
+  Crown,
+} from "lucide-react";
 import "./SetupWizard.css";
+import { useAuth } from "../context/AuthContext";
 
 const SetupWizard = () => {
-  const [step, setStep] = useState(1);
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // 0 = Welcome, 1 = Identity, 2 = Admin
+  const [step, setStep] = useState(0);
+  const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
-    name: "",
-    type: "College",
-    address: "",
+    orgName: "",
+    orgType: "School",
+    designation: "Principal", // Default
+    customDesignation: "", // For "Other"
   });
+
+  const instituteTypes = [
+    { id: "School", icon: School, label: "School" },
+    { id: "University", icon: GraduationCap, label: "University" },
+    { id: "Coaching", icon: BookOpen, label: "Coaching" },
+  ];
+
+  // Expanded Role Options
+  const roleOptions = [
+    { id: "Principal", icon: Crown, label: "Principal" },
+    { id: "Director", icon: Briefcase, label: "Director" },
+    { id: "Administrator", icon: UserCog, label: "Admin" },
+    { id: "IT Head", icon: Monitor, label: "IT Head" },
+    { id: "Other", icon: UserCircle, label: "Other" },
+  ];
+
+  const handleNext = () => setStep((prev) => prev + 1);
+  const handleBack = () => setStep((prev) => prev - 1);
 
   const handleSubmit = async () => {
     setLoading(true);
     try {
       const token = localStorage.getItem("access_token");
 
-      // Call the API we will create in Step 4
+      // Use custom designation if "Other" is selected
+      const finalDesignation =
+        formData.designation === "Other"
+          ? formData.customDesignation
+          : formData.designation;
+
       await axios.post(
         `${import.meta.env.VITE_API_URL}/api/setup-organization/`,
-        formData,
+        {
+          name: formData.orgName,
+          type: formData.orgType,
+          designation: finalDesignation,
+        },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      // Success! Refresh page so AuthContext sees the new status and redirects to Dashboard
-      setTimeout(() => {
-        window.location.href = "/";
-      }, 1000);
+      window.location.href = "/";
     } catch (error) {
       console.error("Setup failed", error);
+      alert("Something went wrong. Please try again.");
       setLoading(false);
-      alert("Setup failed. Please check the console.");
     }
   };
 
+  // 0. Welcome Screen
+  if (step === 0) {
+    return (
+      <div className="setup-container">
+        <div className="welcome-card">
+          <div className="logo-badge">E</div>
+          <h1>Welcome to EduSphere</h1>
+          <p>
+            You are about to set up a comprehensive digital ecosystem for your
+            institute. Let's get your campus online in less than 2 minutes.
+          </p>
+
+          <div className="feature-list">
+            <div className="feature-item">
+              <CheckCircle2 size={18} className="text-green" />
+              <span>Centralized Student Data</span>
+            </div>
+            <div className="feature-item">
+              <CheckCircle2 size={18} className="text-green" />
+              <span>Smart Fee Management</span>
+            </div>
+            <div className="feature-item">
+              <CheckCircle2 size={18} className="text-green" />
+              <span>Role-based Access Control</span>
+            </div>
+          </div>
+
+          <button className="primary-btn big" onClick={handleNext}>
+            Get Started <ArrowRight size={20} />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Wizard Container for Steps 1 & 2
   return (
     <div className="setup-container">
-      <div className="setup-card">
-        {/* Progress Dots */}
-        <div className="progress-container">
+      <div className="wizard-card">
+        {/* Progress Stepper */}
+        <div className="stepper">
           <div className={`step-dot ${step >= 1 ? "active" : ""}`}>1</div>
-          <div className={`step-line ${step >= 2 ? "active" : ""}`}></div>
+          <div className="step-line"></div>
           <div className={`step-dot ${step >= 2 ? "active" : ""}`}>2</div>
         </div>
 
-        <AnimatePresence mode="wait">
-          {/* STEP 1: Name */}
-          {step === 1 && (
-            <motion.div
-              key="step1"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="wizard-content"
-            >
-              <div className="wizard-header">
-                <h2>Name your Campus</h2>
-                <p>What is the official name of your institution?</p>
-              </div>
+        {/* STEP 1: IDENTITY */}
+        {step === 1 && (
+          <div className="step-content fade-in">
+            <div className="step-header">
+              <Building2 size={32} className="step-icon" />
+              <h2>Institute Identity</h2>
+              <p>Tell us about the organization you are managing.</p>
+            </div>
 
-              <div className="input-wrapper">
-                <Building2 className="input-icon" size={20} />
+            <div className="form-group">
+              <label>Organization Name</label>
+              <input
+                type="text"
+                placeholder="e.g. St. Xavier's High School"
+                value={formData.orgName}
+                onChange={(e) =>
+                  setFormData({ ...formData, orgName: e.target.value })
+                }
+                autoFocus
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Institute Type</label>
+              <div className="type-grid">
+                {instituteTypes.map((type) => (
+                  <div
+                    key={type.id}
+                    className={`type-card ${
+                      formData.orgType === type.id ? "selected" : ""
+                    }`}
+                    onClick={() =>
+                      setFormData({ ...formData, orgType: type.id })
+                    }
+                  >
+                    <type.icon size={24} />
+                    <span>{type.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="wizard-actions">
+              <button className="text-btn" onClick={handleBack}>
+                Back
+              </button>
+              <button
+                className="primary-btn"
+                onClick={handleNext}
+                disabled={!formData.orgName}
+              >
+                Next Step
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 2: ADMIN PROFILE (UPDATED) */}
+        {step === 2 && (
+          <div className="step-content fade-in">
+            <div className="step-header">
+              <UserCircle size={32} className="step-icon" />
+              <h2>Your Role</h2>
+              <p>How should the system address you?</p>
+            </div>
+
+            <div className="form-group">
+              <label>Select Designation</label>
+              <div className="type-grid role-grid">
+                {roleOptions.map((role) => (
+                  <div
+                    key={role.id}
+                    className={`type-card ${
+                      formData.designation === role.id ? "selected" : ""
+                    }`}
+                    onClick={() =>
+                      setFormData({ ...formData, designation: role.id })
+                    }
+                  >
+                    <role.icon size={22} />
+                    <span>{role.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Show Text Input only if "Other" is selected */}
+            {formData.designation === "Other" && (
+              <div className="form-group slide-down">
+                <label>Type Custom Role</label>
                 <input
                   type="text"
-                  placeholder="e.g. St. Xavier's College"
-                  value={formData.name}
+                  placeholder="e.g. Trustee, Manager"
+                  value={formData.customDesignation}
                   onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
+                    setFormData({
+                      ...formData,
+                      customDesignation: e.target.value,
+                    })
                   }
                   autoFocus
                 />
               </div>
+            )}
 
-              <button
-                className="next-btn"
-                disabled={!formData.name}
-                onClick={() => setStep(2)}
-              >
-                Continue <ArrowRight size={18} />
+            <div className="info-box">
+              <p>
+                <strong>Note:</strong> As the creator, you will be assigned the{" "}
+                <span>Super Admin</span> permissions regardless of your title.
+              </p>
+            </div>
+
+            <div className="wizard-actions">
+              <button className="text-btn" onClick={handleBack}>
+                Back
               </button>
-            </motion.div>
-          )}
-
-          {/* STEP 2: Address & Type */}
-          {step === 2 && (
-            <motion.div
-              key="step2"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="wizard-content"
-            >
-              <div className="wizard-header">
-                <h2>Final Details</h2>
-                <p>Where is {formData.name} located?</p>
-              </div>
-
-              <div className="form-grid">
-                <div className="input-wrapper">
-                  <MapPin className="input-icon" size={20} />
-                  <input
-                    type="text"
-                    placeholder="City, State"
-                    value={formData.address}
-                    onChange={(e) =>
-                      setFormData({ ...formData, address: e.target.value })
-                    }
-                  />
-                </div>
-
-                <div className="type-selector">
-                  {["School", "College", "University"].map((type) => (
-                    <div
-                      key={type}
-                      className={`type-option ${
-                        formData.type === type ? "selected" : ""
-                      }`}
-                      onClick={() => setFormData({ ...formData, type: type })}
-                    >
-                      <GraduationCap size={16} />
-                      {type}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
               <button
-                className="launch-btn"
+                className="primary-btn"
                 onClick={handleSubmit}
-                disabled={loading}
+                disabled={
+                  (formData.designation === "Other" &&
+                    !formData.customDesignation) ||
+                  loading
+                }
               >
-                {loading ? "Launching..." : "Launch Campus"}
-                {!loading && <CheckCircle2 size={18} />}
+                {loading ? "Setting up..." : "Finish Setup"}
               </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
