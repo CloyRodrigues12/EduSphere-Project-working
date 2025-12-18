@@ -204,3 +204,17 @@ ACCOUNT_UNIQUE_EMAIL = True
 SOCIALACCOUNT_EMAIL_AUTHENTICATION = True
 SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True 
 SOCIALACCOUNT_QUERY_EMAIL = True
+
+# --- EMAIL CONFIGURATION ---
+
+# OPTION 1: For Testing (Prints email to your Terminal/Command Prompt)
+# Use this right now to test without setting up a real Gmail account.
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# OPTION 2: For Real Emails (Gmail) - Uncomment this when ready
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_HOST = 'smtp.gmail.com'
+# EMAIL_PORT = 587
+# EMAIL_USE_TLS = True
+# EMAIL_HOST_USER = 'your-email@gmail.com'  # Replace with your email
+# EMAIL_HOST_PASSWORD = 'your-app-password' # Replace with App Password (not login password)

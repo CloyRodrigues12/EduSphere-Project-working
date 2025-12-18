@@ -1,4 +1,3 @@
-# backend/core/views.py
 
 from rest_framework import status, permissions
 from rest_framework.response import Response
@@ -9,6 +8,9 @@ from dj_rest_auth.registration.views import SocialLoginView
 from django.contrib.auth.models import User
 import traceback
 from core.models import Organization, UserProfile 
+
+from django.core.mail import send_mail
+from django.conf import settings
 
 # 1. Google Login
 class GoogleLogin(SocialLoginView):
@@ -24,25 +26,37 @@ class SetupOrganizationView(APIView):
         user = request.user
         data = request.data
         
+        # 1. Prevent duplicate setup
         if hasattr(user, 'profile') and user.profile.organization:
             return Response({"error": "Organization already exists."}, status=400)
 
         org_name = data.get('name')
+        org_type = data.get('type', 'School') # Catch the Type
+        designation = data.get('designation', '') # Catch the Designation
+
         if not org_name:
             return Response({"error": "Organization name is required"}, status=400)
 
+        # 2. Create Organization with Type
         org = Organization.objects.create(
             name=org_name,
+            type=org_type, # <--- Saving it here
             address=data.get('address', '')
         )
 
+        # 3. Update User Profile with Designation
         profile = user.profile
         profile.organization = org
         profile.role = 'ORG_ADMIN'
+        profile.designation = designation # <--- Saving it here
         profile.is_setup_complete = True
         profile.save()
 
-        return Response({"message": "Setup Complete", "org_id": org.id})
+        return Response({
+            "message": "Setup Complete", 
+            "org_id": org.id,
+            "redirect": "/"
+        })
 
 # 3. Staff Management 
 
@@ -94,7 +108,7 @@ class StaffManagementView(APIView):
 
 
     def post(self, request):
-        """ Robust Invite System """
+        """ Robust Invite System with Email Notification """
         if not self.check_admin_access(request):
             return Response({"error": "Permission denied"}, status=403)
 
@@ -104,22 +118,20 @@ class StaffManagementView(APIView):
         if not email:
             return Response({"error": "Email is required"}, status=400)
 
-        # 1. Check if user exists (by email)
+        # 1. Check if user exists
         if User.objects.filter(email=email).exists():
             return Response({"error": "User with this email already exists!"}, status=400)
 
         try:
-            # 2. Create the User manually
-            # We set username=email to avoid unique constraint errors
+            # 2. Create the User
             new_user = User.objects.create(username=email, email=email)
             new_user.set_unusable_password()
             new_user.save()
 
-            # 3. Get or Create the Profile (Safety Net)
-            # This ensures we handle the case where signals might have already created it
+            # 3. Create Profile
             profile, created = UserProfile.objects.get_or_create(user=new_user)
             
-            # 4. Explicitly Link Organization & Role
+            # 4. Link Organization
             admin_org = request.user.profile.organization
             if not admin_org:
                 return Response({"error": "You are not part of an organization!"}, status=400)
@@ -129,6 +141,33 @@ class StaffManagementView(APIView):
             profile.is_setup_complete = True 
             profile.save()
 
+            # --- 5. SEND EMAIL NOTIFICATION ---
+            try:
+                login_url = "http://localhost:5173/login" # Adjust if your frontend port differs
+                
+                subject = f"Invitation to join {admin_org.name}"
+                message = (
+                    f"Hello,\n\n"
+                    f"You have been invited to join the staff at {admin_org.name} as a {role}.\n\n"
+                    f"Please click the link below to log in or create your account using this email address:\n"
+                    f"{login_url}\n\n"
+                    f"Welcome to the team!\n"
+                    f"- EduSphere Admin"
+                )
+                
+                send_mail(
+                    subject,
+                    message,
+                    settings.EMAIL_HOST_USER or 'noreply@edusphere.com',
+                    [email],
+                    fail_silently=False,
+                )
+                print(f"Email sent successfully to {email}")
+
+            except Exception as mail_error:
+                print(f"Failed to send email: {mail_error}")
+                # We don't stop the process, but we log the error
+            
             return Response({
                 "message": f"Invite sent to {email}",
                 "user": {
@@ -139,10 +178,9 @@ class StaffManagementView(APIView):
             })
 
         except Exception as e:
-            # Clean up if something failed halfway
             if 'new_user' in locals():
                 new_user.delete()
-            print("Invite Error:", e) # Print to terminal for debugging
+            print("Invite Error:", e)
             return Response({"error": "Failed to create user. Check server logs."}, status=500)
 
     def patch(self, request):

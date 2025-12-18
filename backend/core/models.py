@@ -10,14 +10,22 @@ from django.dispatch import receiver
 class Organization(models.Model):
     """
     The top-level entity (e.g., 'St. Xavier's Trust').
-    Created during the Setup Wizard.
     """
+    TYPE_CHOICES = [
+        ('School', 'School'),
+        ('College', 'College'),
+        ('University', 'University'),
+        ('Coaching', 'Coaching'),
+    ]
+
     name = models.CharField(max_length=255)
+    # NEW FIELD: Store the type (School, College, etc.)
+    type = models.CharField(max_length=50, choices=TYPE_CHOICES, default='School') 
     address = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.name
+        return f"{self.name} ({self.type})"
 
 class Department(models.Model):
     """
@@ -25,8 +33,6 @@ class Department(models.Model):
     """
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='departments')
     name = models.CharField(max_length=100)
-    
-    # Configuration for this department (e.g., specific Excel format)
     config = models.JSONField(default=dict, blank=True)
 
     def __str__(self):
@@ -53,6 +59,9 @@ class UserProfile(models.Model):
     
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='STAFF')
     
+    # NEW FIELD: Store the specific job title (Principal, HOD, etc.)
+    designation = models.CharField(max_length=100, blank=True, null=True) 
+    
     # Setup Flags & Permissions
     is_setup_complete = models.BooleanField(default=False)
     phone_number = models.CharField(max_length=15, blank=True, null=True)
@@ -61,17 +70,11 @@ class UserProfile(models.Model):
     def __str__(self):
         return f"{self.user.username} ({self.role})"
 
-# --- 3. Signals (ROBUST VERSION) ---
+# --- 3. Signals ---
 
 @receiver(post_save, sender=User)
 def ensure_profile_exists(sender, instance, created, **kwargs):
-    """
-    This signal runs every time a User is saved.
-    It ensures a UserProfile ALWAYS exists, fixing 'Zombie Users'.
-    """
-    # Check if the user has a profile safely
     if hasattr(instance, 'profile'):
         instance.profile.save()
     else:
-        # If profile is missing (Zombie User), create it now!
         UserProfile.objects.create(user=instance)
