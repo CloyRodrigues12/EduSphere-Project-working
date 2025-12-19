@@ -11,7 +11,6 @@ export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // --- GATEKEEPER ---
   const handleRedirect = (userData) => {
     if (!userData) return;
     if (!userData.is_setup_complete) {
@@ -24,7 +23,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // 1. Check Session
   useEffect(() => {
     const checkLoggedIn = async () => {
       const token = localStorage.getItem("access_token");
@@ -45,7 +43,16 @@ export const AuthProvider = ({ children }) => {
     checkLoggedIn();
   }, [location.pathname]);
 
-  // 2. Google Login
+  // --- ACTIONS ---
+
+  const handleAuthResponse = (res) => {
+    const { access, refresh, user: userData } = res.data;
+    localStorage.setItem("access_token", access);
+    localStorage.setItem("refresh_token", refresh);
+    setUser(userData);
+    handleRedirect(userData);
+  };
+
   const googleLogin = async (googleData) => {
     try {
       const res = await axios.post(
@@ -59,7 +66,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // 3. Email Login
   const login = async (email, password) => {
     try {
       const res = await axios.post(
@@ -77,7 +83,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // 4. Register
   const register = async (email, password) => {
     try {
       const res = await axios.post(
@@ -96,7 +101,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // 5. Reset Password Request
   const resetPassword = async (email) => {
     try {
       await axios.post(
@@ -109,7 +113,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // 6. Confirm New Password
   const resetPasswordConfirm = async (uid, token, newPassword) => {
     try {
       await axios.post(
@@ -125,15 +128,6 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       return { success: false, error: "Invalid or expired link." };
     }
-  };
-
-  // Helper to save tokens
-  const handleAuthResponse = (res) => {
-    const { access, refresh, user: userData } = res.data;
-    localStorage.setItem("access_token", access);
-    localStorage.setItem("refresh_token", refresh);
-    setUser(userData);
-    handleRedirect(userData);
   };
 
   const logout = () => {
