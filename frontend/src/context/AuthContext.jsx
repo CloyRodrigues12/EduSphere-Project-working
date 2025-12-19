@@ -70,7 +70,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const res = await axios.post(
         `${import.meta.env.VITE_API_URL}/api/auth/login/`,
-        { email, password }
+        { email: email, password: password }
       );
       handleAuthResponse(res);
       return { success: true };
@@ -126,7 +126,14 @@ export const AuthProvider = ({ children }) => {
       );
       return { success: true };
     } catch (error) {
-      return { success: false, error: "Invalid or expired link." };
+      // Return the error message so the Component can display it
+      if (error.response?.data?.new_password) {
+        return { success: false, error: error.response.data.new_password[0] };
+      } else if (error.response?.data?.detail) {
+        return { success: false, error: error.response.data.detail };
+      } else {
+        return { success: false, error: "Invalid or expired link." };
+      }
     }
   };
 
