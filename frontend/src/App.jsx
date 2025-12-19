@@ -1,8 +1,7 @@
 // frontend/src/App.jsx
 import React, { useState } from "react";
 import {
-  BrowserRouter as Router,
-  Routes,
+  Routes, // <--- REMOVED 'BrowserRouter as Router'
   Route,
   useLocation,
 } from "react-router-dom";
@@ -13,12 +12,9 @@ import DashboardHome from "./pages/DashboardHome";
 import Login from "./pages/Login";
 import SetupWizard from "./pages/SetupWizard";
 import StaffManagement from "./pages/StaffManagement";
-
-// 👇👇 THIS IMPORT WAS MISSING 👇👇
 import PasswordResetConfirm from "./pages/PasswordResetConfirm";
-// 👆👆 WITHOUT THIS, THE APP CRASHES 👆👆
 
-// --- Simple Placeholder for empty pages ---
+// --- Simple Placeholder ---
 const Placeholder = ({ title }) => (
   <div style={{ padding: "2rem" }}>
     <div
@@ -33,13 +29,12 @@ const Placeholder = ({ title }) => (
   </div>
 );
 
-// --- The Layout Wrapper (Sidebar + Topbar + Content) ---
+// --- Layout Wrapper ---
 const AppLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
 
-  // Dynamic Title Helper
   const getTitle = (path) => {
     switch (path) {
       case "/":
@@ -68,29 +63,17 @@ const AppLayout = () => {
         background: "var(--bg-main)",
       }}
     >
-      {/* 1. Navigation Sidebar */}
       <Sidebar
         collapsed={collapsed}
         setCollapsed={setCollapsed}
         mobileOpen={mobileOpen}
         setMobileOpen={setMobileOpen}
       />
-
-      {/* 2. Main Content Area */}
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        {/* Topbar (Passes the toggle function for mobile menu) */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
         <Topbar
           title={getTitle(location.pathname)}
           onMenuClick={() => setMobileOpen(true)}
         />
-
-        {/* Scrollable Page Content */}
         <div style={{ flex: 1, paddingBottom: "2rem" }}>
           <Routes>
             <Route path="/" element={<DashboardHome />} />
@@ -118,25 +101,22 @@ const AppLayout = () => {
   );
 };
 
-// --- Main Entry Point ---
+// --- Main App ---
 function App() {
   return (
-    <Router>
-      <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/setup" element={<SetupWizard />} />
-
-          {/* --- NEW RESET ROUTE --- */}
-          <Route
-            path="/password-reset/confirm/:uid/:token"
-            element={<PasswordResetConfirm />}
-          />
-
-          <Route path="/*" element={<AppLayout />} />
-        </Routes>
-      </AuthProvider>
-    </Router>
+    // <Router>  <--- REMOVED THIS WRAPPER
+    <AuthProvider>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/setup" element={<SetupWizard />} />
+        <Route
+          path="/password-reset/confirm/:uid/:token"
+          element={<PasswordResetConfirm />}
+        />
+        <Route path="/*" element={<AppLayout />} />
+      </Routes>
+    </AuthProvider>
+    // </Router> <--- REMOVED THIS WRAPPER
   );
 }
 

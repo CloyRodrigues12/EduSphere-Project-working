@@ -1,22 +1,18 @@
-import React from "react";
-import ReactDOM from "react-dom/client";
-import { GoogleOAuthProvider } from "@react-oauth/google";
+// frontend/src/main.jsx
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom"; // <--- IMPORT THIS
-import App from "./App.jsx";
 import "./styles/global.css";
-import { AuthProvider } from "./context/AuthContext.jsx";
+import App from "./App.jsx";
+import { GoogleOAuthProvider } from "@react-oauth/google";
 
-const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-
-ReactDOM.createRoot(document.getElementById("root")).render(
-  <React.StrictMode>
-    <GoogleOAuthProvider clientId={clientId}>
-      {/* Router must wrap AuthProvider because AuthProvider uses navigation hooks */}
+createRoot(document.getElementById("root")).render(
+  <StrictMode>
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+      {/* Wrap App in BrowserRouter */}
       <BrowserRouter>
-        <AuthProvider>
-          <App />
-        </AuthProvider>
+        <App />
       </BrowserRouter>
     </GoogleOAuthProvider>
-  </React.StrictMode>
+  </StrictMode>
 );

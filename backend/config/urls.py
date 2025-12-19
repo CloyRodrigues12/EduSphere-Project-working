@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.urls import path, include
+from django.views.generic import TemplateView
 from core.views import GoogleLogin 
 from core.views import GoogleLogin, SetupOrganizationView
 from core.views import GoogleLogin, SetupOrganizationView, StaffManagementView
@@ -24,6 +25,12 @@ urlpatterns = [
     path('api/staff/', StaffManagementView.as_view()),
 
     path('api/user/me/', CurrentUserView.as_view()),
+
+    path(
+        'password-reset/confirm/<uidb64>/<token>/', 
+        TemplateView.as_view(), 
+        name='password_reset_confirm'
+    ),
 
 
 ]
