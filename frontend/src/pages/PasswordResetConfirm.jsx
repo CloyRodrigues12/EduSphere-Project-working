@@ -6,7 +6,7 @@ import "./Login.css";
 
 const PasswordResetConfirm = () => {
   const { uid, token } = useParams();
-  const { resetPasswordConfirm } = useAuth(); // Ensure this exists in AuthContext
+  const { resetPasswordConfirm } = useAuth();
   const navigate = useNavigate();
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
@@ -15,7 +15,6 @@ const PasswordResetConfirm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    // Call the context function
     const res = await resetPasswordConfirm(uid, token, password);
     setLoading(false);
 
@@ -31,12 +30,12 @@ const PasswordResetConfirm = () => {
     <div className="login-container">
       <div className="login-card">
         <div className="login-header">
+          <div className="logo-icon-large">E</div>
           <h2>Set New Password</h2>
           <p>Please enter your new password below.</p>
         </div>
         <form className="login-form" onSubmit={handleSubmit}>
           {msg && <div className="status-msg error">{msg}</div>}
-
           <div className="input-group">
             <label>New Password</label>
             <input
@@ -47,7 +46,6 @@ const PasswordResetConfirm = () => {
               required
             />
           </div>
-
           <button type="submit" className="submit-btn" disabled={loading}>
             {loading ? "Updating..." : "Confirm Password"}
           </button>

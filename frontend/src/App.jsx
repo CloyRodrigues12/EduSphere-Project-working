@@ -1,3 +1,4 @@
+// frontend/src/App.jsx
 import React, { useState } from "react";
 import {
   BrowserRouter as Router,
@@ -5,13 +6,17 @@ import {
   Route,
   useLocation,
 } from "react-router-dom";
+import { AuthProvider } from "./context/AuthContext";
 import Sidebar from "./components/layout/Sidebar";
 import Topbar from "./components/layout/Topbar";
 import DashboardHome from "./pages/DashboardHome";
 import Login from "./pages/Login";
 import SetupWizard from "./pages/SetupWizard";
 import StaffManagement from "./pages/StaffManagement";
+
+// 👇👇 THIS IMPORT WAS MISSING 👇👇
 import PasswordResetConfirm from "./pages/PasswordResetConfirm";
+// 👆👆 WITHOUT THIS, THE APP CRASHES 👆👆
 
 // --- Simple Placeholder for empty pages ---
 const Placeholder = ({ title }) => (
@@ -47,6 +52,8 @@ const AppLayout = () => {
         return "Fees Collection";
       case "/research":
         return "AI Research Assistant";
+      case "/staff":
+        return "Staff Management";
       default:
         return "EduSphere";
     }
@@ -114,11 +121,22 @@ const AppLayout = () => {
 // --- Main Entry Point ---
 function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/setup" element={<SetupWizard />} />
-      <Route path="/*" element={<AppLayout />} />
-    </Routes>
+    <Router>
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/setup" element={<SetupWizard />} />
+
+          {/* --- NEW RESET ROUTE --- */}
+          <Route
+            path="/password-reset/confirm/:uid/:token"
+            element={<PasswordResetConfirm />}
+          />
+
+          <Route path="/*" element={<AppLayout />} />
+        </Routes>
+      </AuthProvider>
+    </Router>
   );
 }
 
