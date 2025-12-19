@@ -104,7 +104,6 @@ const AppLayout = () => {
 // --- Main App ---
 function App() {
   return (
-    // <Router>  <--- REMOVED THIS WRAPPER
     <AuthProvider>
       <Routes>
         <Route path="/login" element={<Login />} />
@@ -116,7 +115,6 @@ function App() {
         <Route path="/*" element={<AppLayout />} />
       </Routes>
     </AuthProvider>
-    // </Router> <--- REMOVED THIS WRAPPER
   );
 }
 
