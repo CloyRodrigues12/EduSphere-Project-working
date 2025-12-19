@@ -1,6 +1,7 @@
 // src/components/layout/Topbar.jsx
 
 import React, { useEffect, useState, useRef } from "react";
+import { createPortal } from "react-dom"; // <--- 1. IMPORT PORTAL
 import axios from "axios";
 import {
   Sun,
@@ -13,7 +14,8 @@ import {
   ChevronDown,
   Briefcase,
   Building2,
-  BadgeCheck, // New Icons
+  BadgeCheck,
+  AlertTriangle,
 } from "lucide-react";
 import "./Topbar.css";
 import { useAuth } from "../../context/AuthContext";
@@ -22,6 +24,8 @@ const Topbar = ({ title, onMenuClick }) => {
   const { logout } = useAuth();
   const [theme, setTheme] = useState("light");
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
   const menuRef = useRef(null);
 
   const [user, setUser] = useState({
@@ -35,7 +39,6 @@ const Topbar = ({ title, onMenuClick }) => {
     avatarUrl: "",
   });
 
-  // 1. Theme Logic
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
@@ -44,7 +47,6 @@ const Topbar = ({ title, onMenuClick }) => {
     setTheme((prev) => (prev === "light" ? "dark" : "light"));
   };
 
-  // 2. Click Outside Logic
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
@@ -55,7 +57,6 @@ const Topbar = ({ title, onMenuClick }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // 3. Fetch User Data
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -85,13 +86,17 @@ const Topbar = ({ title, onMenuClick }) => {
         setUser({ name: "Guest", role: "Visitor", avatarUrl: "" });
       }
     };
-
     fetchUserData();
   }, []);
 
+  const handleLogout = () => {
+    logout();
+    setShowLogoutConfirm(false);
+  };
+
   return (
     <header className="topbar glass-panel">
-      {/* Left: Menu & Title */}
+      {/* Left */}
       <div className="topbar-left">
         <button className="icon-btn menu-trigger" onClick={onMenuClick}>
           <Menu size={24} />
@@ -99,26 +104,23 @@ const Topbar = ({ title, onMenuClick }) => {
         <h1 className="page-title">{title}</h1>
       </div>
 
-      {/* Right: Actions */}
+      {/* Right */}
       <div className="topbar-right">
-        {/* Search */}
         <div className="search-container">
           <Search size={18} className="search-icon" />
           <input type="text" placeholder="Search..." />
         </div>
 
-        {/* Theme Toggle */}
         <button className="icon-btn" onClick={toggleTheme}>
           {theme === "light" ? <Moon size={20} /> : <Sun size={20} />}
         </button>
 
-        {/* Notifications */}
         <button className="icon-btn">
           <Bell size={20} />
           <span className="notification-dot"></span>
         </button>
 
-        {/* PROFILE DROPDOWN CONTAINER */}
+        {/* PROFILE DROPDOWN */}
         <div className="profile-container" ref={menuRef}>
           <div
             className={`profile-chip ${showProfileMenu ? "active" : ""}`}
@@ -141,31 +143,28 @@ const Topbar = ({ title, onMenuClick }) => {
             />
           </div>
 
-          {/* THE DROPDOWN MENU */}
           {showProfileMenu && (
             <div className="profile-dropdown slide-down-fade">
-              {/* Header */}
               <div className="dropdown-header">
                 <img src={user.avatarUrl} alt="User" className="large-avatar" />
                 <div className="header-info">
                   <h4>{user.name}</h4>
                   <p>{user.email}</p>
-                  <span className="org-badge">
-                    {user.organization}{" "}
-                    <BadgeCheck size={12} style={{ marginLeft: 4 }} />
-                  </span>
-                  {/* LOCATION DISPLAY */}
-                  {user.location && (
-                    <span className="org-location">📍 {user.location}</span>
-                  )}
+                  <div className="org-info">
+                    <span className="org-badge">
+                      {user.organization}{" "}
+                      <BadgeCheck size={12} style={{ marginLeft: 4 }} />
+                    </span>
+                    {user.location && (
+                      <span className="org-location">📍 {user.location}</span>
+                    )}
+                  </div>
                 </div>
               </div>
 
               <div className="dropdown-divider"></div>
 
-              {/* Menu Items (REPLACED "My Profile" with DATA) */}
               <ul className="dropdown-menu">
-                {/* 1. Designation */}
                 <li className="info-item">
                   <Briefcase size={18} className="text-primary" />
                   <div className="item-text">
@@ -173,8 +172,6 @@ const Topbar = ({ title, onMenuClick }) => {
                     <span className="value">{user.designation || "N/A"}</span>
                   </div>
                 </li>
-
-                {/* 2. Institute Type */}
                 <li className="info-item">
                   <Building2 size={18} className="text-primary" />
                   <div className="item-text">
@@ -182,9 +179,7 @@ const Topbar = ({ title, onMenuClick }) => {
                     <span className="value">{user.orgType || "N/A"}</span>
                   </div>
                 </li>
-
                 <div className="dropdown-divider"></div>
-
                 <li>
                   <Settings size={18} />
                   <span>Account Settings</span>
@@ -193,9 +188,11 @@ const Topbar = ({ title, onMenuClick }) => {
 
               <div className="dropdown-divider"></div>
 
-              {/* Logout */}
               <div className="dropdown-footer">
-                <button className="logout-btn" onClick={logout}>
+                <button
+                  className="logout-btn"
+                  onClick={() => setShowLogoutConfirm(true)}
+                >
                   <LogOut size={18} />
                   <span>Sign Out</span>
                 </button>
@@ -204,6 +201,35 @@ const Topbar = ({ title, onMenuClick }) => {
           )}
         </div>
       </div>
+
+      {/* --- 2. RENDER MODAL IN PORTAL (Outside Topbar) --- */}
+      {showLogoutConfirm &&
+        createPortal(
+          <div
+            className="modal-overlay"
+            onClick={() => setShowLogoutConfirm(false)}
+          >
+            <div className="confirm-card" onClick={(e) => e.stopPropagation()}>
+              <div className="warning-icon">
+                <AlertTriangle size={32} />
+              </div>
+              <h3>Sign Out?</h3>
+              <p>Are you sure you want to end your session?</p>
+              <div className="confirm-actions">
+                <button
+                  className="text-btn"
+                  onClick={() => setShowLogoutConfirm(false)}
+                >
+                  Cancel
+                </button>
+                <button className="danger-btn" onClick={handleLogout}>
+                  Yes, Sign Out
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body // <--- Target Node
+        )}
     </header>
   );
 };

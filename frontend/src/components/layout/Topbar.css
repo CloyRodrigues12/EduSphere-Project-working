@@ -387,3 +387,118 @@
 .slide-down-fade {
   animation: slideDownFade 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* --- CONFIRMATION MODAL --- */
+.modal-overlay {
+  position: fixed; /* <--- CRITICAL FIX: Forces full screen */
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px); /* Stronger blur for focus */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999; /* Sit on top of everything */
+  animation: fadeIn 0.2s ease-out;
+}
+
+.confirm-card {
+  background: var(--bg-card, #ffffff);
+  padding: 2rem;
+  border-radius: 24px;
+  text-align: center;
+  width: 340px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  animation: popIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+}
+
+.warning-icon {
+  width: 64px;
+  height: 64px;
+  background: #fef2f2;
+  color: #ef4444;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.2rem auto;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
+}
+
+.confirm-card h3 {
+  margin: 0 0 0.5rem 0;
+  color: var(--text-primary, #1e1b4b);
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.confirm-card p {
+  color: var(--text-secondary, #64748b);
+  margin-bottom: 2rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+/* Modal Buttons */
+.confirm-actions .text-btn {
+  background: transparent;
+  border: 1px solid var(--border-color, #e2e8f0);
+  color: var(--text-secondary, #64748b);
+  padding: 0.8rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  flex: 1;
+  transition: all 0.2s;
+}
+.confirm-actions .text-btn:hover {
+  background: var(--bg-main, #f1f5f9);
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
+
+.confirm-actions .danger-btn {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 0.8rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  flex: 1;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+.confirm-actions .danger-btn:hover {
+  background: #dc2626;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(239, 68, 68, 0.4);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes popIn {
+  from {
+    transform: scale(0.95) translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}

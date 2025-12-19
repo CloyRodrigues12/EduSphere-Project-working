@@ -4,7 +4,7 @@
 .setup-container {
   height: 100vh;
   width: 100vw;
-  overflow: hidden; /* Locks the page so no scrolling happens */
+  overflow: hidden; /* No scrolling allowed */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -29,7 +29,7 @@
   }
 }
 
-/* Background Orbs (Adds Depth behind the glass) */
+/* Background Orbs */
 .setup-container::before {
   content: "";
   position: absolute;
@@ -71,42 +71,43 @@
 /* --- 2. THE GLASS CARD --- */
 .welcome-card,
 .wizard-card {
-  /* True Glassmorphism Settings */
-  background: rgba(255, 255, 255, 0.85); /* High transparency */
+  background: rgba(
+    255,
+    255,
+    255,
+    0.9
+  ); /* Slightly more opaque for readability */
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.6);
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
 
-  /* Sizing Logic: Fit content, but stay reasonable */
-  width: fit-content;
-  min-width: 550px;
-  max-width: 90vw;
+  /* COMPACT SIZING */
+  width: 550px; /* Fixed reasonable width */
+  max-width: 95vw;
+  max-height: 95vh; /* Never go off screen */
 
-  padding: 3rem;
-  border-radius: 32px;
+  padding: 2rem 2.5rem; /* Reduced padding (was 3rem) */
+  border-radius: 24px;
   position: relative;
   z-index: 10;
-
-  /* Smooth Size Transition when content changes */
-  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
   display: flex;
   flex-direction: column;
+  transition: all 0.4s ease;
 }
 
-/* --- 3. ANIMATED CONTENT WRAPPER --- */
-/* This handles the internal slide animation */
+/* --- 3. ANIMATED WRAPPER --- */
 .step-content-wrapper {
-  animation: slideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem; /* Consistent spacing between elements */
+  gap: 1rem; /* Tighter gap between elements (was 1.5rem) */
 }
 
 @keyframes slideIn {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(15px);
   }
   to {
     opacity: 1;
@@ -114,43 +115,42 @@
   }
 }
 
-/* --- WELCOME SPECIFICS --- */
+/* --- WELCOME SCREEN SPECIFICS --- */
 .welcome-card {
   text-align: center;
 }
 .logo-badge {
-  width: 80px;
-  height: 80px;
+  width: 70px;
+  height: 70px; /* Smaller Logo */
   background: linear-gradient(135deg, #6366f1, #d946ef);
   color: white;
-  font-size: 2.5rem;
+  font-size: 2rem;
   font-weight: 800;
-  border-radius: 24px;
+  border-radius: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 1.5rem auto;
-  box-shadow: 0 10px 30px rgba(99, 102, 241, 0.4);
+  margin: 0 auto 1rem auto;
 }
 .welcome-card h1 {
-  color: #1e1b4b;
-  font-size: 2rem;
+  font-size: 1.75rem; /* Smaller Title */
   margin-bottom: 0.5rem;
+  color: #1e1b4b;
 }
 .welcome-card p {
   color: #475569;
-  margin-bottom: 2rem;
-  font-size: 1.1rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
 }
 
 .feature-list {
-  background: rgba(255, 255, 255, 0.6);
-  padding: 1.25rem;
-  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.5);
+  padding: 1rem;
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
-  gap: 0.8rem;
-  margin-bottom: 2rem;
+  gap: 0.6rem;
+  margin-bottom: 1.5rem;
   text-align: left;
 }
 .feature-item {
@@ -159,21 +159,22 @@
   align-items: center;
   font-weight: 600;
   color: #334155;
+  font-size: 0.9rem;
 }
 .text-green {
   color: #10b981;
 }
 
-/* --- WIZARD COMPONENTS --- */
+/* --- STEPPER --- */
 .stepper {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem; /* Reduced margin */
 }
 .step-dot {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px; /* Smaller dots */
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.5);
   color: #94a3b8;
@@ -181,65 +182,76 @@
   align-items: center;
   justify-content: center;
   font-weight: 700;
+  font-size: 0.9rem;
   transition: 0.3s;
 }
 .step-dot.active {
   background: #6366f1;
   color: white;
   transform: scale(1.1);
-  box-shadow: 0 0 0 6px rgba(99, 102, 241, 0.2);
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2);
 }
 .step-line {
-  width: 60px;
-  height: 4px;
+  width: 40px;
+  height: 3px;
   background: rgba(255, 255, 255, 0.4);
-  margin: 0 1rem;
+  margin: 0 0.8rem;
   border-radius: 2px;
 }
 
+/* --- HEADERS --- */
 .step-header {
-  text-align: center;
-  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 .step-icon {
-  width: 64px;
-  height: 64px;
+  width: 48px;
+  height: 48px; /* Compact Icon */
   color: #6366f1;
   background: rgba(255, 255, 255, 0.8);
-  padding: 1rem;
-  border-radius: 20px;
-  margin-bottom: 1rem;
-  box-shadow: 0 10px 25px rgba(99, 102, 241, 0.15);
+  padding: 10px;
+  border-radius: 14px;
+  box-shadow: 0 5px 15px rgba(99, 102, 241, 0.15);
+}
+.step-header div {
+  text-align: left;
 }
 .step-header h2 {
   color: #1e1b4b;
   margin: 0;
-  font-size: 1.8rem;
+  font-size: 1.4rem;
   font-weight: 700;
 }
 .step-header p {
-  margin: 0.5rem 0 0 0;
+  margin: 0.2rem 0 0 0;
   color: #64748b;
-  font-size: 1rem;
+  font-size: 0.9rem;
 }
 
 /* --- INPUTS --- */
+.form-group {
+  margin-bottom: 0.2rem;
+}
 .form-group label {
   display: block;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 700;
   color: #475569;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.4rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 .form-group input {
   width: 100%;
-  padding: 1rem;
+  padding: 0.75rem; /* Smaller padding */
   border: 2px solid transparent;
   background: rgba(255, 255, 255, 0.6);
-  border-radius: 12px;
-  font-size: 1rem;
+  border-radius: 10px;
+  font-size: 0.95rem;
   color: #1e293b;
   transition: 0.2s;
 }
@@ -247,26 +259,24 @@
   background: white;
   border-color: #6366f1;
   outline: none;
-  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
 }
 
 /* --- GRIDS --- */
 .type-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 1rem; /* 4 columns for School, College, Uni, Coaching */
+  gap: 0.8rem; /* Tighter gap */
 }
 .role-grid {
-  display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 1rem; /* 3 columns for Roles */
 }
 
 .type-card {
   background: rgba(255, 255, 255, 0.5);
   border: 2px solid transparent;
-  border-radius: 16px;
-  padding: 1rem 0.5rem;
+  border-radius: 12px;
+  padding: 0.8rem 0.4rem; /* Compact padding */
   text-align: center;
   cursor: pointer;
   transition: 0.2s;
@@ -274,19 +284,23 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
+}
+.type-card span {
+  font-size: 0.8rem;
+  font-weight: 500;
 }
 .type-card:hover {
   background: white;
-  transform: translateY(-3px);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
 }
 .type-card.selected {
   background: white;
   border-color: #6366f1;
   color: #4f46e5;
   font-weight: 700;
-  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.25);
+  box-shadow: 0 5px 15px rgba(99, 102, 241, 0.2);
   transform: translateY(-2px);
 }
 
@@ -295,38 +309,38 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 1rem;
-  padding-top: 1.5rem;
+  margin-top: 0.5rem;
+  padding-top: 1rem;
   border-top: 1px solid rgba(0, 0, 0, 0.05);
 }
 .text-btn {
-  background: rgba(255, 255, 255, 0.5);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  padding: 0.8rem 1.8rem;
-  border-radius: 12px;
-  color: #475569;
+  background: transparent;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  color: #64748b;
   font-weight: 600;
+  font-size: 0.9rem;
   cursor: pointer;
   transition: 0.2s;
 }
 .text-btn:hover {
-  background: white;
   color: #1e293b;
+  text-decoration: underline;
 }
 
 .primary-btn {
   background: linear-gradient(135deg, #4f46e5, #d946ef);
   color: white;
   border: none;
-  padding: 0.9rem 2.5rem;
-  border-radius: 12px;
-  font-weight: 700;
-  font-size: 1rem;
+  padding: 0.75rem 2rem; /* Smaller button */
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.95rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4);
+  box-shadow: 0 5px 15px rgba(99, 102, 241, 0.3);
   transition: all 0.2s;
 }
 .primary-btn.big {
@@ -334,7 +348,7 @@
   justify-content: center;
 }
 .primary-btn:hover {
-  transform: translateY(-2px) scale(1.02);
+  transform: translateY(-1px);
   filter: brightness(1.1);
 }
 .primary-btn:disabled {
@@ -342,4 +356,151 @@
   box-shadow: none;
   cursor: not-allowed;
   transform: none;
+}
+
+/* --- INPUT WITH ICONS & DROPDOWN --- */
+.input-with-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-icon {
+  margin-top: -8px;
+  position: absolute;
+  left: 12px;
+  color: #64748b;
+  pointer-events: none;
+}
+
+.input-right-icon {
+  position: absolute;
+  right: 12px;
+  color: #6366f1;
+}
+
+.input-with-icon input {
+  padding-left: 2.5rem; /* Make room for the icon */
+  padding-right: 2rem;
+}
+
+/* Spinner Animation */
+.spinner {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* --- INPUT WITH ICONS & DROPDOWN (Fixed Positioning) --- */
+.input-with-icon {
+  position: relative;
+  width: 100%;
+}
+
+.input-icon {
+  position: absolute;
+  left: 16px; /* Distance from left edge */
+  top: 50%; /* Push halfway down */
+  transform: translateY(
+    -50%
+  ); /* Pull back up by half its height = Perfect Center */
+  color: #64748b;
+  pointer-events: none; /* Click through to the input */
+  z-index: 5;
+}
+
+.input-right-icon {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6366f1;
+  z-index: 5;
+}
+
+/* Force padding on the input so text doesn't overlap the icon */
+.input-with-icon input {
+  padding-left: 3.2rem !important;
+  padding-right: 2.5rem !important;
+  width: 100%;
+}
+
+/* Spinner Animation */
+.spinner {
+  margin-top: -15px;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* --- DROPDOWN LIST --- */
+.location-dropdown {
+  position: absolute;
+  top: 70%; /* Slight gap below input */
+  left: 0;
+  width: 100%;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  list-style: none;
+  padding: 0;
+  z-index: 50;
+  max-height: 220px;
+  overflow-y: auto;
+  animation: slideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.location-dropdown li {
+  padding: 12px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  transition: background 0.1s;
+}
+
+.location-dropdown li:last-child {
+  border-bottom: none;
+}
+
+.location-dropdown li:hover {
+  background: #f8fafc;
+}
+
+.location-dropdown li strong {
+  font-size: 0.95rem;
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.location-dropdown li span {
+  font-size: 0.8rem;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
 }
