@@ -5,7 +5,6 @@ import {
   Route,
   useLocation,
 } from "react-router-dom";
-import { AuthProvider } from "./context/AuthContext";
 import Sidebar from "./components/layout/Sidebar";
 import Topbar from "./components/layout/Topbar";
 import DashboardHome from "./pages/DashboardHome";
@@ -115,22 +114,11 @@ const AppLayout = () => {
 // --- Main Entry Point ---
 function App() {
   return (
-    <Router>
-      <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/setup" element={<SetupWizard />} />
-
-          {/* --- NEW RESET ROUTE --- */}
-          <Route
-            path="/password-reset/confirm/:uid/:token"
-            element={<PasswordResetConfirm />}
-          />
-
-          <Route path="/*" element={<AppLayout />} />
-        </Routes>
-      </AuthProvider>
-    </Router>
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/setup" element={<SetupWizard />} />
+      <Route path="/*" element={<AppLayout />} />
+    </Routes>
   );
 }
 
