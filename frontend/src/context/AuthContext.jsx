@@ -11,72 +11,131 @@ export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // --- THE GATEKEEPER LOGIC ---
+  // --- GATEKEEPER ---
   const handleRedirect = (userData) => {
     if (!userData) return;
-
-    // 1. If Setup is NOT complete, FORCE them to Wizard
     if (!userData.is_setup_complete) {
-      // Prevent infinite loop if already on setup page
-      if (location.pathname !== "/setup") {
-        navigate("/setup");
-      }
-    }
-    // 2. If Setup IS complete, send to Dashboard (if they are stuck on login/setup)
-    else if (location.pathname === "/login" || location.pathname === "/setup") {
+      if (location.pathname !== "/setup") navigate("/setup");
+    } else if (
+      location.pathname === "/login" ||
+      location.pathname === "/setup"
+    ) {
       navigate("/");
     }
   };
 
-  // 1. Check Login on App Load
+  // 1. Check Session
   useEffect(() => {
     const checkLoggedIn = async () => {
       const token = localStorage.getItem("access_token");
       if (token) {
         try {
-          // Get fresh user data (now includes is_setup_complete!)
           const res = await axios.get(
             `${import.meta.env.VITE_API_URL}/api/user/me/`,
             { headers: { Authorization: `Bearer ${token}` } }
           );
-
-          const userData = res.data;
-          setUser(userData);
-          handleRedirect(userData);
+          setUser(res.data);
+          handleRedirect(res.data);
         } catch (error) {
-          console.error("Session expired or invalid");
           logout();
         }
       }
       setLoading(false);
     };
     checkLoggedIn();
-  }, [location.pathname]); // Re-run check on route change
+  }, [location.pathname]);
 
-  // 2. Google Login Action
+  // 2. Google Login
   const googleLogin = async (googleData) => {
     try {
       const res = await axios.post(
         `${import.meta.env.VITE_API_URL}/api/auth/google/`,
         { access_token: googleData.access_token }
       );
-
-      const { access, refresh, user: userData } = res.data;
-
-      localStorage.setItem("access_token", access);
-      localStorage.setItem("refresh_token", refresh);
-
-      setUser(userData);
-      handleRedirect(userData);
-
+      handleAuthResponse(res);
       return { success: true };
     } catch (error) {
-      console.error("Login Failed:", error);
-      return { success: false, error: error.response?.data };
+      return { success: false, error: "Google login failed." };
     }
   };
 
-  // 3. Logout
+  // 3. Email Login
+  const login = async (email, password) => {
+    try {
+      const res = await axios.post(
+        `${import.meta.env.VITE_API_URL}/api/auth/login/`,
+        { email, password }
+      );
+      handleAuthResponse(res);
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error.response?.data?.non_field_errors?.[0] || "Invalid credentials.",
+      };
+    }
+  };
+
+  // 4. Register
+  const register = async (email, password) => {
+    try {
+      const res = await axios.post(
+        `${import.meta.env.VITE_API_URL}/api/auth/registration/`,
+        { email, password }
+      );
+      handleAuthResponse(res);
+      return { success: true };
+    } catch (error) {
+      const emailError = error.response?.data?.email?.[0];
+      const passError = error.response?.data?.password?.[0];
+      return {
+        success: false,
+        error: emailError || passError || "Registration failed.",
+      };
+    }
+  };
+
+  // 5. Reset Password Request
+  const resetPassword = async (email) => {
+    try {
+      await axios.post(
+        `${import.meta.env.VITE_API_URL}/api/auth/password/reset/`,
+        { email }
+      );
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: "Failed to send reset email." };
+    }
+  };
+
+  // 6. Confirm New Password
+  const resetPasswordConfirm = async (uid, token, newPassword) => {
+    try {
+      await axios.post(
+        `${import.meta.env.VITE_API_URL}/api/auth/password/reset/confirm/`,
+        {
+          uid,
+          token,
+          new_password1: newPassword,
+          new_password2: newPassword,
+        }
+      );
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: "Invalid or expired link." };
+    }
+  };
+
+  // Helper to save tokens
+  const handleAuthResponse = (res) => {
+    const { access, refresh, user: userData } = res.data;
+    localStorage.setItem("access_token", access);
+    localStorage.setItem("refresh_token", refresh);
+    setUser(userData);
+    handleRedirect(userData);
+  };
+
   const logout = () => {
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
@@ -85,7 +144,18 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, googleLogin, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        googleLogin,
+        login,
+        register,
+        resetPassword,
+        resetPasswordConfirm,
+        logout,
+      }}
+    >
       {!loading && children}
     </AuthContext.Provider>
   );

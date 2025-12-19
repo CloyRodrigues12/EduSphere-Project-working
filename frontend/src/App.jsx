@@ -5,12 +5,14 @@ import {
   Route,
   useLocation,
 } from "react-router-dom";
+import { AuthProvider } from "./context/AuthContext";
 import Sidebar from "./components/layout/Sidebar";
 import Topbar from "./components/layout/Topbar";
 import DashboardHome from "./pages/DashboardHome";
 import Login from "./pages/Login";
 import SetupWizard from "./pages/SetupWizard";
 import StaffManagement from "./pages/StaffManagement";
+import PasswordResetConfirm from "./pages/PasswordResetConfirm";
 
 // --- Simple Placeholder for empty pages ---
 const Placeholder = ({ title }) => (
@@ -113,11 +115,22 @@ const AppLayout = () => {
 // --- Main Entry Point ---
 function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/setup" element={<SetupWizard />} />
-      <Route path="/*" element={<AppLayout />} />
-    </Routes>
+    <Router>
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/setup" element={<SetupWizard />} />
+
+          {/* --- NEW RESET ROUTE --- */}
+          <Route
+            path="/password-reset/confirm/:uid/:token"
+            element={<PasswordResetConfirm />}
+          />
+
+          <Route path="/*" element={<AppLayout />} />
+        </Routes>
+      </AuthProvider>
+    </Router>
   );
 }
 
