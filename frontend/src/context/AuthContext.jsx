@@ -144,9 +144,12 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // 4. Register
+  // ... inside AuthProvider ...
+
+  // 4. Register (Fixed to match Backend requirements)
   const register = async (name, email, password) => {
     try {
+      // Split Name
       const nameParts = name.trim().split(" ");
       const firstName = nameParts[0];
       const lastName = nameParts.slice(1).join(" ") || "";
@@ -154,8 +157,10 @@ export const AuthProvider = ({ children }) => {
       const res = await axios.post(
         `${import.meta.env.VITE_API_URL}/api/auth/registration/`,
         {
-          email,
-          password,
+          username: email, // 1. Send email as username to satisfy the requirement
+          email: email,
+          password1: password, // 2. Backend expects 'password1'
+          password2: password, // 3. Backend expects 'password2' (confirmation)
           first_name: firstName,
           last_name: lastName,
         }
@@ -164,11 +169,17 @@ export const AuthProvider = ({ children }) => {
       handleAuthResponse(res);
       return { success: true };
     } catch (error) {
+      const usernameError = error.response?.data?.username?.[0];
       const emailError = error.response?.data?.email?.[0];
-      const passError = error.response?.data?.password?.[0];
+      const passwordError = error.response?.data?.password1?.[0]; // Check password1 error
+
       return {
         success: false,
-        error: emailError || passError || "Registration failed.",
+        error:
+          usernameError ||
+          emailError ||
+          passwordError ||
+          "Registration failed.",
       };
     }
   };
