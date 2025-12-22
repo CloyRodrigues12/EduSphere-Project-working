@@ -28,7 +28,7 @@ class CustomPasswordResetSerializer(PasswordResetSerializer):
             'use_https': request.is_secure(),
             'from_email': None, 
             'request': request,
-            'email_template_name': 'registration/password_reset_email.html',
-            'html_email_template_name': 'registration/password_reset_email.html', # <--- IMPORTANT
+            'email_template_name': 'emails/password_reset_email.html',
+            'html_email_template_name': 'emails/password_reset_email.html', 
         }
         self.reset_form.save(**opts)
