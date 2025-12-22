@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from dj_rest_auth.serializers import UserDetailsSerializer
 from core.models import UserProfile
+from dj_rest_auth.serializers import PasswordResetSerializer
 
 class CustomUserDetailsSerializer(UserDetailsSerializer):
     """
@@ -15,3 +16,19 @@ class CustomUserDetailsSerializer(UserDetailsSerializer):
         fields = UserDetailsSerializer.Meta.fields + (
             'role', 'organization_name', 'is_setup_complete', 'permissions'
         )
+
+class CustomPasswordResetSerializer(PasswordResetSerializer):
+    """
+    Custom serializer to send HTML email for password reset.
+    """
+    def save(self):
+        request = self.context.get('request')
+        # Configure the form to use our custom template
+        opts = {
+            'use_https': request.is_secure(),
+            'from_email': None, 
+            'request': request,
+            'email_template_name': 'registration/password_reset_email.html',
+            'html_email_template_name': 'registration/password_reset_email.html', # <--- IMPORTANT
+        }
+        self.reset_form.save(**opts)

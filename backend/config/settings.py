@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv() # <--- This loads the .env file
 
-# ==========================================
+
 # FIX FOR XAMPP / MARIADB 10.4 COMPATIBILITY
 # ==========================================
 try:
@@ -173,8 +173,8 @@ REST_AUTH = {
     'USE_JWT': True,
     'JWT_AUTH_COOKIE': None,
     'JWT_AUTH_REFRESH_COOKIE': None,
-    
     'USER_DETAILS_SERIALIZER': 'core.serializers.CustomUserDetailsSerializer',
+    'PASSWORD_RESET_SERIALIZER': 'core.serializers.CustomPasswordResetSerializer',
 }
 
 # --- ALLAUTH CONFIG ---
