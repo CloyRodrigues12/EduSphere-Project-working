@@ -164,14 +164,17 @@ CORS_ALLOWED_ORIGINS = [
 # --- AUTHENTICATION CONFIG ---
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'dj_rest_auth.jwt_auth.JWTCookieAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
     )
 }
 
 REST_AUTH = {
     'USE_JWT': True,
-    'JWT_AUTH_COOKIE': 'edusphere-auth',
-    'JWT_AUTH_REFRESH_COOKIE': 'edusphere-refresh',
+    # Setting these to None forces Django to send tokens in the JSON body
+    # instead of hidden cookies.
+    'JWT_AUTH_COOKIE': None,
+    'JWT_AUTH_REFRESH_COOKIE': None,
+    
     'USER_DETAILS_SERIALIZER': 'core.serializers.CustomUserDetailsSerializer',
 }
 
