@@ -1,4 +1,4 @@
-/* eslint-disable */
+/* eslint-disable  */
 import React, { createContext, useState, useEffect, useContext } from "react";
 import axios from "axios";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -10,6 +10,67 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // --- AXIOS INTERCEPTOR (The Fix for Token Expiry) ---
+  useEffect(() => {
+    // 1. Request Interceptor: Attach Token
+    const reqInterceptor = axios.interceptors.request.use(
+      (config) => {
+        const token = localStorage.getItem("access_token");
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+      },
+      (error) => Promise.reject(error)
+    );
+
+    // 2. Response Interceptor: Handle 401 Token Expiry
+    const resInterceptor = axios.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        const originalRequest = error.config;
+
+        // If error is 401 (Unauthorized) and we haven't retried yet
+        if (
+          error.response?.status === 401 &&
+          !originalRequest._retry &&
+          localStorage.getItem("refresh_token")
+        ) {
+          originalRequest._retry = true;
+
+          try {
+            // Attempt to refresh token
+            const refreshToken = localStorage.getItem("refresh_token");
+            const res = await axios.post(
+              `${import.meta.env.VITE_API_URL}/api/auth/token/refresh/`,
+              { refresh: refreshToken }
+            );
+
+            // Save new tokens
+            const newAccess = res.data.access;
+            localStorage.setItem("access_token", newAccess);
+
+            // Retry original request with new token
+            originalRequest.headers.Authorization = `Bearer ${newAccess}`;
+            return axios(originalRequest);
+          } catch (refreshError) {
+            console.error("Session expired completely.", refreshError);
+            logout(); // If refresh fails, force logout
+          }
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    // Cleanup interceptors on unmount
+    return () => {
+      axios.interceptors.request.eject(reqInterceptor);
+      axios.interceptors.response.eject(resInterceptor);
+    };
+  }, [navigate]); // Depend on navigate to allow logout
+
+  // --- EXISTING LOGIC ---
 
   const handleRedirect = (userData) => {
     if (!userData) return;
@@ -29,21 +90,21 @@ export const AuthProvider = ({ children }) => {
       if (token) {
         try {
           const res = await axios.get(
-            `${import.meta.env.VITE_API_URL}/api/user/me/`,
-            { headers: { Authorization: `Bearer ${token}` } }
+            `${import.meta.env.VITE_API_URL}/api/user/me/`
+            // Header is handled by interceptor now, but keeping it explicit is safe
+            // { headers: { Authorization: `Bearer ${token}` } }
           );
           setUser(res.data);
           handleRedirect(res.data);
         } catch (error) {
-          logout();
+          // Let the interceptor handle 401s, but if it fails completely:
+          if (!localStorage.getItem("access_token")) logout();
         }
       }
       setLoading(false);
     };
     checkLoggedIn();
   }, [location.pathname]);
-
-  // --- ACTIONS ---
 
   const handleAuthResponse = (res) => {
     const { access, refresh, user: userData } = res.data;
@@ -70,7 +131,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const res = await axios.post(
         `${import.meta.env.VITE_API_URL}/api/auth/login/`,
-        { email: email, password: password }
+        { email, password }
       );
       handleAuthResponse(res);
       return { success: true };
@@ -126,14 +187,7 @@ export const AuthProvider = ({ children }) => {
       );
       return { success: true };
     } catch (error) {
-      // Return the error message so the Component can display it
-      if (error.response?.data?.new_password) {
-        return { success: false, error: error.response.data.new_password[0] };
-      } else if (error.response?.data?.detail) {
-        return { success: false, error: error.response.data.detail };
-      } else {
-        return { success: false, error: "Invalid or expired link." };
-      }
+      return { success: false, error: "Invalid or expired link." };
     }
   };
 
