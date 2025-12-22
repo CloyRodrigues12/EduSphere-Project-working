@@ -181,10 +181,10 @@ REST_AUTH = {
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_USERNAME_REQUIRED = False
 ACCOUNT_AUTHENTICATION_METHOD = 'email'
-ACCOUNT_EMAIL_VERIFICATION = 'none'  # Simplifies dev; change to 'mandatory' in production
+ACCOUNT_EMAIL_VERIFICATION = 'none' 
 
-# --- GOOGLE CONFIG (Placeholder) ---
-# You will get these from the Google Cloud Console later
+# --- GOOGLE CONFIG  ---
+
 SOCIALACCOUNT_PROVIDERS = {
     'google': {
         'APP': {
@@ -217,11 +217,6 @@ SOCIALACCOUNT_QUERY_EMAIL = True
 
 # --- EMAIL CONFIGURATION ---
 
-# backend/config/settings.py
-
-# ... existing code ...
-
-# --- REAL EMAIL CONFIGURATION (Gmail) ---
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
