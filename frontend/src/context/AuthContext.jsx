@@ -144,12 +144,23 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const register = async (email, password) => {
+  // 4. Register
+  const register = async (name, email, password) => {
     try {
+      const nameParts = name.trim().split(" ");
+      const firstName = nameParts[0];
+      const lastName = nameParts.slice(1).join(" ") || "";
+
       const res = await axios.post(
         `${import.meta.env.VITE_API_URL}/api/auth/registration/`,
-        { email, password }
+        {
+          email,
+          password,
+          first_name: firstName,
+          last_name: lastName,
+        }
       );
+
       handleAuthResponse(res);
       return { success: true };
     } catch (error) {

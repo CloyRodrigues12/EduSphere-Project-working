@@ -1,4 +1,4 @@
-/* eslint-disable no-unused-vars */
+// frontend/src/pages/Login.jsx
 import React, { useState } from "react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { useNavigate } from "react-router-dom";
@@ -10,10 +10,22 @@ const Login = () => {
   const navigate = useNavigate();
 
   const [mode, setMode] = useState("login"); // login | register | forgot
+
+  // Form State
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
   const [msg, setMsg] = useState({ text: "", type: "" });
   const [loading, setLoading] = useState(false);
+
+  // Clear errors when switching modes
+  const switchMode = (newMode) => {
+    setMode(newMode);
+    setMsg({});
+    setLoading(false);
+  };
 
   const handleGoogle = useGoogleLogin({
     onSuccess: async (res) => {
@@ -29,9 +41,34 @@ const Login = () => {
     setLoading(true);
 
     let res;
-    if (mode === "login") res = await login(email, password);
-    else if (mode === "register") res = await register(email, password);
-    else if (mode === "forgot") {
+
+    if (mode === "login") {
+      res = await login(email, password);
+    } else if (mode === "register") {
+      // --- VALIDATION LOGIC ---
+      if (!fullName.trim()) {
+        setMsg({ text: "Please enter your full name.", type: "error" });
+        setLoading(false);
+        return;
+      }
+      if (password !== confirmPassword) {
+        setMsg({ text: "Passwords do not match!", type: "error" });
+        setLoading(false);
+        return;
+      }
+      if (password.length < 8) {
+        setMsg({
+          text: "Password must be at least 8 characters.",
+          type: "error",
+        });
+        setLoading(false);
+        return;
+      }
+      // ------------------------
+
+      // Call updated register with Name
+      res = await register(fullName, email, password);
+    } else if (mode === "forgot") {
       res = await resetPassword(email);
       if (res.success) {
         setMsg({ text: "Reset link sent to your email!", type: "success" });
@@ -61,26 +98,42 @@ const Login = () => {
           </p>
         </div>
 
+        {/* --- TABS --- */}
         {mode !== "forgot" && (
           <div className="auth-tabs">
             <button
               className={mode === "login" ? "active" : ""}
-              onClick={() => setMode("login")}
+              onClick={() => switchMode("login")}
             >
               Sign In
             </button>
             <button
               className={mode === "register" ? "active" : ""}
-              onClick={() => setMode("register")}
+              onClick={() => switchMode("register")}
             >
               Sign Up
             </button>
           </div>
         )}
 
+        {/* --- FORM --- */}
         <form className="login-form" onSubmit={handleSubmit}>
           {msg.text && (
             <div className={`status-msg ${msg.type}`}>{msg.text}</div>
+          )}
+
+          {/* Full Name (Only for Register) */}
+          {mode === "register" && (
+            <div className="input-group">
+              <label>Full Name</label>
+              <input
+                type="text"
+                placeholder="e.g. John Doe"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required
+              />
+            </div>
           )}
 
           <div className="input-group">
@@ -107,13 +160,28 @@ const Login = () => {
             </div>
           )}
 
+          {/* Confirm Password (Only for Register) */}
+          {mode === "register" && (
+            <div className="input-group">
+              <label>Confirm Password</label>
+              <input
+                type="password"
+                placeholder="••••••••"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+              />
+            </div>
+          )}
+
+          {/* Links */}
           {mode === "login" && (
-            <div className="forgot-link" onClick={() => setMode("forgot")}>
+            <div className="forgot-link" onClick={() => switchMode("forgot")}>
               Forgot Password?
             </div>
           )}
           {mode === "forgot" && (
-            <div className="forgot-link" onClick={() => setMode("login")}>
+            <div className="forgot-link" onClick={() => switchMode("login")}>
               Back to Sign In
             </div>
           )}
