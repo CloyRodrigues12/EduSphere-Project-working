@@ -18,17 +18,17 @@ class CustomUserDetailsSerializer(UserDetailsSerializer):
         )
 
 class CustomPasswordResetSerializer(PasswordResetSerializer):
-    """
-    Custom serializer to send HTML email for password reset.
-    """
     def save(self):
+        print("--------------------------------------------------")
+        print("🔥 DEBUG: CUSTOM SERIALIZER IS RUNNING!")
+        print("--------------------------------------------------")
+        
         request = self.context.get('request')
-        # Configure the form to use our custom template
         opts = {
             'use_https': request.is_secure(),
             'from_email': None, 
             'request': request,
             'email_template_name': 'emails/password_reset_email.html',
-            'html_email_template_name': 'emails/password_reset_email.html', 
+            'html_email_template_name': 'emails/password_reset_email.html',
         }
         self.reset_form.save(**opts)
