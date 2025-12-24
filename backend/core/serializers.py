@@ -1,14 +1,14 @@
 from rest_framework import serializers
-from dj_rest_auth.serializers import UserDetailsSerializer
-from core.models import UserProfile
-from dj_rest_auth.serializers import PasswordResetSerializer
-from django.contrib.auth.forms import PasswordResetForm
+from dj_rest_auth.serializers import UserDetailsSerializer, PasswordResetSerializer, PasswordResetConfirmSerializer
 from allauth.account.forms import ResetPasswordForm as AllAuthPasswordResetForm
+from django.utils.http import urlsafe_base64_decode
+from django.contrib.auth import get_user_model
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.encoding import force_str
+from django.contrib.auth.password_validation import validate_password
 
+# 1. User Details (for /user/me/)
 class CustomUserDetailsSerializer(UserDetailsSerializer):
-    """
-    Extends the default user data to include SaaS-specific fields.
-    """
     role = serializers.CharField(source="profile.role", read_only=True)
     organization_name = serializers.CharField(source="profile.organization.name", read_only=True, allow_null=True)
     is_setup_complete = serializers.BooleanField(source="profile.is_setup_complete", read_only=True)
@@ -19,12 +19,49 @@ class CustomUserDetailsSerializer(UserDetailsSerializer):
             'role', 'organization_name', 'is_setup_complete', 'permissions'
         )
 
-
+# 2. Password Reset Request (Sending the Email)
 class CustomPasswordResetSerializer(PasswordResetSerializer):
     """
-    Forces dj-rest-auth to use the AllAuth Password Reset Form.
-    This ensures our 'CustomAccountAdapter' is called to inject 'uid' and 'token'.
+    Forces dj-rest-auth to use the AllAuth form. 
+    This allows Google users (who have no password) to reset/set one.
     """
     @property
     def password_reset_form_class(self):
         return AllAuthPasswordResetForm
+
+# 3. Password Reset Confirm (Setting the New Password)
+class CustomPasswordResetConfirmSerializer(PasswordResetConfirmSerializer):
+    """
+    Custom validation logic to handle UID/Token checks manually, 
+    preventing 'Invalid Value' errors on valid requests.
+    """
+    def validate(self, attrs):
+        # A. Decode UID
+        try:
+            uid_b64 = attrs.get('uid')
+            uid = force_str(urlsafe_base64_decode(uid_b64))
+            self.user = get_user_model().objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, get_user_model().DoesNotExist):
+            raise serializers.ValidationError({'uid': ['Invalid UID']})
+
+        # B. Check Token
+        token = attrs.get('token')
+        if not default_token_generator.check_token(self.user, token):
+            raise serializers.ValidationError({'token': ['Invalid or expired token']})
+
+        # C. Check Passwords Match
+        if attrs.get('new_password1') != attrs.get('new_password2'):
+            raise serializers.ValidationError({'new_password1': ['Passwords do not match']})
+
+        # D. Check Password Complexity
+        try:
+            validate_password(attrs.get('new_password1'), self.user)
+        except Exception as e:
+            raise serializers.ValidationError({'new_password1': list(e.messages)})
+
+        return attrs
+
+    def save(self):
+        self.user.set_password(self.validated_data['new_password1'])
+        self.user.save()
+        return self.user
