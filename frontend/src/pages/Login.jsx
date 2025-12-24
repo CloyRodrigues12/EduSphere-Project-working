@@ -1,4 +1,4 @@
-// frontend/src/pages/Login.jsx
+/* eslint-disable no-unused-vars */
 import React, { useState } from "react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { useNavigate } from "react-router-dom";

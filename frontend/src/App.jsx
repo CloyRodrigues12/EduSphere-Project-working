@@ -1,10 +1,5 @@
-// frontend/src/App.jsx
 import React, { useState } from "react";
-import {
-  Routes, // <--- REMOVED 'BrowserRouter as Router'
-  Route,
-  useLocation,
-} from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import Sidebar from "./components/layout/Sidebar";
 import Topbar from "./components/layout/Topbar";

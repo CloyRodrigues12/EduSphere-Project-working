@@ -1,7 +1,6 @@
+/* eslint-disable no-unused-vars */
 import React, { useState, useEffect, useRef } from "react";
-
 import axios from "axios";
-
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -29,21 +28,13 @@ import { useAuth } from "../context/AuthContext";
 
 const SetupWizard = () => {
   const navigate = useNavigate();
-
   const { user } = useAuth();
-
   const [step, setStep] = useState(0);
-
   const [loading, setLoading] = useState(false);
 
-  // Location Autocomplete State
-
   const [suggestions, setSuggestions] = useState([]);
-
   const [showSuggestions, setShowSuggestions] = useState(false);
-
   const [isSearching, setIsSearching] = useState(false);
-
   const dropdownRef = useRef(null);
 
   const [formData, setFormData] = useState({
@@ -84,11 +75,7 @@ const SetupWizard = () => {
     { id: "Other", icon: UserCircle, label: "Other" },
   ];
 
-  // --- LOCATION LOGIC ---
-
   useEffect(() => {
-    // Close dropdown if clicking outside
-
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setShowSuggestions(false);
@@ -109,7 +96,7 @@ const SetupWizard = () => {
       setIsSearching(true);
 
       try {
-        // Using OpenStreetMap Nominatim API (Free)
+        // Using OpenStreetMap Nominatim API
 
         const res = await axios.get(
           `https://nominatim.openstreetmap.org/search?format=json&q=${value}&addressdetails=1&limit=5`
@@ -131,16 +118,11 @@ const SetupWizard = () => {
   };
 
   const selectLocation = (item) => {
-    // Construct a nice address string (e.g., "Mumbai, Maharashtra, India")
-
     const address = item.display_name.split(",").slice(0, 3).join(",");
 
     setFormData({ ...formData, orgAddress: address });
-
     setShowSuggestions(false);
   };
-
-  // ----------------------
 
   const handleNext = () => setStep((prev) => prev + 1);
 

@@ -1,4 +1,3 @@
-// frontend/src/pages/PasswordResetConfirm.jsx
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";

@@ -1,6 +1,4 @@
-/* src/pages/Login.css */
-
-/* --- 1. The Dynamic Background --- */
+/* Background*/
 .login-container {
   min-height: 100vh;
   width: 100vw;
@@ -10,7 +8,6 @@
   position: relative;
   overflow: hidden;
 
-  /* Deep, rich animated gradient */
   background: radial-gradient(
       at 0% 0%,
       hsla(253, 16%, 7%, 1) 0,
@@ -18,7 +15,7 @@
     ),
     radial-gradient(at 50% 0%, hsla(225, 39%, 30%, 1) 0, transparent 50%),
     radial-gradient(at 100% 0%, hsla(339, 49%, 30%, 1) 0, transparent 50%);
-  background-color: #0f172a; /* Fallback dark base */
+  background-color: #0f172a;
 }
 
 /* Floating Orbs for depth */
@@ -61,25 +58,24 @@
   }
 }
 
-/* --- 2. The Glass Card --- */
+/*The Glass Card*/
 .login-card {
   margin-top: 5px;
   width: 100%;
   max-width: 440px;
   padding: 1rem 2rem;
-  border-radius: 30px; /* Softer corners */
+  border-radius: 30px;
   display: flex;
   flex-direction: column;
   gap: 2rem;
   z-index: 10;
 
-  /* The "Premium Glass" Look */
   background: rgba(255, 255, 255, 0.03);
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5),
-    /* Deep shadow */ inset 0 0 0 1px rgba(255, 255, 255, 0.05); /* Inner rim light */
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05);
 
   animation: slideUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -107,7 +103,6 @@
 .logo-icon-large {
   width: 72px;
   height: 72px;
-  /* Complex Gradient Icon */
   background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
   border-radius: 20px;
   display: flex;
@@ -138,10 +133,9 @@
 .login-header h2 {
   color: #fff;
   margin: 0;
-  font-size: 2rem; /* Larger title */
+  font-size: 2rem;
   font-weight: 700;
   letter-spacing: -0.025em;
-  /* Subtle text gradient */
   background: linear-gradient(to right, #fff, #cbd5e1);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -162,7 +156,7 @@
   gap: 12px;
   width: 100%;
   padding: 14px;
-  border-radius: 16px; /* Pill shape */
+  border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.95);
   color: #0f172a;
@@ -232,7 +226,6 @@
 .input-group input {
   padding: 14px 18px;
   border-radius: 16px;
-  /* Dark translucent background */
   background: rgba(15, 23, 42, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: white;
@@ -246,10 +239,10 @@
 }
 
 .input-group input:focus {
-  border-color: #818cf8; /* Primary light color */
+  border-color: #818cf8;
   background: rgba(15, 23, 42, 0.8);
   box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15),
-    0 0 20px rgba(99, 102, 241, 0.1); /* Glow effect */
+    0 0 20px rgba(99, 102, 241, 0.1);
 }
 
 /* --- 7. Submit Button (Gradient) --- */
@@ -257,7 +250,6 @@
   margin-top: 0px;
   padding: 16px;
   border-radius: 16px;
-  /* Strong diagonal gradient */
   background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
   border: none;
   color: white;

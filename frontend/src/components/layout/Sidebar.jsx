@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext"; // <--- 1. Import Auth
+import { useAuth } from "../../context/AuthContext";
 import {
   LayoutDashboard,
   UploadCloud,
@@ -12,13 +12,13 @@ import {
   LogOut,
   X,
   AlertCircle,
-  Shield, // <--- New Icon for Team
+  Shield,
 } from "lucide-react";
 import "./Sidebar.css";
 
 const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
   const navigate = useNavigate();
-  const { user } = useAuth(); // <--- 2. Get current User
+  const { user } = useAuth();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   // 3. Dynamic Menu Logic

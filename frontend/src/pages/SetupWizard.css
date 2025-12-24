@@ -1,16 +1,13 @@
-/* src/pages/SetupWizard.css */
-
-/* --- 1. THE STAGE (Locked to Screen) --- */
+/* --- 1. THE STAGE--- */
 .setup-container {
   height: 100vh;
   width: 100vw;
-  overflow: hidden; /* No scrolling allowed */
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: "Inter", sans-serif;
 
-  /* Deep Animated Gradient Background */
   background: linear-gradient(125deg, #1e1b4b 0%, #312e81 40%, #701a75 100%);
   background-size: 200% 200%;
   animation: gradientMove 15s ease infinite;
@@ -71,23 +68,17 @@
 /* --- 2. THE GLASS CARD --- */
 .welcome-card,
 .wizard-card {
-  background: rgba(
-    255,
-    255,
-    255,
-    0.9
-  ); /* Slightly more opaque for readability */
+  background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.6);
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
 
-  /* COMPACT SIZING */
-  width: 550px; /* Fixed reasonable width */
+  width: 550px;
   max-width: 95vw;
-  max-height: 95vh; /* Never go off screen */
+  max-height: 95vh;
 
-  padding: 2rem 2.5rem; /* Reduced padding (was 3rem) */
+  padding: 2rem 2.5rem;
   border-radius: 24px;
   position: relative;
   z-index: 10;
@@ -96,12 +87,11 @@
   transition: all 0.4s ease;
 }
 
-/* --- 3. ANIMATED WRAPPER --- */
 .step-content-wrapper {
   animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   display: flex;
   flex-direction: column;
-  gap: 1rem; /* Tighter gap between elements (was 1.5rem) */
+  gap: 1rem;
 }
 
 @keyframes slideIn {
@@ -115,13 +105,13 @@
   }
 }
 
-/* --- WELCOME SCREEN SPECIFICS --- */
+/* --- WELCOME SCREEN --- */
 .welcome-card {
   text-align: center;
 }
 .logo-badge {
   width: 70px;
-  height: 70px; /* Smaller Logo */
+  height: 70px;
   background: linear-gradient(135deg, #6366f1, #d946ef);
   color: white;
   font-size: 2rem;
@@ -133,7 +123,7 @@
   margin: 0 auto 1rem auto;
 }
 .welcome-card h1 {
-  font-size: 1.75rem; /* Smaller Title */
+  font-size: 1.75rem;
   margin-bottom: 0.5rem;
   color: #1e1b4b;
 }
@@ -165,16 +155,15 @@
   color: #10b981;
 }
 
-/* --- STEPPER --- */
 .stepper {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 1.5rem; /* Reduced margin */
+  margin-bottom: 1.5rem;
 }
 .step-dot {
   width: 32px;
-  height: 32px; /* Smaller dots */
+  height: 32px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.5);
   color: #94a3b8;
@@ -210,7 +199,7 @@
 }
 .step-icon {
   width: 48px;
-  height: 48px; /* Compact Icon */
+  height: 48px;
   color: #6366f1;
   background: rgba(255, 255, 255, 0.8);
   padding: 10px;
@@ -247,7 +236,7 @@
 }
 .form-group input {
   width: 100%;
-  padding: 0.75rem; /* Smaller padding */
+  padding: 0.75rem;
   border: 2px solid transparent;
   background: rgba(255, 255, 255, 0.6);
   border-radius: 10px;
@@ -266,7 +255,7 @@
 .type-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 0.8rem; /* Tighter gap */
+  gap: 0.8rem;
 }
 .role-grid {
   grid-template-columns: repeat(4, 1fr);
@@ -276,7 +265,7 @@
   background: rgba(255, 255, 255, 0.5);
   border: 2px solid transparent;
   border-radius: 12px;
-  padding: 0.8rem 0.4rem; /* Compact padding */
+  padding: 0.8rem 0.4rem;
   text-align: center;
   cursor: pointer;
   transition: 0.2s;
@@ -332,7 +321,7 @@
   background: linear-gradient(135deg, #4f46e5, #d946ef);
   color: white;
   border: none;
-  padding: 0.75rem 2rem; /* Smaller button */
+  padding: 0.75rem 2rem;
   border-radius: 10px;
   font-weight: 600;
   font-size: 0.95rem;
@@ -380,7 +369,7 @@
 }
 
 .input-with-icon input {
-  padding-left: 2.5rem; /* Make room for the icon */
+  padding-left: 2.5rem;
   padding-right: 2rem;
 }
 
@@ -396,7 +385,7 @@
     transform: rotate(360deg);
   }
 }
-/* --- INPUT WITH ICONS & DROPDOWN (Fixed Positioning) --- */
+/* --- INPUT WITH ICONS & DROPDOWN --- */
 .input-with-icon {
   position: relative;
   width: 100%;
@@ -404,13 +393,11 @@
 
 .input-icon {
   position: absolute;
-  left: 16px; /* Distance from left edge */
-  top: 50%; /* Push halfway down */
-  transform: translateY(
-    -50%
-  ); /* Pull back up by half its height = Perfect Center */
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
   color: #64748b;
-  pointer-events: none; /* Click through to the input */
+  pointer-events: none;
   z-index: 5;
 }
 
@@ -423,7 +410,6 @@
   z-index: 5;
 }
 
-/* Force padding on the input so text doesn't overlap the icon */
 .input-with-icon input {
   padding-left: 3.2rem !important;
   padding-right: 2.5rem !important;
@@ -447,7 +433,7 @@
 /* --- DROPDOWN LIST --- */
 .location-dropdown {
   position: absolute;
-  top: 70%; /* Slight gap below input */
+  top: 70%;
   left: 0;
   width: 100%;
   background: white;

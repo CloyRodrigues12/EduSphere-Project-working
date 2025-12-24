@@ -19,7 +19,6 @@ class Organization(models.Model):
     ]
 
     name = models.CharField(max_length=255)
-    # NEW FIELD: Store the type (School, College, etc.)
     type = models.CharField(max_length=50, choices=TYPE_CHOICES, default='School') 
     address = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -38,7 +37,7 @@ class Department(models.Model):
     def __str__(self):
         return f"{self.name} - {self.organization.name}"
 
-# --- 2. The User Profile (The Glue) ---
+# --- 2. The User Profile ---
 
 class UserProfile(models.Model):
     """
@@ -57,8 +56,7 @@ class UserProfile(models.Model):
     organization = models.ForeignKey(Organization, on_delete=models.SET_NULL, null=True, blank=True)
     department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True)
     
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='STAFF')
-    
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='STAFF') 
     # NEW FIELD: Store the specific job title (Principal, HOD, etc.)
     designation = models.CharField(max_length=100, blank=True, null=True) 
     

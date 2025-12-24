@@ -1,7 +1,5 @@
-// src/components/layout/Topbar.jsx
-
 import React, { useEffect, useState, useRef } from "react";
-import { createPortal } from "react-dom"; // <--- 1. IMPORT PORTAL
+import { createPortal } from "react-dom";
 import axios from "axios";
 import {
   Sun,
@@ -228,7 +226,7 @@ const Topbar = ({ title, onMenuClick }) => {
               </div>
             </div>
           </div>,
-          document.body // <--- Target Node
+          document.body
         )}
     </header>
   );

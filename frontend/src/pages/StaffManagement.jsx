@@ -68,7 +68,7 @@ const StaffManagement = () => {
     fetchMembers();
   }, []);
 
-  // 1. DELETE LOGIC (Now opens a modal first)
+  // 1. DELETE LOGIC
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     try {
@@ -84,7 +84,7 @@ const StaffManagement = () => {
     } catch (err) {
       showToast(err.response?.data?.error || "Delete failed", "error");
     } finally {
-      setDeleteTarget(null); // Close modal
+      setDeleteTarget(null);
     }
   };
 

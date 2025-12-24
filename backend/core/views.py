@@ -1,4 +1,3 @@
-
 from rest_framework import status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -31,8 +30,8 @@ class SetupOrganizationView(APIView):
             return Response({"error": "Organization already exists."}, status=400)
 
         org_name = data.get('name')
-        org_type = data.get('type', 'School') # Catch the Type
-        designation = data.get('designation', '') # Catch the Designation
+        org_type = data.get('type', 'School')
+        designation = data.get('designation', '')
 
         if not org_name:
             return Response({"error": "Organization name is required"}, status=400)
@@ -40,7 +39,7 @@ class SetupOrganizationView(APIView):
         # 2. Create Organization with Type
         org = Organization.objects.create(
             name=org_name,
-            type=org_type, # <--- Saving it here
+            type=org_type, 
             address=data.get('address', '')
         )
 
@@ -48,7 +47,7 @@ class SetupOrganizationView(APIView):
         profile = user.profile
         profile.organization = org
         profile.role = 'ORG_ADMIN'
-        profile.designation = designation # <--- Saving it here
+        profile.designation = designation 
         profile.is_setup_complete = True
         profile.save()
 
@@ -81,8 +80,8 @@ class StaffManagementView(APIView):
             data = []
             for member in members:
                 u = member.user 
-                
-                # 2. Smart Status Logic
+
+                # 2. Status Logic
                 # If last_login is None, they haven't accepted the invite yet
                 status_label = "Active"
                 if u.last_login is None:
@@ -105,9 +104,6 @@ class StaffManagementView(APIView):
         except Exception as e:
             traceback.print_exc()
             return Response({"error": str(e)}, status=500)
-
-
-    # In backend/core/views.py
 
     def post(self, request):
         """ Robust Invite System with Styled Email Notification """
@@ -211,7 +207,7 @@ class StaffManagementView(APIView):
                     settings.EMAIL_HOST_USER,
                     [email],
                     fail_silently=False,
-                    html_message=html_message # <--- The Styled Version
+                    html_message=html_message
                 )
                 print(f"Email sent successfully to {email}")
 
@@ -249,8 +245,6 @@ class StaffManagementView(APIView):
         except UserProfile.DoesNotExist:
             return Response({"error": "User not found"}, status=404)
 
-# In backend/core/views.py -> inside StaffManagementView
-
     def delete(self, request):
         """ Safe Delete: Handles normal users AND broken 'ghost' users """
         if not self.check_admin_access(request):
@@ -286,6 +280,7 @@ class StaffManagementView(APIView):
         except Exception as e:
             traceback.print_exc()
             return Response({"error": str(e)}, status=500)
+        
 # 4. Current User (Topbar)
 class CurrentUserView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -309,10 +304,7 @@ class CurrentUserView(APIView):
             "is_setup_complete": profile.is_setup_complete
         })
     
-# for sidebar 
-# backend/core/views.py (Bottom of the file)
-
-# backend/core/views.py
+#For sidebar
 
 class CurrentUserView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -332,11 +324,7 @@ class CurrentUserView(APIView):
             "role": profile.get_role_display(),
             "role_code": profile.role,
             "organization": org.name if org else "No Campus",
-            
-            # --- NEW FIELD: Location (Address) ---
-            "location": org.address if org else "", 
-
-            # --- PREVIOUSLY CAUSING ERROR (Comma Fixed Above) ---
+            "location": org.address if org else "",
             "designation": profile.designation or "Staff Member",
             "org_type": org.type if org else "Institute",
             "is_setup_complete": profile.is_setup_complete

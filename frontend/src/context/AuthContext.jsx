@@ -11,7 +11,7 @@ export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // --- AXIOS INTERCEPTOR (The Fix for Token Expiry) ---
+  //AXIOS INTERCEPTOR (The Fix for Token Expiry)
   useEffect(() => {
     // 1. Request Interceptor: Attach Token
     const reqInterceptor = axios.interceptors.request.use(
@@ -31,7 +31,7 @@ export const AuthProvider = ({ children }) => {
       async (error) => {
         const originalRequest = error.config;
 
-        // If error is 401 (Unauthorized) and we haven't retried yet
+        // If error is 401 (Unauthorized)
         if (
           error.response?.status === 401 &&
           !originalRequest._retry &&
@@ -68,9 +68,7 @@ export const AuthProvider = ({ children }) => {
       axios.interceptors.request.eject(reqInterceptor);
       axios.interceptors.response.eject(resInterceptor);
     };
-  }, [navigate]); // Depend on navigate to allow logout
-
-  // --- EXISTING LOGIC ---
+  }, [navigate]);
 
   const handleRedirect = (userData) => {
     if (!userData) return;
@@ -91,13 +89,11 @@ export const AuthProvider = ({ children }) => {
         try {
           const res = await axios.get(
             `${import.meta.env.VITE_API_URL}/api/user/me/`
-            // Header is handled by interceptor now, but keeping it explicit is safe
             // { headers: { Authorization: `Bearer ${token}` } }
           );
           setUser(res.data);
           handleRedirect(res.data);
         } catch (error) {
-          // Let the interceptor handle 401s, but if it fails completely:
           if (!localStorage.getItem("access_token")) logout();
         }
       }
@@ -144,9 +140,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // ... inside AuthProvider ...
-
-  // 4. Register (Fixed to match Backend requirements)
+  // 4. Register
   const register = async (name, email, password) => {
     try {
       // Split Name
@@ -157,10 +151,10 @@ export const AuthProvider = ({ children }) => {
       const res = await axios.post(
         `${import.meta.env.VITE_API_URL}/api/auth/registration/`,
         {
-          username: email, // 1. Send email as username to satisfy the requirement
+          username: email, // 1. To Send email as username
           email: email,
-          password1: password, // 2. Backend expects 'password1'
-          password2: password, // 3. Backend expects 'password2' (confirmation)
+          password1: password,
+          password2: password,
           first_name: firstName,
           last_name: lastName,
         }
@@ -171,7 +165,7 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       const usernameError = error.response?.data?.username?.[0];
       const emailError = error.response?.data?.email?.[0];
-      const passwordError = error.response?.data?.password1?.[0]; // Check password1 error
+      const passwordError = error.response?.data?.password1?.[0];
 
       return {
         success: false,

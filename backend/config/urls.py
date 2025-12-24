@@ -5,7 +5,7 @@ from django.shortcuts import redirect
 from core.views import GoogleLogin 
 from core.views import GoogleLogin, SetupOrganizationView
 from core.views import GoogleLogin, SetupOrganizationView, StaffManagementView
-from core.views import GoogleLogin, SetupOrganizationView, StaffManagementView, CurrentUserView # <--- Import CurrentUserView
+from core.views import GoogleLogin, SetupOrganizationView, StaffManagementView, CurrentUserView
 
 def password_reset_redirect(request, uidb64, token):
     # This takes the tokens from the email link and sends the user to React (port 5173)
@@ -33,7 +33,7 @@ urlpatterns = [
 
     path(
         'password-reset/confirm/<uidb64>/<token>/', 
-        password_reset_redirect, # <--- Use the redirect function here
+        password_reset_redirect, 
         name='password_reset_confirm'
     ),
 

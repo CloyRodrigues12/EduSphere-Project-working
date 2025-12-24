@@ -1,13 +1,11 @@
-# backend/config/settings.py
 from pathlib import Path
 import os
 from dotenv import load_dotenv
 
-load_dotenv() # <--- This loads the .env file
+load_dotenv() # <--- loads the .env file
 
 
 # FIX FOR XAMPP / MARIADB 10.4 COMPATIBILITY
-# ==========================================
 try:
     # 1. Bypass the version check
     from django.db.backends.mysql.base import DatabaseWrapper
@@ -18,7 +16,7 @@ try:
     DatabaseFeatures.can_return_columns_from_insert = False
 except ImportError:
     pass
-# ==========================================
+# --------------------------------------------------------------------------
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -51,7 +49,6 @@ INSTALLED_APPS = [
     'core',
 
     # --- 3rd Party Auth Apps ---
-    
     'rest_framework.authtoken',
     'dj_rest_auth',
     'django.contrib.sites',
@@ -230,6 +227,6 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 
-# REPLACE THESE WITH YOUR REAL CREDENTIALS
-EMAIL_HOST_USER = 'edusphere4proj@gmail.com'  # <--- Put your Gmail address here
-EMAIL_HOST_PASSWORD = 'obdd kyoc rcwy umcq' # <--- Put your 16-char App Password here (spaces are fine)
+# CREDENTIALS
+EMAIL_HOST_USER = 'edusphere4proj@gmail.com'  #Gmail address 
+EMAIL_HOST_PASSWORD = 'obdd kyoc rcwy umcq' #App Password

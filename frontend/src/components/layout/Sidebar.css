@@ -1,30 +1,22 @@
-/* src/components/layout/Sidebar.css */
-
 .sidebar {
-  /* --- STRUCTURAL FIXES (Keeps it locked to screen) --- */
   position: sticky;
   top: 0;
   height: 100vh;
   width: var(--sidebar-width);
   flex-shrink: 0;
   z-index: 50;
-  box-sizing: border-box; /* Fixes the width overflow issue */
+  box-sizing: border-box;
 
-  /* --- RESTORED VISUALS (From your original file) --- */
   background: var(--bg-glass);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-right: var(--glass-border);
 
-  /* The "Previous Effect": Radius + Shadow */
   border-top-right-radius: 12px;
   border-bottom-right-radius: 12px;
   box-shadow: 4px 0 24px rgba(0, 0, 0, 0.02);
-
-  /* The "Previous Transition": Smooth cubic-bezier */
   transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* Layout Internals */
   display: flex;
   flex-direction: column;
   padding: 1.5rem;
@@ -59,7 +51,6 @@
   font-size: 1.2rem;
 }
 
-/* RESTORED: The "Strong Fill" Gradient */
 .logo-text {
   font-size: 1.25rem;
   font-weight: 800;
@@ -179,7 +170,6 @@
 .mobile-backdrop {
   display: none;
 }
-/* Sidebar.css - Add this to the bottom */
 
 /* The dark background overlay */
 .logout-overlay {
@@ -190,7 +180,7 @@
   bottom: 0;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(4px);
-  z-index: 2000; /* Super high to sit on top of everything */
+  z-index: 2000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -214,8 +204,8 @@
 .logout-icon-container {
   width: 60px;
   height: 60px;
-  background: #fee2e2; /* Light Red */
-  color: #ef4444; /* Red Icon */
+  background: #fee2e2;
+  color: #ef4444;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -263,7 +253,7 @@
 }
 
 .logout-actions .confirm-logout-btn {
-  background: #ef4444; /* Red button for danger action */
+  background: #ef4444;
   color: white;
   border: none;
 }
