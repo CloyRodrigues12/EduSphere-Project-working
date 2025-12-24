@@ -18,29 +18,13 @@ class CustomUserDetailsSerializer(UserDetailsSerializer):
             'role', 'organization_name', 'is_setup_complete', 'permissions'
         )
 
-class CustomPasswordResetSerializer(PasswordResetSerializer):
-    # 2. Force the serializer to use the Standard Django Form (which supports your custom templates)
-    #    instead of the AllAuth form (which ignores them).
-    @property
-    def password_reset_form_class(self):
-        return PasswordResetForm
+# backend/core/serializers.py
+from dj_rest_auth.serializers import PasswordResetSerializer
 
-    def save(self):
-        print("--------------------------------------------------")
-        print("🔥 DEBUG: CUSTOM SERIALIZER IS RUNNING!")
-        print("--------------------------------------------------")
-        
-        request = self.context.get('request')
-        opts = {
-            'use_https': request.is_secure(),
-            'from_email': None, 
-            'request': request,
-            # 3. For the Plain Text email, use the default Django one (or create a .txt file).
-            #    Do NOT use your .html file here, or the user will see raw HTML code.
-            'email_template_name': 'registration/password_reset_email.html', 
-            
-            # 4. YOUR CUSTOM HTML TEMPLATE
-            'html_email_template_name': 'emails/password_reset_email.html',
-        }
-        # Now this will respect the 'html_email_template_name' argument
-        self.reset_form.save(**opts)
+class CustomPasswordResetSerializer(PasswordResetSerializer):
+    """
+    Serializer is now empty because we want to use the default 
+    AllAuth behavior (which handles Social Users correctly).
+    We will handle the Template and Variables via an Adapter.
+    """
+    pass

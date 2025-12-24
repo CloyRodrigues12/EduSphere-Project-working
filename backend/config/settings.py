@@ -169,6 +169,11 @@ REST_FRAMEWORK = {
     )
 }
 
+
+
+# Point to your new custom adapter
+ACCOUNT_ADAPTER = 'core.adapters.CustomAccountAdapter'
+
 REST_AUTH = {
     'USE_JWT': True,
     'JWT_AUTH_COOKIE': None,
