@@ -3,6 +3,7 @@ from dj_rest_auth.serializers import UserDetailsSerializer
 from core.models import UserProfile
 from dj_rest_auth.serializers import PasswordResetSerializer
 from django.contrib.auth.forms import PasswordResetForm
+from allauth.account.forms import ResetPasswordForm as AllAuthPasswordResetForm
 
 class CustomUserDetailsSerializer(UserDetailsSerializer):
     """
@@ -18,13 +19,12 @@ class CustomUserDetailsSerializer(UserDetailsSerializer):
             'role', 'organization_name', 'is_setup_complete', 'permissions'
         )
 
-# backend/core/serializers.py
-from dj_rest_auth.serializers import PasswordResetSerializer
 
 class CustomPasswordResetSerializer(PasswordResetSerializer):
     """
-    Serializer is now empty because we want to use the default 
-    AllAuth behavior (which handles Social Users correctly).
-    We will handle the Template and Variables via an Adapter.
+    Forces dj-rest-auth to use the AllAuth Password Reset Form.
+    This ensures our 'CustomAccountAdapter' is called to inject 'uid' and 'token'.
     """
-    pass
+    @property
+    def password_reset_form_class(self):
+        return AllAuthPasswordResetForm
