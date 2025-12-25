@@ -176,6 +176,7 @@ REST_AUTH = {
     'JWT_AUTH_COOKIE': None,
     'JWT_AUTH_REFRESH_COOKIE': None,
     'USER_DETAILS_SERIALIZER': 'core.serializers.CustomUserDetailsSerializer',
+    'REGISTER_SERIALIZER': 'core.serializers.CustomRegisterSerializer',
 # Sending the email
     'PASSWORD_RESET_SERIALIZER': 'core.serializers.CustomPasswordResetSerializer',
 # Confirming the new password (The name we just changed)

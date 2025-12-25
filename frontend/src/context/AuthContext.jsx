@@ -140,18 +140,23 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // 4. Register
   const register = async (name, email, password) => {
     try {
-      // Split Name
+      // 1. Split Name for First/Last
       const nameParts = name.trim().split(" ");
       const firstName = nameParts[0];
       const lastName = nameParts.slice(1).join(" ") || "";
 
+      // 2. Generate Username from Full Name (e.g. "Cloy Rodrigues" -> "cloyrodrigues8291")
+      // Logic: Lowercase -> Remove Spaces -> Add Random 4-digit Suffix
+      const baseName = name.toLowerCase().replace(/\s+/g, "");
+      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+      const generatedUsername = `${baseName}${randomSuffix}`;
+
       const res = await axios.post(
         `${import.meta.env.VITE_API_URL}/api/auth/registration/`,
         {
-          username: email, // 1. To Send email as username
+          username: generatedUsername, // <--- Now using our auto-generated value
           email: email,
           password1: password,
           password2: password,
