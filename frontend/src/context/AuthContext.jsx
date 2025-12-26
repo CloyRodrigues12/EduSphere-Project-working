@@ -3,6 +3,7 @@ import React, { createContext, useState, useEffect, useContext } from "react";
 import axios from "axios";
 import { useNavigate, useLocation } from "react-router-dom";
 import LoadingScreen from "../components/common/LoadingScreen";
+import { getErrorMessage } from "../utils/errorHandler";
 
 const AuthContext = createContext();
 
@@ -12,7 +13,7 @@ export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  //AXIOS INTERCEPTOR (The Fix for Token Expiry)
+  //AXIOS INTERCEPTOR
   useEffect(() => {
     // 1. Request Interceptor: Attach Token
     const reqInterceptor = axios.interceptors.request.use(
@@ -85,7 +86,7 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const checkLoggedIn = async () => {
-      // 1. Define the actual authentication check
+      //authentication check
       const performAuthCheck = async () => {
         const token = localStorage.getItem("access_token");
         if (token) {
@@ -102,26 +103,22 @@ export const AuthProvider = ({ children }) => {
         }
       };
 
-      // 2. Intelligent Delay Logic
+      //Delay Logic
       if (loading) {
-        // --- INITIAL LOAD (Spinner Active) ---
-        // Wait for BOTH the API check AND a minimum 3-second timer
+        //INITIAL LOAD (Spinner Active)
         await Promise.all([
           performAuthCheck(),
-          new Promise((resolve) => setTimeout(resolve, 1000)), // <--- 2 Sec Delay
+          new Promise((resolve) => setTimeout(resolve, 1000)), //1 Sec Delay
         ]);
 
-        // Only hide spinner after 2 seconds have passed
+        // Only hide spinner after 1 seconds have passed
         setLoading(false);
       } else {
-        // --- ROUTE CHANGE (Already Logged In) ---
-        // Run check instantly in background (no spinner/delay needed)
         await performAuthCheck();
       }
     };
 
     checkLoggedIn();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
   const handleAuthResponse = (res) => {
@@ -154,11 +151,7 @@ export const AuthProvider = ({ children }) => {
       handleAuthResponse(res);
       return { success: true };
     } catch (error) {
-      return {
-        success: false,
-        error:
-          error.response?.data?.non_field_errors?.[0] || "Invalid credentials.",
-      };
+      return { success: false, error: getErrorMessage(error) };
     }
   };
 
@@ -169,7 +162,7 @@ export const AuthProvider = ({ children }) => {
       const firstName = nameParts[0];
       const lastName = nameParts.slice(1).join(" ") || "";
 
-      // 2. Generate Username from Full Name (e.g. "Cloy Rodrigues" -> "cloyrodrigues8291")
+      // 2. Generate Username from Full Name
       // Logic: Lowercase -> Remove Spaces -> Add Random 4-digit Suffix
       const baseName = name.toLowerCase().replace(/\s+/g, "");
       const randomSuffix = Math.floor(1000 + Math.random() * 9000);
@@ -178,7 +171,7 @@ export const AuthProvider = ({ children }) => {
       const res = await axios.post(
         `${import.meta.env.VITE_API_URL}/api/auth/registration/`,
         {
-          username: generatedUsername, // <--- Now using our auto-generated value
+          username: generatedUsername,
           email: email,
           password1: password,
           password2: password,
@@ -190,18 +183,7 @@ export const AuthProvider = ({ children }) => {
       handleAuthResponse(res);
       return { success: true };
     } catch (error) {
-      const usernameError = error.response?.data?.username?.[0];
-      const emailError = error.response?.data?.email?.[0];
-      const passwordError = error.response?.data?.password1?.[0];
-
-      return {
-        success: false,
-        error:
-          usernameError ||
-          emailError ||
-          passwordError ||
-          "Registration failed.",
-      };
+      return { success: false, error: getErrorMessage(error) };
     }
   };
 
@@ -213,7 +195,7 @@ export const AuthProvider = ({ children }) => {
       );
       return { success: true };
     } catch (error) {
-      return { success: false, error: "Failed to send reset email." };
+      return { success: false, error: getErrorMessage(error) };
     }
   };
 
@@ -254,7 +236,7 @@ export const AuthProvider = ({ children }) => {
         logout,
       }}
     >
-      {/* If loading, show the Professional Screen. Otherwise show the App. */}
+      {/* If loading, show the loading screen. Otherwise show the App. */}
       {loading ? <LoadingScreen /> : children}
     </AuthContext.Provider>
   );

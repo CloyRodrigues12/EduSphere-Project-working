@@ -48,16 +48,21 @@ class CustomPasswordResetConfirmSerializer(PasswordResetConfirmSerializer):
         # B. Check Token
         token = attrs.get('token')
         if not default_token_generator.check_token(self.user, token):
-            raise serializers.ValidationError({'token': ['Invalid or expired token']})
+            raise serializers.ValidationError({'token': ['Invalid or expired link. Please request a new one.']})
 
         # C. Check Passwords Match
         if attrs.get('new_password1') != attrs.get('new_password2'):
-            raise serializers.ValidationError({'new_password1': ['Passwords do not match']})
+            raise serializers.ValidationError({'new_password1': ['The two password fields didn’t match.']})
 
-        # D. Check Password Complexity
+        # D. Check if Password is SAME as Old Password
+        if self.user.check_password(attrs.get('new_password1')):
+             raise serializers.ValidationError({'new_password1': ['Your new password cannot be the same as your old password.']})
+
+        # E. Check Password Complexity (Length, Digits, Commonality)
         try:
             validate_password(attrs.get('new_password1'), self.user)
         except Exception as e:
+            # e.messages is a list of strings from Django's validators
             raise serializers.ValidationError({'new_password1': list(e.messages)})
 
         return attrs
@@ -66,7 +71,6 @@ class CustomPasswordResetConfirmSerializer(PasswordResetConfirmSerializer):
         self.user.set_password(self.validated_data['new_password1'])
         self.user.save()
         return self.user
-    
 
 class CustomRegisterSerializer(RegisterSerializer):
     first_name = serializers.CharField(required=False)

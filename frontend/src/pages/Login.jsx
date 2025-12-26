@@ -45,7 +45,6 @@ const Login = () => {
     if (mode === "login") {
       res = await login(email, password);
     } else if (mode === "register") {
-      // --- VALIDATION LOGIC ---
       if (!fullName.trim()) {
         setMsg({ text: "Please enter your full name.", type: "error" });
         setLoading(false);
@@ -56,17 +55,7 @@ const Login = () => {
         setLoading(false);
         return;
       }
-      if (password.length < 8) {
-        setMsg({
-          text: "Password must be at least 8 characters.",
-          type: "error",
-        });
-        setLoading(false);
-        return;
-      }
-      // ------------------------
 
-      // Call updated register with Name
       res = await register(fullName, email, password);
     } else if (mode === "forgot") {
       res = await resetPassword(email);
@@ -78,7 +67,11 @@ const Login = () => {
     }
 
     setLoading(false);
-    if (res && !res.success) setMsg({ text: res.error, type: "error" });
+
+    // 4. Display  Error
+    if (res && !res.success) {
+      setMsg({ text: res.error, type: "error" });
+    }
   };
 
   return (
