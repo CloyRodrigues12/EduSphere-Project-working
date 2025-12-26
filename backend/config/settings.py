@@ -229,5 +229,5 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 
 # CREDENTIALS
-EMAIL_HOST_USER = 'edusphere4proj@gmail.com'  #Gmail address 
-EMAIL_HOST_PASSWORD = 'obdd kyoc rcwy umcq' #App Password
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER') #Gmail address 
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD') #App Password

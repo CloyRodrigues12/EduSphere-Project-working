@@ -2,6 +2,7 @@
 import React, { createContext, useState, useEffect, useContext } from "react";
 import axios from "axios";
 import { useNavigate, useLocation } from "react-router-dom";
+import LoadingScreen from "../components/common/LoadingScreen";
 
 const AuthContext = createContext();
 
@@ -84,22 +85,43 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const checkLoggedIn = async () => {
-      const token = localStorage.getItem("access_token");
-      if (token) {
-        try {
-          const res = await axios.get(
-            `${import.meta.env.VITE_API_URL}/api/user/me/`
-            // { headers: { Authorization: `Bearer ${token}` } }
-          );
-          setUser(res.data);
-          handleRedirect(res.data);
-        } catch (error) {
-          if (!localStorage.getItem("access_token")) logout();
+      // 1. Define the actual authentication check
+      const performAuthCheck = async () => {
+        const token = localStorage.getItem("access_token");
+        if (token) {
+          try {
+            const res = await axios.get(
+              `${import.meta.env.VITE_API_URL}/api/user/me/`
+            );
+            setUser(res.data);
+            handleRedirect(res.data);
+          } catch (error) {
+            // Only logout if token is missing/invalid, otherwise keep silent
+            if (!localStorage.getItem("access_token")) logout();
+          }
         }
+      };
+
+      // 2. Intelligent Delay Logic
+      if (loading) {
+        // --- INITIAL LOAD (Spinner Active) ---
+        // Wait for BOTH the API check AND a minimum 3-second timer
+        await Promise.all([
+          performAuthCheck(),
+          new Promise((resolve) => setTimeout(resolve, 1000)), // <--- 2 Sec Delay
+        ]);
+
+        // Only hide spinner after 2 seconds have passed
+        setLoading(false);
+      } else {
+        // --- ROUTE CHANGE (Already Logged In) ---
+        // Run check instantly in background (no spinner/delay needed)
+        await performAuthCheck();
       }
-      setLoading(false);
     };
+
     checkLoggedIn();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
   const handleAuthResponse = (res) => {
@@ -232,7 +254,8 @@ export const AuthProvider = ({ children }) => {
         logout,
       }}
     >
-      {!loading && children}
+      {/* If loading, show the Professional Screen. Otherwise show the App. */}
+      {loading ? <LoadingScreen /> : children}
     </AuthContext.Provider>
   );
 };

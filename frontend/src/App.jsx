@@ -1,15 +1,20 @@
-import React, { useState } from "react";
-import { Routes, Route, useLocation } from "react-router-dom";
+import React from "react";
+import { Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
+
+// Components
 import Sidebar from "./components/layout/Sidebar";
 import Topbar from "./components/layout/Topbar";
+import ProtectedRoute from "./components/layout/ProtectedRoute";
+
+// Pages
 import DashboardHome from "./pages/DashboardHome";
 import Login from "./pages/Login";
 import SetupWizard from "./pages/SetupWizard";
 import StaffManagement from "./pages/StaffManagement";
 import PasswordResetConfirm from "./pages/PasswordResetConfirm";
 
-// --- Simple Placeholder ---
+// Placeholder Component
 const Placeholder = ({ title }) => (
   <div style={{ padding: "2rem" }}>
     <div
@@ -24,30 +29,10 @@ const Placeholder = ({ title }) => (
   </div>
 );
 
-// --- Layout Wrapper ---
+// Layout Wrapper (Sidebar + Topbar)
 const AppLayout = () => {
-  const [collapsed, setCollapsed] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const location = useLocation();
-
-  const getTitle = (path) => {
-    switch (path) {
-      case "/":
-        return "Dashboard Overview";
-      case "/upload":
-        return "Data Ingestion";
-      case "/students":
-        return "Student Management";
-      case "/fees":
-        return "Fees Collection";
-      case "/research":
-        return "AI Research Assistant";
-      case "/staff":
-        return "Staff Management";
-      default:
-        return "EduSphere";
-    }
-  };
+  const [collapsed, setCollapsed] = React.useState(false);
+  const [mobileOpen, setMobileOpen] = React.useState(false);
 
   return (
     <div
@@ -65,10 +50,7 @@ const AppLayout = () => {
         setMobileOpen={setMobileOpen}
       />
       <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-        <Topbar
-          title={getTitle(location.pathname)}
-          onMenuClick={() => setMobileOpen(true)}
-        />
+        <Topbar title="EduSphere" onMenuClick={() => setMobileOpen(true)} />
         <div style={{ flex: 1, paddingBottom: "2rem" }}>
           <Routes>
             <Route path="/" element={<DashboardHome />} />
@@ -96,18 +78,36 @@ const AppLayout = () => {
   );
 };
 
-// --- Main App ---
 function App() {
   return (
     <AuthProvider>
       <Routes>
+        {/* Public Routes */}
         <Route path="/login" element={<Login />} />
-        <Route path="/setup" element={<SetupWizard />} />
         <Route
           path="/password-reset/confirm/:uid/:token"
           element={<PasswordResetConfirm />}
         />
-        <Route path="/*" element={<AppLayout />} />
+
+        {/* Protected Routes (Requires Login) */}
+        <Route
+          path="/setup"
+          element={
+            <ProtectedRoute>
+              <SetupWizard />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* The Catch-All for Dashboard (Protected) */}
+        <Route
+          path="/*"
+          element={
+            <ProtectedRoute>
+              <AppLayout />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </AuthProvider>
   );
