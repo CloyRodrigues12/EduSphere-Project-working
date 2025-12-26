@@ -213,7 +213,7 @@ export const AuthProvider = ({ children }) => {
       );
       return { success: true };
     } catch (error) {
-      return { success: false, error: "Invalid or expired link." };
+      return { success: false, error: getErrorMessage(error) };
     }
   };
 
