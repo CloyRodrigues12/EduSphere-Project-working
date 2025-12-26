@@ -75,7 +75,6 @@ class CustomPasswordResetConfirmSerializer(PasswordResetConfirmSerializer):
 class CustomRegisterSerializer(RegisterSerializer):
     first_name = serializers.CharField(required=False)
     last_name = serializers.CharField(required=False)
-    # If you want to force saving a username even if settings say it's not required:
     username = serializers.CharField(required=False) 
 
     def custom_signup(self, request, user):

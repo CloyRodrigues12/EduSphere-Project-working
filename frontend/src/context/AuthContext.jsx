@@ -157,13 +157,14 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (name, email, password) => {
     try {
-      // 1. Split Name for First/Last
-      const nameParts = name.trim().split(" ");
-      const firstName = nameParts[0];
-      const lastName = nameParts.slice(1).join(" ") || "";
+      // 1. Split Name
+      const nameParts = name.trim().split(/\s+/);
 
-      // 2. Generate Username from Full Name
-      // Logic: Lowercase -> Remove Spaces -> Add Random 4-digit Suffix
+      // Safety fallback if validation is bypassed
+      const firstName = nameParts[0];
+      const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
+
+      // 2. Generate Username
       const baseName = name.toLowerCase().replace(/\s+/g, "");
       const randomSuffix = Math.floor(1000 + Math.random() * 9000);
       const generatedUsername = `${baseName}${randomSuffix}`;

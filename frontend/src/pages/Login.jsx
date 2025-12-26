@@ -45,11 +45,19 @@ const Login = () => {
     if (mode === "login") {
       res = await login(email, password);
     } else if (mode === "register") {
-      if (!fullName.trim()) {
-        setMsg({ text: "Please enter your full name.", type: "error" });
+      // 1. Trim and split by spaces
+      const nameParts = fullName.trim().split(/\s+/);
+
+      // 2. Strict Check: Must be exactly 2 parts
+      if (nameParts.length !== 2) {
+        setMsg({
+          text: "Please enter exactly two words (First Name and Last Name).",
+          type: "error",
+        });
         setLoading(false);
         return;
       }
+
       if (password !== confirmPassword) {
         setMsg({ text: "Passwords do not match!", type: "error" });
         setLoading(false);
@@ -65,10 +73,8 @@ const Login = () => {
         return;
       }
     }
-
     setLoading(false);
 
-    // 4. Display  Error
     if (res && !res.success) {
       setMsg({ text: res.error, type: "error" });
     }
