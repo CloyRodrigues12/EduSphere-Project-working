@@ -13,6 +13,7 @@ import Login from "./pages/Login";
 import SetupWizard from "./pages/SetupWizard";
 import StaffManagement from "./pages/StaffManagement";
 import PasswordResetConfirm from "./pages/PasswordResetConfirm";
+import DocuSense from "./pages/DocuSense";
 
 // Placeholder Component
 const Placeholder = ({ title }) => (
@@ -66,10 +67,7 @@ const AppLayout = () => {
               path="/upload"
               element={<Placeholder title="Data Upload" />}
             />
-            <Route
-              path="/research"
-              element={<Placeholder title="AI Research" />}
-            />
+            <Route path="/docusense" element={<DocuSense />} />
             <Route path="/staff" element={<StaffManagement />} />
           </Routes>
         </div>

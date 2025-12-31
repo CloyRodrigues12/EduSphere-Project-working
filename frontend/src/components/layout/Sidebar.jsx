@@ -15,6 +15,7 @@ import {
   Shield,
 } from "lucide-react";
 import "./Sidebar.css";
+import { FileSearch } from "lucide-react";
 
 const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
   const navigate = useNavigate();
@@ -28,6 +29,7 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
     { icon: Banknote, label: "Fees", path: "/fees" },
     { icon: UploadCloud, label: "Upload Data", path: "/upload" },
     { icon: BookOpenCheck, label: "Research AI", path: "/research" },
+    { icon: FileSearch, label: "DocuSense AI", path: "/docusense" },
   ];
 
   // 4. Only add "Team" if user is an Admin

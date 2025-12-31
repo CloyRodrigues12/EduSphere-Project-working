@@ -6,6 +6,7 @@ from core.views import GoogleLogin
 from core.views import GoogleLogin, SetupOrganizationView
 from core.views import GoogleLogin, SetupOrganizationView, StaffManagementView
 from core.views import GoogleLogin, SetupOrganizationView, StaffManagementView, CurrentUserView
+from django.urls import path, include
 
 def password_reset_redirect(request, uidb64, token):
     # This takes the tokens from the email link and sends the user to React (port 5173)
@@ -36,6 +37,9 @@ urlpatterns = [
         password_reset_redirect, 
         name='password_reset_confirm'
     ),
+
+    #DocuSense Routes
+    path('api/docusense/', include('docusense.urls')),
 
 
 ]

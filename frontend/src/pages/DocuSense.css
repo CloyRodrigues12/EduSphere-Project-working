@@ -1,0 +1,119 @@
+/* frontend/src/pages/DocuSense.css */
+.ds-container {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  color: white;
+}
+
+.ds-header {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.ds-header h2 {
+  font-size: 2.5rem;
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 0.5rem;
+}
+
+/* Upload Section */
+.upload-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 2rem;
+  text-align: center;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.upload-zone {
+  border: 2px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 3rem;
+  margin: 1.5rem 0;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.upload-zone:hover {
+  border-color: #4facfe;
+  background: rgba(79, 172, 254, 0.1);
+}
+
+.category-selector {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.cat-btn {
+  padding: 0.8rem 1.5rem;
+  border-radius: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: #ccc;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.cat-btn.active {
+  background: #4facfe;
+  color: white;
+  border-color: #4facfe;
+  box-shadow: 0 0 15px rgba(79, 172, 254, 0.4);
+}
+
+/* Document List */
+.doc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-top: 3rem;
+}
+
+.doc-card {
+  background: #1a1a2e;
+  border-radius: 12px;
+  padding: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  position: relative;
+  transition: transform 0.2s;
+}
+
+.doc-card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.status-badge {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-weight: bold;
+}
+
+.status-PENDING {
+  background: rgba(255, 193, 7, 0.2);
+  color: #ffc107;
+}
+.status-PROCESSING {
+  background: rgba(23, 162, 184, 0.2);
+  color: #17a2b8;
+}
+.status-COMPLETED {
+  background: rgba(40, 167, 69, 0.2);
+  color: #28a745;
+}
+.status-FAILED {
+  background: rgba(220, 53, 69, 0.2);
+  color: #dc3545;
+}

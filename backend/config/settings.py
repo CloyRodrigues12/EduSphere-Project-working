@@ -43,10 +43,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    # Third-Party Apps
     'rest_framework',       # For the API
     'corsheaders',          # For Frontend communication
     'core',
+    'docusense',       # Our custom app
 
     # --- 3rd Party Auth Apps ---
     'rest_framework.authtoken',
