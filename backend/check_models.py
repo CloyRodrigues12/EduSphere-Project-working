@@ -29,22 +29,14 @@ def extract_text_from_pdf(file_path):
 
 def call_gemini_api(prompt):
     """
-    Direct HTTP call to Google Gemini API.
-    Tries multiple model versions until one works.
+    Direct HTTP call to Google Gemini API to bypass SDK issues.
     """
     if not GOOGLE_API_KEY:
         raise Exception("Google API Key not found in .env")
 
-    # List of models to try (Newest to Oldest)
-    models_to_try = [
-        "gemini-2.5-flash"
-        "gemini-1.5-flash",
-        "gemini-1.5-flash-latest",
-        "gemini-1.5-pro",
-        "gemini-1.0-pro",
-        "gemini-pro"
-    ]
-
+    # We try the reliable 'gemini-1.5-flash' model first
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GOOGLE_API_KEY}"
+    
     headers = {'Content-Type': 'application/json'}
     payload = {
         "contents": [{
@@ -52,30 +44,31 @@ def call_gemini_api(prompt):
         }]
     }
 
-    for model in models_to_try:
-        try:
-            print(f"--- [DocuSense] Connecting to model: {model} ---")
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={GOOGLE_API_KEY}"
-            
+    try:
+        response = requests.post(url, headers=headers, json=payload)
+        
+        # Check if 1.5-flash failed (e.g., 404), try gemini-pro as backup
+        if response.status_code != 200:
+            print(f"Gemini 1.5-flash failed ({response.status_code}). Trying gemini-pro...")
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={GOOGLE_API_KEY}"
             response = requests.post(url, headers=headers, json=payload)
-            
-            if response.status_code == 200:
-                # Success!
-                result = response.json()
-                return result['candidates'][0]['content']['parts'][0]['text']
-            else:
-                print(f"--- Model {model} failed ({response.status_code}). Trying next...")
-                
-        except Exception as e:
-            print(f"--- Connection error with {model}: {e}")
-            continue
 
-    print("--- [DocuSense] CRITICAL: All Gemini models failed. ---")
-    return None
+        if response.status_code != 200:
+            print(f"API Error: {response.text}")
+            return None
+
+        # Parse Response
+        result = response.json()
+        return result['candidates'][0]['content']['parts'][0]['text']
+        
+    except Exception as e:
+        print(f"HTTP Request Error: {e}")
+        return None
 
 def analyze_with_gemini(text, file_type="PDF"):
     """ Generates the Prompt and parses the JSON response """
     
+    # Construct the Prompt
     prompt = f"""
     You are an expert University Data Analyst. Analyze the following document text (extracted from {file_type}).
     
@@ -111,13 +104,9 @@ def analyze_with_gemini(text, file_type="PDF"):
         ai_response_text = call_gemini_api(prompt)
         
         if not ai_response_text:
-            return {
-                "summary": "AI Service Unavailable (Check API Key/Quota)",
-                "doc_type": "ERROR",
-                "ai_stats": {}
-            }
+            return {"summary": "AI Service Unavailable", "doc_type": "ERROR"}
 
-        # Clean Markdown artifacts
+        # Clean Markdown artifacts (Gemini likes to wrap JSON in ```json ... ```)
         clean_json = ai_response_text.replace("```json", "").replace("```", "").strip()
         
         return json.loads(clean_json)
@@ -153,6 +142,7 @@ def process_document(doc_id):
         # 2. Excel -> Gemini
         elif ext in ['.xlsx', '.xls', '.csv']:
             df = pd.read_csv(file_path) if ext == '.csv' else pd.read_excel(file_path)
+            # Create summary for AI
             summary_str = df.describe(include='all').to_string()
             excel_context = f"Headers: {list(df.columns)}\nData:\n{summary_str}"
             analysis_result = analyze_with_gemini(excel_context, "EXCEL")

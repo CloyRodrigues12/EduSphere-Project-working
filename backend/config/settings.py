@@ -1,6 +1,9 @@
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+from datetime import timedelta
+
+
 
 load_dotenv() # <--- loads the .env file
 
@@ -164,6 +167,24 @@ REST_FRAMEWORK = {
         
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     )
+}
+
+# JWT Settings
+SIMPLE_JWT = {
+    # Increase Access Token to 60 minutes (or even 1 day for development)
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    
+    # Refresh Token lasts 1 day
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    
+    # Rotating tokens ensures security, but can be tricky if frontend calls it twice. 
+    # Let's keep it simple for now:
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': False,
+    
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
 
