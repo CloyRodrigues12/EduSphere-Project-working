@@ -10,8 +10,8 @@ import {
   AlertTriangle,
   CheckCircle,
   List,
-  FileText,
   Activity,
+  BookOpen,
 } from "lucide-react";
 import {
   BarChart,
@@ -22,6 +22,9 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
+  PieChart,
+  Pie,
+  Legend,
 } from "recharts";
 
 const AnalysisModal = ({ doc, onClose }) => {
@@ -29,16 +32,42 @@ const AnalysisModal = ({ doc, onClose }) => {
 
   const data = doc.analysis_data;
 
-  // Check if AI detected stats
-  const stats = data.ai_stats || {};
-  const hasStats = stats.total_students_detected > 0 || stats.pass_count > 0;
+  // --- FIX 1: Map the new Backend Keys Correctly ---
+  // Backend now sends "batch_stats", but we fall back to "ai_stats" if needed
+  const stats = data.batch_stats || data.ai_stats || {};
 
-  // Prepare Chart Data
-  const chartData = hasStats
-    ? [
-        { name: "Passed", value: stats.pass_count || 0, color: "#22c55e" },
-        { name: "Failed", value: stats.fail_count || 0, color: "#ef4444" },
-      ]
+  // Use "total_students" (new) or "total_students_detected" (old)
+  const totalStudents =
+    stats.total_students || stats.total_students_detected || 0;
+  const passRate = stats.overall_pass_percentage || stats.pass_percentage || 0;
+
+  const hasStats = totalStudents > 0;
+
+  // --- PREPARE CHARTS ---
+
+  // 1. Grade Distribution (Pie Chart)
+  const gradeData = data.grade_distribution
+    ? Object.keys(data.grade_distribution)
+        .filter((key) => data.grade_distribution[key] > 0)
+        .map((key) => ({ name: key, value: data.grade_distribution[key] }))
+    : [];
+
+  const COLORS = [
+    "#0088FE",
+    "#00C49F",
+    "#FFBB28",
+    "#FF8042",
+    "#8884d8",
+    "#82ca9d",
+  ];
+
+  // 2. Subject Performance (Bar Chart)
+  const subjectData = data.subject_performance
+    ? data.subject_performance.map((sub) => ({
+        name: sub.subject_code || sub.subject_name.substring(0, 10), // Shorten name
+        marks: sub.average_marks || 0,
+        full_name: sub.subject_name,
+      }))
     : [];
 
   return (
@@ -58,8 +87,8 @@ const AnalysisModal = ({ doc, onClose }) => {
             </h3>
             <p style={{ margin: "5px 0 0", color: "var(--text-secondary)" }}>
               {data.doc_type === "RESULT"
-                ? "📊 AI Result Analysis"
-                : "📑 AI Document Analysis"}
+                ? "📊 University Result Analysis"
+                : "📑 Document Analysis"}
             </p>
           </div>
           <button onClick={onClose} style={closeBtnStyle}>
@@ -69,72 +98,182 @@ const AnalysisModal = ({ doc, onClose }) => {
 
         {/* Content */}
         <div style={contentStyle}>
-          {/* --- SECTION 1: AI STATS (If Detected) --- */}
+          {/* --- SECTION 1: KPIS --- */}
           {hasStats && (
-            <>
-              <div style={gridStyle}>
-                <KpiCard
-                  title="Total Students"
-                  value={stats.total_students_detected || "N/A"}
-                  icon={<Users size={20} color="#3b82f6" />}
-                  bg="rgba(59, 130, 246, 0.1)"
-                />
-                <KpiCard
-                  title="Pass Rate (Est.)"
-                  value={`${stats.pass_percentage || 0}%`}
-                  icon={<Percent size={20} color="#22c55e" />}
-                  bg="rgba(34, 197, 94, 0.1)"
-                />
-                <KpiCard
-                  title="Hardest Subject"
-                  value={stats.hardest_subject || "None"}
-                  icon={<AlertTriangle size={20} color="#f59e0b" />}
-                  bg="rgba(245, 158, 11, 0.1)"
-                  isText
-                />
-                <KpiCard
-                  title="Top Performer"
-                  value={stats.top_performer || "Unknown"}
-                  icon={<Trophy size={20} color="#8b5cf6" />}
-                  bg="rgba(139, 92, 246, 0.1)"
-                  isText
-                />
-              </div>
+            <div style={gridStyle}>
+              <KpiCard
+                title="Total Students"
+                value={totalStudents}
+                icon={<Users size={20} color="#3b82f6" />}
+                bg="rgba(59, 130, 246, 0.1)"
+              />
+              <KpiCard
+                title="Pass Percentage"
+                value={`${passRate}%`}
+                icon={
+                  <Percent
+                    size={20}
+                    color={passRate > 70 ? "#22c55e" : "#f59e0b"}
+                  />
+                }
+                bg={
+                  passRate > 70
+                    ? "rgba(34, 197, 94, 0.1)"
+                    : "rgba(245, 158, 11, 0.1)"
+                }
+              />
+              <KpiCard
+                title="Average SGPA"
+                value={stats.average_sgpa || "N/A"}
+                icon={<TrendingUp size={20} color="#8b5cf6" />}
+                bg="rgba(139, 92, 246, 0.1)"
+              />
+              <KpiCard
+                title="Fail Count"
+                value={stats.fail_count || 0}
+                icon={<AlertTriangle size={20} color="#ef4444" />}
+                bg="rgba(239, 68, 68, 0.1)"
+              />
+            </div>
+          )}
 
-              <div style={chartsSectionStyle}>
+          {/* --- SECTION 2: CHARTS ROW --- */}
+          {hasStats && (
+            <div style={chartsSectionStyle}>
+              {/* Pie Chart: Grades */}
+              {gradeData.length > 0 && (
                 <div style={cardStyle}>
-                  <h4 style={cardTitleStyle}>Performance Estimate</h4>
-                  <div style={{ height: "220px", width: "100%" }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={chartData}>
-                        <CartesianGrid
-                          strokeDasharray="3 3"
-                          vertical={false}
-                          stroke="var(--glass-border)"
+                  <h4 style={cardTitleStyle}>Grade Distribution</h4>
+                  <div style={{ height: "250px", width: "100%" }}>
+                    <ResponsiveContainer>
+                      <PieChart>
+                        <Pie
+                          data={gradeData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={80}
+                          paddingAngle={5}
+                          dataKey="value"
+                        >
+                          {gradeData.map((entry, index) => (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={COLORS[index % COLORS.length]}
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+
+              {/* Bar Chart: Subjects */}
+              {subjectData.length > 0 && (
+                <div style={cardStyle}>
+                  <h4 style={cardTitleStyle}>
+                    Subject Performance (Avg Marks)
+                  </h4>
+                  <div style={{ height: "250px", width: "100%" }}>
+                    <ResponsiveContainer>
+                      <BarChart data={subjectData}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <XAxis
+                          dataKey="name"
+                          stroke="var(--text-secondary)"
+                          fontSize={12}
                         />
-                        <XAxis dataKey="name" stroke="var(--text-secondary)" />
-                        <YAxis stroke="var(--text-secondary)" />
+                        <YAxis
+                          stroke="var(--text-secondary)"
+                          fontSize={12}
+                          domain={[0, 100]}
+                        />
                         <Tooltip
-                          contentStyle={{
-                            backgroundColor: "var(--bg-card)",
-                            borderColor: "var(--glass-border)",
-                            color: "var(--text-primary)",
+                          content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                              return (
+                                <div
+                                  style={{
+                                    background: "var(--bg-card)",
+                                    padding: "10px",
+                                    border: "1px solid #ccc",
+                                  }}
+                                >
+                                  <p>{payload[0].payload.full_name}</p>
+                                  <p style={{ color: "#8884d8" }}>
+                                    Avg: {payload[0].value}
+                                  </p>
+                                </div>
+                              );
+                            }
+                            return null;
                           }}
                         />
-                        <Bar dataKey="value" radius={[10, 10, 0, 0]}>
-                          {chartData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Bar>
+                        <Bar
+                          dataKey="marks"
+                          fill="#8884d8"
+                          radius={[4, 4, 0, 0]}
+                        />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
                 </div>
-              </div>
-            </>
+              )}
+            </div>
           )}
 
-          {/* --- SECTION 2: AI NARRATIVE (Always Shown) --- */}
+          {/* --- SECTION 3: RANK LIST (The Leaderboard) --- */}
+          {data.overall_rank_list && data.overall_rank_list.length > 0 && (
+            <div style={{ marginTop: "2rem" }}>
+              <h4
+                style={{
+                  ...cardTitleStyle,
+                  fontSize: "1.2rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                }}
+              >
+                <Trophy size={20} color="#f59e0b" /> Top Performers
+                (Leaderboard)
+              </h4>
+              <div style={tableContainerStyle}>
+                <table style={tableStyle}>
+                  <thead>
+                    <tr>
+                      <th style={thStyle}>Rank</th>
+                      <th style={thStyle}>Student Name</th>
+                      <th style={thStyle}>Score / SGPA</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.overall_rank_list.map((student, idx) => (
+                      <tr key={idx} style={trStyle}>
+                        <td style={tdStyle}>#{student.rank}</td>
+                        <td style={tdStyle}>
+                          <b>{student.name}</b>
+                        </td>
+                        <td
+                          style={{
+                            ...tdStyle,
+                            color: "#22c55e",
+                            fontWeight: "bold",
+                          }}
+                        >
+                          {student.score}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* --- SECTION 4: AI NARRATIVE --- */}
           <div style={{ marginTop: "2rem" }}>
             <div
               style={{
@@ -167,32 +306,6 @@ const AnalysisModal = ({ doc, onClose }) => {
               </p>
             </div>
 
-            <div style={gridStyle}>
-              <KpiCard
-                title="Overall Tone"
-                value={data.tone}
-                icon={<Activity size={20} color="#3b82f6" />}
-                bg="rgba(59, 130, 246, 0.1)"
-                isText
-              />
-              <KpiCard
-                title="Risk Level"
-                value={data.risk_level}
-                icon={
-                  <AlertTriangle
-                    size={20}
-                    color={data.risk_level === "High" ? "#ef4444" : "#f59e0b"}
-                  />
-                }
-                bg={
-                  data.risk_level === "High"
-                    ? "rgba(239, 68, 68, 0.1)"
-                    : "rgba(245, 158, 11, 0.1)"
-                }
-                isText
-              />
-            </div>
-
             <div style={chartsSectionStyle}>
               <div style={cardStyle}>
                 <h4 style={cardTitleStyle}>
@@ -214,11 +327,13 @@ const AnalysisModal = ({ doc, onClose }) => {
                     size={18}
                     style={{ display: "inline", marginRight: "8px" }}
                   />{" "}
-                  Action Items
+                  Recommended Actions
                 </h4>
                 <ul style={listStyle}>
-                  {data.action_items?.length > 0 ? (
-                    data.action_items.map((item, i) => <li key={i}>{item}</li>)
+                  {data.recommendations?.length > 0 ? (
+                    data.recommendations.map((item, i) => (
+                      <li key={i}>{item}</li>
+                    ))
                   ) : (
                     <li>No urgent actions detected.</li>
                   )}
@@ -232,7 +347,7 @@ const AnalysisModal = ({ doc, onClose }) => {
   );
 };
 
-// Styles
+// --- STYLES ---
 const overlayStyle = {
   position: "fixed",
   top: 0,
@@ -248,7 +363,7 @@ const overlayStyle = {
 };
 const modalStyle = {
   width: "90%",
-  maxWidth: "900px",
+  maxWidth: "1000px",
   maxHeight: "90vh",
   backgroundColor: "var(--bg-card)",
   border: "1px solid var(--glass-border)",
@@ -273,7 +388,7 @@ const gridStyle = {
 };
 const chartsSectionStyle = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))",
   gap: "1.5rem",
 };
 const cardStyle = {
@@ -299,7 +414,33 @@ const closeBtnStyle = {
   cursor: "pointer",
   padding: "0.5rem",
 };
-const KpiCard = ({ title, value, icon, bg, isText }) => (
+
+// Table Styles
+const tableContainerStyle = {
+  overflowX: "auto",
+  borderRadius: "12px",
+  border: "1px solid var(--glass-border)",
+};
+const tableStyle = {
+  width: "100%",
+  borderCollapse: "collapse",
+  backgroundColor: "var(--bg-main)",
+};
+const thStyle = {
+  padding: "12px 16px",
+  textAlign: "left",
+  borderBottom: "1px solid var(--glass-border)",
+  color: "var(--text-secondary)",
+  fontSize: "0.9rem",
+};
+const trStyle = { borderBottom: "1px solid var(--glass-border)" };
+const tdStyle = {
+  padding: "12px 16px",
+  color: "var(--text-primary)",
+  fontSize: "0.95rem",
+};
+
+const KpiCard = ({ title, value, icon, bg }) => (
   <div
     style={{ ...cardStyle, display: "flex", alignItems: "center", gap: "1rem" }}
   >
@@ -319,9 +460,8 @@ const KpiCard = ({ title, value, icon, bg, isText }) => (
       <h4
         style={{
           margin: "4px 0 0",
-          fontSize: isText ? "1.1rem" : "1.5rem",
+          fontSize: "1.5rem",
           color: "var(--text-primary)",
-          wordBreak: "break-all",
         }}
       >
         {value}

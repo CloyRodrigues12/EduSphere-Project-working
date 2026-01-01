@@ -6,6 +6,11 @@ from rest_framework import permissions, status
 from .models import AcademicDocument
 from .serializers import AcademicDocumentSerializer
 from .services import trigger_analysis_background
+from django.http import HttpResponse
+from .generators import generate_pdf_report
+
+
+
 
 class DocumentUploadView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -54,3 +59,29 @@ class DocumentDetailView(APIView):
             return Response(AcademicDocumentSerializer(doc).data)
         except AcademicDocument.DoesNotExist:
             return Response({"error": "Document not found"}, status=404)
+
+
+
+class DocumentDownloadView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, doc_id):
+        try:
+            doc = AcademicDocument.objects.get(id=doc_id, uploaded_by=request.user.profile)
+            
+            if doc.status != 'COMPLETED':
+                return Response({"error": "Analysis not ready yet."}, status=400)
+
+            # Generate PDF
+            pdf_buffer = generate_pdf_report(doc)
+
+            # Return as File Response
+            filename = f"DocuSense_Report_{doc.id}.pdf"
+            response = HttpResponse(pdf_buffer, content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+
+        except AcademicDocument.DoesNotExist:
+            return Response({"error": "Document not found"}, status=404)
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
