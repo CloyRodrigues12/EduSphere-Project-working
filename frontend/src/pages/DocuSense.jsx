@@ -6,14 +6,14 @@ import {
   FileText,
   BarChart2,
   CheckCircle2,
-  AlertCircle,
   Loader2,
   Sparkles,
   Clock,
   File,
   Eye,
+  Download, // <--- Added Download Icon
 } from "lucide-react";
-import AnalysisModal from "../components/docusense/AnalysisModal"; // <--- Import this
+import AnalysisModal from "../components/docusense/AnalysisModal";
 import "./DocuSense.css";
 
 const DocuSense = () => {
@@ -22,8 +22,6 @@ const DocuSense = () => {
   const [category, setCategory] = useState("RESULT");
   const [file, setFile] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
-
-  // NEW: State for Modal
   const [selectedDoc, setSelectedDoc] = useState(null);
 
   useEffect(() => {
@@ -65,13 +63,33 @@ const DocuSense = () => {
     }
   };
 
+  // --- NEW: Download Function ---
+  const handleDownload = async (e, doc) => {
+    e.stopPropagation(); // Prevent opening the modal when clicking download
+    try {
+      const response = await axios.get(
+        `${import.meta.env.VITE_API_URL}/api/docusense/download/${doc.id}/`,
+        { responseType: "blob" } // Important: Treat response as a file
+      );
+
+      // Create a temporary link to trigger download
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `DocuSense_Report_${doc.id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      console.error("Download failed", error);
+      alert("Could not download the report. Please try again.");
+    }
+  };
+
   const handleFileChange = (e) => setFile(e.target.files?.[0]);
 
-  // NEW: Handle Click on Document
   const handleDocClick = (doc) => {
-    if (doc.status === "COMPLETED") {
-      setSelectedDoc(doc);
-    }
+    if (doc.status === "COMPLETED") setSelectedDoc(doc);
   };
 
   return (
@@ -87,10 +105,9 @@ const DocuSense = () => {
       </div>
 
       <div className="ds-layout">
-        {/* LEFT COLUMN: UPLOAD PANEL */}
+        {/* LEFT COLUMN: UPLOAD */}
         <div className="upload-panel">
           <div className="panel-title">New Analysis</div>
-
           <div className="toggle-wrapper">
             <button
               className={`toggle-btn ${category === "RESULT" ? "active" : ""}`}
@@ -139,10 +156,7 @@ const DocuSense = () => {
                     <FileText
                       size={56}
                       color="var(--primary)"
-                      style={{
-                        margin: "0 auto",
-                        filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.1))",
-                      }}
+                      style={{ margin: "0 auto" }}
                     />
                     <h3>{file.name}</h3>
                     <p>Ready to analyze</p>
@@ -154,7 +168,7 @@ const DocuSense = () => {
                       color={
                         isDragging ? "var(--primary)" : "var(--text-secondary)"
                       }
-                      style={{ margin: "0 auto", transition: "color 0.2s" }}
+                      style={{ margin: "0 auto" }}
                     />
                     <h3>Click to Upload</h3>
                     <p>or drag PDF / Excel here</p>
@@ -183,7 +197,7 @@ const DocuSense = () => {
           )}
         </div>
 
-        {/* RIGHT COLUMN: ACTIVITY LIST */}
+        {/* RIGHT COLUMN: LIST */}
         <div className="activity-section">
           <div className="list-header">
             <span>
@@ -198,7 +212,6 @@ const DocuSense = () => {
 
           <div className="doc-list">
             {documents.map((doc) => (
-              // Updated Row to be Clickable
               <div
                 key={doc.id}
                 className="doc-row"
@@ -233,17 +246,35 @@ const DocuSense = () => {
                   )}
                   {doc.status}
                 </div>
-                {/* Hover hint icon */}
+
+                {/* ACTIONS: Download & View */}
                 {doc.status === "COMPLETED" && (
-                  <Eye
-                    size={18}
-                    color="var(--text-secondary)"
-                    style={{ marginLeft: "10px" }}
-                  />
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "10px",
+                      alignItems: "center",
+                      marginLeft: "10px",
+                    }}
+                  >
+                    <button
+                      onClick={(e) => handleDownload(e, doc)}
+                      className="icon-btn"
+                      title="Download PDF Report"
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        color: "var(--primary)",
+                      }}
+                    >
+                      <Download size={20} />
+                    </button>
+                    <Eye size={20} color="var(--text-secondary)" />
+                  </div>
                 )}
               </div>
             ))}
-
             {documents.length === 0 && (
               <div
                 style={{
@@ -259,7 +290,6 @@ const DocuSense = () => {
         </div>
       </div>
 
-      {/* --- RENDER MODAL --- */}
       {selectedDoc && (
         <AnalysisModal doc={selectedDoc} onClose={() => setSelectedDoc(null)} />
       )}

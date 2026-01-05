@@ -1,5 +1,6 @@
 // frontend/src/components/docusense/AnalysisModal.jsx
 import React from "react";
+import axios from "axios"; // <--- Import Axios
 import {
   X,
   Trophy,
@@ -10,8 +11,7 @@ import {
   AlertTriangle,
   CheckCircle,
   List,
-  Activity,
-  BookOpen,
+  Download, // <--- Import Download
 } from "lucide-react";
 import {
   BarChart,
@@ -31,21 +31,33 @@ const AnalysisModal = ({ doc, onClose }) => {
   if (!doc || !doc.analysis_data) return null;
 
   const data = doc.analysis_data;
-
-  // --- FIX 1: Map the new Backend Keys Correctly ---
-  // Backend now sends "batch_stats", but we fall back to "ai_stats" if needed
   const stats = data.batch_stats || data.ai_stats || {};
-
-  // Use "total_students" (new) or "total_students_detected" (old)
   const totalStudents =
     stats.total_students || stats.total_students_detected || 0;
   const passRate = stats.overall_pass_percentage || stats.pass_percentage || 0;
-
   const hasStats = totalStudents > 0;
 
-  // --- PREPARE CHARTS ---
+  // --- NEW: Download Logic inside Modal ---
+  const handleDownload = async () => {
+    try {
+      const response = await axios.get(
+        `${import.meta.env.VITE_API_URL}/api/docusense/download/${doc.id}/`,
+        { responseType: "blob" }
+      );
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `DocuSense_Report_${doc.id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      console.error("Download failed", error);
+      alert("Failed to download report.");
+    }
+  };
 
-  // 1. Grade Distribution (Pie Chart)
+  // --- Charts Data Prep ---
   const gradeData = data.grade_distribution
     ? Object.keys(data.grade_distribution)
         .filter((key) => data.grade_distribution[key] > 0)
@@ -61,10 +73,9 @@ const AnalysisModal = ({ doc, onClose }) => {
     "#82ca9d",
   ];
 
-  // 2. Subject Performance (Bar Chart)
   const subjectData = data.subject_performance
     ? data.subject_performance.map((sub) => ({
-        name: sub.subject_code || sub.subject_name.substring(0, 10), // Shorten name
+        name: sub.subject_code || sub.subject_name?.substring(0, 10),
         marks: sub.average_marks || 0,
         full_name: sub.subject_name,
       }))
@@ -73,9 +84,9 @@ const AnalysisModal = ({ doc, onClose }) => {
   return (
     <div style={overlayStyle}>
       <div style={modalStyle}>
-        {/* Header */}
+        {/* HEADER */}
         <div style={headerStyle}>
-          <div>
+          <div style={{ display: "flex", flexDirection: "column" }}>
             <h3
               style={{
                 margin: 0,
@@ -91,14 +102,22 @@ const AnalysisModal = ({ doc, onClose }) => {
                 : "📑 Document Analysis"}
             </p>
           </div>
-          <button onClick={onClose} style={closeBtnStyle}>
-            <X size={24} />
-          </button>
+
+          <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+            {/* Download Button */}
+            <button onClick={handleDownload} style={downloadBtnStyle}>
+              <Download size={18} /> Download PDF
+            </button>
+            <button onClick={onClose} style={closeBtnStyle}>
+              <X size={24} />
+            </button>
+          </div>
         </div>
 
-        {/* Content */}
+        {/* CONTENT */}
         <div style={contentStyle}>
-          {/* --- SECTION 1: KPIS --- */}
+          {/* ... (Keep existing layout for KPIs, Charts, Tables) ... */}
+
           {hasStats && (
             <div style={gridStyle}>
               <KpiCard
@@ -137,10 +156,8 @@ const AnalysisModal = ({ doc, onClose }) => {
             </div>
           )}
 
-          {/* --- SECTION 2: CHARTS ROW --- */}
           {hasStats && (
             <div style={chartsSectionStyle}>
-              {/* Pie Chart: Grades */}
               {gradeData.length > 0 && (
                 <div style={cardStyle}>
                   <h4 style={cardTitleStyle}>Grade Distribution</h4>
@@ -171,7 +188,6 @@ const AnalysisModal = ({ doc, onClose }) => {
                 </div>
               )}
 
-              {/* Bar Chart: Subjects */}
               {subjectData.length > 0 && (
                 <div style={cardStyle}>
                   <h4 style={cardTitleStyle}>
@@ -191,27 +207,7 @@ const AnalysisModal = ({ doc, onClose }) => {
                           fontSize={12}
                           domain={[0, 100]}
                         />
-                        <Tooltip
-                          content={({ active, payload }) => {
-                            if (active && payload && payload.length) {
-                              return (
-                                <div
-                                  style={{
-                                    background: "var(--bg-card)",
-                                    padding: "10px",
-                                    border: "1px solid #ccc",
-                                  }}
-                                >
-                                  <p>{payload[0].payload.full_name}</p>
-                                  <p style={{ color: "#8884d8" }}>
-                                    Avg: {payload[0].value}
-                                  </p>
-                                </div>
-                              );
-                            }
-                            return null;
-                          }}
-                        />
+                        <Tooltip />
                         <Bar
                           dataKey="marks"
                           fill="#8884d8"
@@ -225,7 +221,7 @@ const AnalysisModal = ({ doc, onClose }) => {
             </div>
           )}
 
-          {/* --- SECTION 3: RANK LIST (The Leaderboard) --- */}
+          {/* Rank List Table */}
           {data.overall_rank_list && data.overall_rank_list.length > 0 && (
             <div style={{ marginTop: "2rem" }}>
               <h4
@@ -273,7 +269,7 @@ const AnalysisModal = ({ doc, onClose }) => {
             </div>
           )}
 
-          {/* --- SECTION 4: AI NARRATIVE --- */}
+          {/* AI Narrative */}
           <div style={{ marginTop: "2rem" }}>
             <div
               style={{
@@ -414,8 +410,18 @@ const closeBtnStyle = {
   cursor: "pointer",
   padding: "0.5rem",
 };
-
-// Table Styles
+const downloadBtnStyle = {
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+  background: "var(--primary)",
+  color: "#fff",
+  border: "none",
+  padding: "0.5rem 1rem",
+  borderRadius: "8px",
+  cursor: "pointer",
+  fontWeight: "600",
+};
 const tableContainerStyle = {
   overflowX: "auto",
   borderRadius: "12px",
