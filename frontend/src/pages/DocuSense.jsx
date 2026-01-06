@@ -144,7 +144,7 @@ const DocuSense = () => {
               id="fileInput"
               onChange={handleFileChange}
               style={{ display: "none" }}
-              accept=".pdf,.xlsx,.csv,.docx"
+              accept=".pdf,.xlsx,.csv,.docx,.txt"
             />
             <label
               htmlFor="fileInput"
