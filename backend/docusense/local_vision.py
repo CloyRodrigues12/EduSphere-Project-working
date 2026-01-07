@@ -1,232 +1,282 @@
-# backend/docusense/local_vision.py
 import fitz  # PyMuPDF
-import easyocr
 import pandas as pd
-import re
-import os
 import numpy as np
-from openpyxl import load_workbook
-from openpyxl.utils import get_column_letter
+import os
+import re
+import json
+import easyocr
+import cv2
+from collections import Counter
 from django.conf import settings
 
-# Initialize Reader
-print("--- [Local Vision] Loading Layout-Aware OCR Model... ---")
-reader = easyocr.Reader(['en'], gpu=True)
+# Try importing pdfplumber, handle error if missing
+try:
+    import pdfplumber
+    PDFPLUMBER_AVAILABLE = True
+except ImportError:
+    PDFPLUMBER_AVAILABLE = False
+    print("--- [Warning] pdfplumber not installed. Horizontal parsing will be limited. ---")
 
-def extract_data_using_visual_layout(file_path):
+# --- INITIALIZATION ---
+print("--- [System] Initializing V12 Fail-Safe Engine... ---")
+ocr_reader = easyocr.Reader(['en'], gpu=True)
+
+def extract_data_smart_parser(file_path):
     """
-    Visual OCR Parser V2 (Refined):
-    1. Clusters text into 'Visual Rows' (Y-axis).
-    2. Separates Name from Marks by detecting the transition from Text to Digits.
-    3. Identifies 'Total' as the distinct number before the Grade.
+    V12 Fail-Safe Parser:
+    1. Detects Layout (Horizontal vs Vertical).
+    2. Tries specialized parsers (Table vs Grid).
+    3. FAIL-SAFE: If specialized parser returns empty, FORCES Visual Grid.
     """
-    print(f"--- [Layout Engine] Processing: {os.path.basename(file_path)} ---")
+    filename = os.path.basename(file_path)
+    print(f"--- [V12 Parser] Processing: {filename} ---")
     
-    doc = fitz.open(file_path)
-    all_rows = []
+    # 1. Detect Layout Strategy
+    layout_mode = detect_layout_strategy(file_path)
+    print(f"--- [V12 Parser] Detected Strategy: {layout_mode} ---")
     
-    # 1. OCR & ROW CLUSTERING
-    for i, page in enumerate(doc):
-        print(f"    -> Scanning Page {i+1}...")
-        pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
-        img_bytes = pix.tobytes("png")
-        results = reader.readtext(img_bytes, detail=1, paragraph=False)
-        
-        # Sort by Top-Y
-        results.sort(key=lambda x: x[0][0][1])
-        
-        current_row = []
-        last_y = -100
-        
-        for (bbox, text, conf) in results:
-            y_top = bbox[0][1]
-            x_left = bbox[0][0]
-            if abs(y_top - last_y) < 15: # Row tolerance
-                current_row.append({"text": text, "x": x_left})
-            else:
-                if current_row:
-                    current_row.sort(key=lambda k: k['x'])
-                    all_rows.append(current_row)
-                current_row = [{"text": text, "x": x_left}]
-                last_y = y_top
-        if current_row:
-            current_row.sort(key=lambda k: k['x'])
-            all_rows.append(current_row)
-
-    print(f"--- [Layout Engine] Detected {len(all_rows)} Visual Rows. Parsing... ---")
-
-    # 2. PARSE ROWS INTO DATA
-    parsed_students = []
-    current_seat = "Unknown"
-    current_pr = "-"
-    current_name = "Unknown"
-    current_sgpa = "0.00"
+    df = pd.DataFrame()
     
-    prefixes = ["ECS", "CE", "ECOMP", "HM", "CV", "RAI", "ME", "EE", "ETC", "ITH", "AEC", "VAC", "SEC", "SHM", "HSS"]
+    # 2. Attempt Parsing based on Layout
+    if layout_mode == "HORIZONTAL_TABLE" and PDFPLUMBER_AVAILABLE:
+        print("--- [V12] Attempting Horizontal Table Extraction... ---")
+        df = parse_horizontal_ledger(file_path)
     
-    for row in all_rows:
-        row_text_joined = " ".join([item['text'] for item in row])
-        
-        # A. Detect Header
-        seat_match = re.search(r"Seat\s*No[:\.\s]*(\d+)", row_text_joined, re.IGNORECASE)
-        if seat_match:
-            current_seat = seat_match.group(1)
-            # Find PR and Name in this or next rows? usually same row
-            pr_match = re.search(r"PR\s*Number[:\.\s]*(\d+)", row_text_joined, re.IGNORECASE)
-            if pr_match: current_pr = pr_match.group(1)
-            name_match = re.search(r"Name[:\.\s]*([A-Z\s\.]+)", row_text_joined, re.IGNORECASE)
-            if name_match: current_name = name_match.group(1).split("Paper")[0].strip()
-            continue
+    # 3. Fallback Logic (If Horizontal failed or it's Vertical)
+    if df.empty:
+        if layout_mode == "HORIZONTAL_TABLE":
+            print("--- [V12] Horizontal extraction empty. Switching to VISUAL GRID Fallback. ---")
+        else:
+            print("--- [V12] Running Vertical Visual Grid... ---")
+            
+        df = parse_vertical_visual_grid(file_path)
 
-        # B. Detect Footer
-        sgpa_match = re.search(r"SGPA[:\.\s]*(\d+\.\d+)", row_text_joined, re.IGNORECASE)
-        if sgpa_match: current_sgpa = sgpa_match.group(1)
-        
-        # C. Detect Subject Row
-        if not row: continue
-        first_word = row[0]['text'].upper().replace(" ", "").replace("-", "")
-        
-        is_subject = False
-        for p in prefixes:
-            if first_word.startswith(p) and any(char.isdigit() for char in first_word):
-                is_subject = True
-                break
-        
-        if is_subject:
-            code = first_word
-            remaining = row[1:]
-            
-            # --- INTELLIGENT SPLITTING ---
-            name_parts = []
-            numeric_parts = []
-            
-            # Find transition from Text Name -> Numeric Marks
-            for idx, item in enumerate(remaining):
-                txt = item['text']
-                # Ignore garbage
-                if "Paper" in txt: continue
-                
-                # If we hit a number or P/F status, the Name is done
-                if (txt.isdigit()) or (txt in ['P', 'F'] and len(txt)==1) or (txt in ['A+', 'B+', 'A', 'B', 'C']):
-                    # Add this and everything after to numeric parts
-                    numeric_parts = [r['text'] for r in remaining[idx:]]
-                    break
-                else:
-                    name_parts.append(txt)
-            
-            sub_name = " ".join(name_parts).strip()
-            
-            # Extract Marks Info from numeric_parts
-            # Expectation: [Theory] [Status] ... [Total] [Grade]
-            theory = "-"
-            status = "-"
-            total = "-"
-            grade = "-"
-            
-            # Clean numeric parts
-            # Filter out "Paper" again just in case
-            numeric_parts = [x for x in numeric_parts if "Paper" not in x]
-            
-            if numeric_parts:
-                # 1. Theory: Usually the first number
-                for t in numeric_parts:
-                    if t.isdigit():
-                        theory = t
-                        break
-                
-                # 2. Status: Look for 'P' or 'F' near the Theory mark
-                for t in numeric_parts[:3]: # Check first 3 tokens
-                    if t in ['P', 'F']:
-                        status = t
-                        break
-                
-                # 3. Grade: Usually the last item (letter)
-                valid_grades = ['O', 'A+', 'A', 'B+', 'B', 'C', 'P', 'F']
-                if numeric_parts[-1] in valid_grades:
-                    grade = numeric_parts[-1]
-                elif len(numeric_parts) > 1 and numeric_parts[-2] in valid_grades:
-                    grade = numeric_parts[-2]
-                    
-                # 4. Total: The last number found in the list (before the grade)
-                # Find all numbers
-                nums = [n for n in numeric_parts if n.isdigit()]
-                if nums:
-                    # If multiple nums, Total is likely the biggest or last one
-                    # But Theory is the first one. If there are 2 nums, second is Total.
-                    if len(nums) >= 2:
-                        total = nums[-1]
-                    elif len(nums) == 1 and grade != "-":
-                         # If only 1 num and we have a Grade, that num might be Total if it's high?
-                         # Usually Theory is first. Let's assume Total is missing if only 1 num is found.
-                         pass
-            
-            parsed_students.append({
-                "Seat No": current_seat,
-                "PR Number": current_pr,
-                "Student Name": current_name,
-                "Subject Code": code,
-                "Subject Name": sub_name,
-                "Theory": theory,
-                "Status": status,
-                "Total": total,
-                "Grade": grade,
-                "SGPA": current_sgpa # Placeholder, updated via post-processing or context
-            })
+    # 4. Final Safety Check
+    if df.empty:
+        print("--- [V12] Error: Extraction yielded zero rows. ---")
+        return pd.DataFrame() # Returns empty, triggers FAILED in service
 
-    df = pd.DataFrame(parsed_students)
-    
-    # Backfill SGPA (Propagate SGPA up to the rows of the student)
-    if not df.empty and 'SGPA' in df.columns:
-        # We need to map Seat No to SGPA because SGPA appears at the end of the block
-        # Group by Seat No and find the max SGPA (assuming non-zero)
-        # Note: SGPA might be "0.00" initially for all rows, then found at bottom.
-        # This simple logic assumes the SGPA was captured in 'current_sgpa' correctly by the end loop
-        # But for rows emitted *before* the SGPA line, they have the old value.
-        
-        # Better: Create a Seat->SGPA map
-        seat_sgpa_map = {}
-        for row in all_rows:
-            txt = " ".join([i['text'] for i in row])
-            seat_m = re.search(r"Seat\s*No[:\.\s]*(\d+)", txt, re.IGNORECASE)
-            if seat_m: curr = seat_m.group(1)
-            sgpa_m = re.search(r"SGPA[:\.\s]*(\d+\.\d+)", txt, re.IGNORECASE)
-            if sgpa_m and 'curr' in locals(): seat_sgpa_map[curr] = sgpa_m.group(1)
-            
-        df['SGPA'] = df['Seat No'].map(seat_sgpa_map).fillna("0.00")
-
+    # 5. Save & Return
+    save_formatted_excel(df, file_path)
     return df
 
-def save_clean_excel(df, filename):
-    if df.empty: return None
-    safe_name = os.path.splitext(filename)[0]
-    excel_name = f"{safe_name}_VISUAL_PARSED.xlsx"
-    path = os.path.join(settings.MEDIA_ROOT, 'docusense_reports', excel_name)
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+# ==========================================
+# STRATEGY 1: HORIZONTAL (Table Extraction)
+# ==========================================
+
+def parse_horizontal_ledger(file_path):
+    """
+    Tries multiple strategies to extract the Ledger table.
+    """
+    all_rows = []
     
-    # Final Columns
-    cols = ["Seat No", "PR Number", "Student Name", "Subject Code", "Subject Name", 
-            "Theory", "Status", "Total", "Grade", "SGPA"]
+    try:
+        with pdfplumber.open(file_path) as pdf:
+            for page in pdf.pages:
+                # Strategy A: Text-based (Gap detection)
+                # Good for files where columns are separated by whitespace
+                tables = page.extract_tables(table_settings={
+                    "vertical_strategy": "text", 
+                    "horizontal_strategy": "text",
+                    "intersection_x_tolerance": 5
+                })
+                
+                # If Strategy A fails, try Strategy B (Lines)
+                if not tables:
+                     tables = page.extract_tables(table_settings={
+                        "vertical_strategy": "lines", 
+                        "horizontal_strategy": "lines"
+                    })
+                
+                for table in tables:
+                    for row in table:
+                        # Clean cells
+                        clean_row = [str(cell).replace('\n', ' ').strip() if cell else "" for cell in row]
+                        # Filter empty rows (must have at least 2 chars of data)
+                        if len("".join(clean_row)) > 5:
+                            all_rows.append(clean_row)
+                            
+    except Exception as e:
+        print(f"--- [Error] Horizontal Parsing Exception: {e} ---")
+        return pd.DataFrame()
+
+    if not all_rows: return pd.DataFrame()
     
-    for c in cols:
-        if c not in df.columns: df[c] = "-"
-    df = df[cols]
+    # Normalize Row Lengths
+    max_cols = max(len(r) for r in all_rows)
+    header = [f"Col_{i}" for i in range(max_cols)]
     
-    print(f"--- [Excel Writer] Saving to: {path} ---")
-    df.to_excel(path, index=False)
+    # Pad rows to max length
+    normalized_rows = []
+    for r in all_rows:
+        pad_len = max_cols - len(r)
+        normalized_rows.append(r + [""] * pad_len)
     
-    # Auto-Formatting
-    wb = load_workbook(path)
-    ws = wb.active
-    for column in ws.columns:
-        max_length = 0
-        column = [cell for cell in column]
-        for cell in column:
-            try:
-                if len(str(cell.value)) > max_length:
-                    max_length = len(str(cell.value))
-            except: pass
-        adjusted_width = (max_length + 2)
-        ws.column_dimensions[get_column_letter(column[0].column)].width = adjusted_width
+    return pd.DataFrame(normalized_rows, columns=header)
+
+# ==========================================
+# STRATEGY 2: VERTICAL / UNIVERSAL (Visual Grid)
+# ==========================================
+
+def parse_vertical_visual_grid(file_path):
+    """
+    Uses Global Column Alignment (V10 logic).
+    Robust fallback for ANY file type.
+    """
+    doc = fitz.open(file_path)
+    
+    # Source Check
+    page1_text = doc[0].get_text()
+    source_type = "DIGITAL" if len(page1_text.strip()) > 50 else "OCR"
+    
+    all_pages_words = []
+    for page in doc:
+        p_words = get_words_v10(page, source_type)
+        clean_words = remove_ghost_text(p_words)
+        all_pages_words.append(clean_words)
+
+    # Master Grid Discovery
+    flat_words = [w for p in all_pages_words for w in p]
+    if not flat_words: return pd.DataFrame()
+    
+    master_columns = discover_global_columns(flat_words)
+    
+    # Map Pages
+    all_rows = []
+    for clean_words in all_pages_words:
+        page_grid = map_to_master_grid(clean_words, master_columns)
+        all_rows.extend(page_grid)
+        all_rows.append({}) 
+
+    df = pd.DataFrame(all_rows)
+    
+    # Ensure Columns match Master Grid
+    for i in range(len(master_columns)):
+        col_name = f"Col_{i}"
+        if col_name not in df.columns: df[col_name] = ""
+            
+    # Sort Columns
+    cols = sorted(list(df.columns), key=lambda x: int(x.split('_')[1]) if '_' in x else 999)
+    return df[cols].fillna("")
+
+# ==========================================
+# UTILITIES
+# ==========================================
+
+def detect_layout_strategy(file_path):
+    try:
+        doc = fitz.open(file_path)
+        text = doc[0].get_text()
         
-    wb.save(path)
-    return os.path.join('docusense_reports', excel_name)
+        # Look for "Seat No:" pattern (Marksheet)
+        if re.search(r"Seat\s*N[o0][: \.\-]*\d{3,}", text, re.IGNORECASE):
+            return "VERTICAL_GRID"
+        
+        # Look for Table Headers (Ledger)
+        if "Signal Processing" in text or "Credits" in text:
+            return "HORIZONTAL_TABLE"
+            
+        return "VERTICAL_GRID" # Default
+    except:
+        return "VERTICAL_GRID"
+
+def get_words_v10(page, source_type):
+    words = []
+    if source_type == "DIGITAL":
+        raw = page.get_text("words")
+        for w in raw:
+            words.append({'x': (w[0]+w[2])/2, 'y': (w[1]+w[3])/2, 'text': w[4]})
+    else:
+        pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
+        img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.h, pix.w, pix.n)
+        if pix.n == 4: img = cv2.cvtColor(img, cv2.COLOR_RGBA2RGB)
+        results = ocr_reader.readtext(img, detail=1, paragraph=False)
+        for (bbox, text, conf) in results:
+            if conf < 0.3: continue
+            words.append({'x': (bbox[0][0]+bbox[1][0])/4, 'y': (bbox[0][1]+bbox[2][1])/4, 'text': text})
+    return words
+
+def remove_ghost_text(words):
+    if not words: return []
+    words.sort(key=lambda w: (round(w['y']), w['x']))
+    unique = []
+    if words:
+        prev = words[0]
+        unique.append(prev)
+        for curr in words[1:]:
+            dist = abs(curr['x'] - prev['x']) + abs(curr['y'] - prev['y'])
+            if curr['text'] == prev['text'] and dist < 5: continue
+            unique.append(curr)
+            prev = curr
+    return unique
+
+def discover_global_columns(all_words):
+    if not all_words: return [0]
+    x_coords = [w['x'] for w in all_words]
+    bins = [round(x/5)*5 for x in x_coords]
+    counts = Counter(bins)
+    threshold = len(all_words) * 0.005
+    valid_peaks = sorted([x for x, c in counts.items() if c > threshold])
+    
+    if not valid_peaks: return [0]
+    
+    merged = []
+    curr = valid_peaks[0]
+    for next_p in valid_peaks[1:]:
+        if next_p - curr > 25:
+            merged.append(curr)
+            curr = next_p
+        else:
+            curr = (curr + next_p) / 2
+    merged.append(curr)
+    return sorted(merged)
+
+def map_to_master_grid(words, master_columns):
+    if not words: return []
+    rows = {}
+    for w in words:
+        y_bucket = round(w['y'] / 10) * 10
+        if y_bucket not in rows: rows[y_bucket] = []
+        rows[y_bucket].append(w)
+    sorted_y = sorted(rows.keys())
+    grid_rows = []
+    for y in sorted_y:
+        row_words = rows[y]
+        row_words.sort(key=lambda w: w['x'])
+        row_data = {}
+        for w in row_words:
+            if not master_columns: continue
+            distances = [abs(w['x'] - col_x) for col_x in master_columns]
+            nearest_idx = distances.index(min(distances))
+            col_key = f"Col_{nearest_idx}"
+            if col_key in row_data: row_data[col_key] += " " + w['text']
+            else: row_data[col_key] = w['text']
+        grid_rows.append(row_data)
+    return grid_rows
+
+def save_formatted_excel(df, original_filepath):
+    if df.empty:
+        print("--- [Error] Excel Save Aborted: DataFrame is empty ---")
+        return None
+    try:
+        filename = os.path.basename(original_filepath)
+        safe_name = os.path.splitext(filename)[0]
+        excel_name = f"{safe_name}_REPLICA.xlsx"
+        path = os.path.join(settings.MEDIA_ROOT, 'docusense_reports', excel_name)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        
+        print(f"--- [Excel Writer] Saving to: {path} ---")
+        with pd.ExcelWriter(path, engine='xlsxwriter') as writer:
+            df.to_excel(writer, index=False, header=False, sheet_name='Result_Data')
+            worksheet = writer.sheets['Result_Data']
+            cell_format = writer.book.add_format({'text_wrap': True, 'valign': 'top'})
+            for idx, col in enumerate(df.columns):
+                max_len = 0
+                for x in df[col]:
+                    if x and len(str(x)) > max_len: max_len = len(str(x))
+                width = min(max(max_len + 2, 10), 60)
+                worksheet.set_column(idx, idx, width, cell_format)
+        return path
+    except Exception as e:
+        print(f"Excel Error: {e}")
+        return None
