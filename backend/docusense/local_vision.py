@@ -11,7 +11,7 @@ from django.conf import settings
 
 # Initialize Reader
 print("--- [Local Vision] Loading Layout-Aware OCR Model... ---")
-reader = easyocr.Reader(['en'], gpu=False)
+reader = easyocr.Reader(['en'], gpu=True)
 
 def extract_data_using_visual_layout(file_path):
     """
