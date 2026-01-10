@@ -1,17 +1,15 @@
-// frontend/src/pages/DocuSense.jsx
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import {
   UploadCloud,
   FileText,
   BarChart2,
-  CheckCircle2,
   Loader2,
   Sparkles,
-  Clock,
-  File,
-  Eye,
-  Download, // <--- Added Download Icon
+  Download,
+  Cpu,
+  CheckCircle2,
+  AlertTriangle,
 } from "lucide-react";
 import AnalysisModal from "../components/docusense/AnalysisModal";
 import "./DocuSense.css";
@@ -19,14 +17,12 @@ import "./DocuSense.css";
 const DocuSense = () => {
   const [documents, setDocuments] = useState([]);
   const [uploading, setUploading] = useState(false);
-  const [category, setCategory] = useState("RESULT");
   const [file, setFile] = useState(null);
-  const [isDragging, setIsDragging] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState(null);
 
   useEffect(() => {
     fetchDocuments();
-    const interval = setInterval(fetchDocuments, 5000);
+    const interval = setInterval(fetchDocuments, 2000);
     return () => clearInterval(interval);
   }, []);
 
@@ -37,255 +33,172 @@ const DocuSense = () => {
       );
       setDocuments(res.data);
     } catch (error) {
-      console.error("Error fetching docs", error);
+      console.error(error);
     }
   };
 
-  const handleUpload = async () => {
+  const handleUpload = async (e) => {
+    e.preventDefault();
     if (!file) return;
     setUploading(true);
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("category", category);
-
     try {
       await axios.post(
         `${import.meta.env.VITE_API_URL}/api/docusense/upload/`,
-        formData,
-        { headers: { "Content-Type": "multipart/form-data" } }
+        formData
       );
       setFile(null);
       fetchDocuments();
     } catch (error) {
-      alert("Upload failed.");
+      alert("Upload failed");
     } finally {
       setUploading(false);
     }
   };
 
-  // --- NEW: Download Function ---
-  const handleDownload = async (e, doc) => {
-    e.stopPropagation(); // Prevent opening the modal when clicking download
-    try {
-      const response = await axios.get(
-        `${import.meta.env.VITE_API_URL}/api/docusense/download/${doc.id}/`,
-        { responseType: "blob" } // Important: Treat response as a file
-      );
-
-      // Create a temporary link to trigger download
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", `DocuSense_Report_${doc.id}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (error) {
-      console.error("Download failed", error);
-      alert("Could not download the report. Please try again.");
-    }
-  };
-
-  const handleFileChange = (e) => setFile(e.target.files?.[0]);
-
-  const handleDocClick = (doc) => {
-    if (doc.status === "COMPLETED") setSelectedDoc(doc);
-  };
-
   return (
     <div className="docusense-container">
-      {/* HEADER */}
-      <div className="page-header">
+      <header className="page-header">
         <div>
           <h2>
-            <Sparkles size={28} color="var(--primary)" /> DocuSense Intelligence
+            <Sparkles className="spin-slow" size={28} color="var(--primary)" />{" "}
+            DocuSense AI
           </h2>
-          <p>AI-Powered Document Analysis</p>
+          <p>Intelligent Result Analysis System</p>
         </div>
-      </div>
+      </header>
 
       <div className="ds-layout">
-        {/* LEFT COLUMN: UPLOAD */}
+        {/* LEFT PANEL: UPLOAD */}
         <div className="upload-panel">
-          <div className="panel-title">New Analysis</div>
-          <div className="toggle-wrapper">
-            <button
-              className={`toggle-btn ${category === "RESULT" ? "active" : ""}`}
-              onClick={() => setCategory("RESULT")}
-            >
-              <BarChart2 size={18} /> University Result
-            </button>
-            <button
-              className={`toggle-btn ${category === "REPORT" ? "active" : ""}`}
-              onClick={() => setCategory("REPORT")}
-            >
-              <FileText size={18} /> Academic Report
-            </button>
-          </div>
-
-          <div
-            className={`drop-zone ${isDragging ? "active-drag" : ""}`}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setIsDragging(true);
-            }}
-            onDragLeave={(e) => {
-              e.preventDefault();
-              setIsDragging(false);
-            }}
-            onDrop={(e) => {
-              e.preventDefault();
-              setIsDragging(false);
-              if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
-            }}
-          >
+          <div className="panel-title">Upload Result PDF</div>
+          <div className="drop-zone">
             <input
               type="file"
-              id="fileInput"
-              onChange={handleFileChange}
-              style={{ display: "none" }}
-              accept=".pdf,.xlsx,.csv,.docx,.txt"
+              accept=".pdf"
+              onChange={(e) => setFile(e.target.files[0])}
             />
-            <label
-              htmlFor="fileInput"
-              style={{ cursor: "pointer", display: "block" }}
-            >
-              <div className="drop-content">
-                {file ? (
-                  <>
-                    <FileText
-                      size={56}
-                      color="var(--primary)"
-                      style={{ margin: "0 auto" }}
-                    />
-                    <h3>{file.name}</h3>
-                    <p>Ready to analyze</p>
-                  </>
-                ) : (
-                  <>
-                    <UploadCloud
-                      size={56}
-                      color={
-                        isDragging ? "var(--primary)" : "var(--text-secondary)"
-                      }
-                      style={{ margin: "0 auto" }}
-                    />
-                    <h3>Click to Upload</h3>
-                    <p>or drag PDF / Excel here</p>
-                  </>
-                )}
-              </div>
-            </label>
+            <div className="drop-content">
+              <UploadCloud
+                size={48}
+                style={{ marginBottom: "1rem", color: "var(--primary)" }}
+              />
+              <h3>{file ? file.name : "Drag & Drop or Click"}</h3>
+              <p>Supports Goa University Result PDFs</p>
+            </div>
           </div>
-
-          {file && (
-            <button
-              className="upload-btn"
-              onClick={handleUpload}
-              disabled={uploading}
-            >
-              {uploading ? (
-                <>
-                  <Loader2 size={20} className="spin" /> Processing...
-                </>
-              ) : (
-                <>
-                  <Sparkles size={20} /> Start Analysis
-                </>
-              )}
-            </button>
-          )}
+          <button
+            className="upload-btn"
+            onClick={handleUpload}
+            disabled={uploading || !file}
+          >
+            {uploading ? <Loader2 className="spin" /> : "Start Analysis"}
+          </button>
         </div>
 
-        {/* RIGHT COLUMN: LIST */}
+        {/* RIGHT PANEL: ACTIVITY LIST */}
         <div className="activity-section">
           <div className="list-header">
-            <span>
-              <Clock
-                size={16}
-                style={{ marginRight: "8px", display: "inline" }}
-              />{" "}
-              Recent Documents
-            </span>
+            <span>Recent Activity</span>
             <span>{documents.length} Files</span>
           </div>
 
           <div className="doc-list">
-            {documents.map((doc) => (
-              <div
-                key={doc.id}
-                className="doc-row"
-                onClick={() => handleDocClick(doc)}
-                style={{
-                  cursor: doc.status === "COMPLETED" ? "pointer" : "default",
-                }}
-              >
-                <div className="doc-icon">
-                  {doc.category === "RESULT" ? (
-                    <BarChart2 size={24} />
-                  ) : (
-                    <File size={24} />
-                  )}
-                </div>
-                <div className="doc-info">
-                  <div className="doc-name">{doc.filename}</div>
-                  <div className="doc-meta">
-                    {new Date(doc.upload_date).toLocaleDateString()}
-                  </div>
-                </div>
-                <div className={`badge ${doc.status}`}>
-                  {doc.status === "PROCESSING" && (
-                    <Loader2
-                      size={14}
-                      className="spin"
-                      style={{ marginRight: 4 }}
-                    />
-                  )}
-                  {doc.status === "COMPLETED" && (
-                    <CheckCircle2 size={14} style={{ marginRight: 4 }} />
-                  )}
-                  {doc.status}
-                </div>
-
-                {/* ACTIONS: Download & View */}
-                {doc.status === "COMPLETED" && (
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "10px",
-                      alignItems: "center",
-                      marginLeft: "10px",
-                    }}
-                  >
-                    <button
-                      onClick={(e) => handleDownload(e, doc)}
-                      className="icon-btn"
-                      title="Download PDF Report"
-                      style={{
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        color: "var(--primary)",
-                      }}
-                    >
-                      <Download size={20} />
-                    </button>
-                    <Eye size={20} color="var(--text-secondary)" />
-                  </div>
-                )}
-              </div>
-            ))}
             {documents.length === 0 && (
               <div
                 style={{
-                  padding: "4rem",
+                  padding: "2rem",
                   textAlign: "center",
                   color: "var(--text-secondary)",
                 }}
               >
-                No documents yet.
+                No documents found. Upload one to start.
               </div>
             )}
+
+            {documents.map((doc) => (
+              <div key={doc.id} className="doc-row">
+                {/* 1. Icon State */}
+                <div className="doc-icon">
+                  {doc.status === "PROCESSING" ? (
+                    <Cpu className="spin-slow" />
+                  ) : doc.status === "FAILED" ? (
+                    <AlertTriangle color="#ef4444" />
+                  ) : (
+                    <FileText />
+                  )}
+                </div>
+
+                {/* 2. Info / Progress */}
+                <div className="doc-info">
+                  <div className="doc-name">{doc.filename}</div>
+
+                  {doc.status === "PROCESSING" ? (
+                    <div className="processing-container">
+                      <div className="proc-header">
+                        <span>
+                          {doc.analysis_data?.current_log || "Initializing..."}
+                        </span>
+                        <span className="proc-eta">
+                          {doc.analysis_data?.eta || "Calculating..."}
+                        </span>
+                      </div>
+                      <div className="progress-track">
+                        <div
+                          className="progress-fill"
+                          style={{
+                            width: `${doc.analysis_data?.progress || 0}%`,
+                          }}
+                        ></div>
+                      </div>
+                      <div className="proc-logs">
+                        <span>{doc.analysis_data?.meta?.size_mb} MB</span>
+                        <span>{doc.analysis_data?.progress}%</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="doc-meta">
+                      <span className={`badge ${doc.status}`}>
+                        {doc.status}
+                      </span>
+                      <span>
+                        {new Date(doc.upload_date).toLocaleDateString()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Actions */}
+                {doc.status === "COMPLETED" && (
+                  <div style={{ display: "flex", gap: "10px" }}>
+                    <button
+                      onClick={() => setSelectedDoc(doc)}
+                      className="upload-btn"
+                      style={{ padding: "8px", width: "auto", marginTop: 0 }}
+                    >
+                      <BarChart2 size={18} />
+                    </button>
+                    <a
+                      href={`${import.meta.env.VITE_API_URL}${
+                        doc.analysis_data?.excel_path
+                      }`}
+                      className="upload-btn"
+                      style={{
+                        padding: "8px",
+                        width: "auto",
+                        marginTop: 0,
+                        background: "var(--bg-main)",
+                        border: "1px solid var(--text-secondary)",
+                        color: "var(--text-primary)",
+                      }}
+                    >
+                      <Download size={18} />
+                    </a>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       </div>
