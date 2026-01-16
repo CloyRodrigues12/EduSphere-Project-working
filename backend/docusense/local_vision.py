@@ -9,121 +9,135 @@ import time
 from collections import Counter
 from django.conf import settings
 
-print("--- [System] Initializing V10 Global Grid Engine (Stable)... ---")
+print("--- [System] Initializing V20 Robust Engine... ---")
 ocr_reader = easyocr.Reader(['en'], gpu=True)
 
 def extract_data_smart_parser(file_path, progress_callback=None):
     """
-    Enhanced V10 Parser with Progress Tracking and Semantic Analysis.
+    V20: Visual Grid with Robust Semantic Analysis.
     """
     filename = os.path.basename(file_path)
     if progress_callback: progress_callback(5, "Initializing AI Vision Engine...")
     
     doc = fitz.open(file_path)
     total_pages = len(doc)
-    
-    # 1. Detect Mode
     page1_text = doc[0].get_text()
     source_type = "DIGITAL" if len(page1_text.strip()) > 50 else "OCR"
     
     all_pages_words = []
     
-    # 2. Extract Words (Page-Aware)
+    # 1. Extraction
     for i, page in enumerate(doc):
-        # Update Progress
         if progress_callback:
-            percent = 10 + int((i / total_pages) * 50) # Scale 10-60%
-            progress_callback(percent, f"Scanning Page {i+1} of {total_pages} ({source_type})...")
-            
+            percent = 10 + int((i / total_pages) * 50)
+            progress_callback(percent, f"Scanning Page {i+1}/{total_pages} ({source_type})...")
         p_words = get_words(page, source_type)
         clean_words = remove_ghost_text(p_words)
         all_pages_words.append(clean_words)
 
-    # 3. Discover Global Columns
-    if progress_callback: progress_callback(65, "Aligning Global Grid Structure...")
+    # 2. Grid Discovery
+    if progress_callback: progress_callback(65, "Aligning Global Grid...")
     flat_words = [w for p in all_pages_words for w in p]
     master_columns = discover_global_columns(flat_words)
 
-    # 4. Map Each Page
-    if progress_callback: progress_callback(75, "Mapping Data to Grid Cells...")
+    # 3. Mapping
+    if progress_callback: progress_callback(75, "Mapping Data...")
     all_rows = []
     for clean_words in all_pages_words:
         page_grid = map_to_master_grid(clean_words, master_columns)
         all_rows.extend(page_grid)
         all_rows.append({}) 
 
-    # 5. Create DataFrame
+    # 4. DataFrame
     df = pd.DataFrame(all_rows)
     for i in range(len(master_columns)):
         col_name = f"Col_{i}"
         if col_name not in df.columns: df[col_name] = ""
             
     cols = sorted(list(df.columns), key=lambda x: int(x.split('_')[1]) if '_' in x else 999)
-    df = df[cols]
-    
-    # --- CRITICAL FIX: CLEAN NAN VALUES ---
-    df.fillna("", inplace=True)
+    df = df[cols].fillna("")
 
-    # 6. Save Enhanced Excel
-    if progress_callback: progress_callback(85, "Generating Smart Excel Report...")
+    # 5. Save Excel
+    if progress_callback: progress_callback(85, "Generating Excel Report...")
     excel_path = save_formatted_excel(df, file_path)
     
-    # 7. Semantic Analysis for Charts
-    if progress_callback: progress_callback(90, "Analyzing Student Performance...")
+    # 6. Analysis (FIXED)
+    if progress_callback: progress_callback(90, "Analyzing Performance...")
     analytics = perform_semantic_analysis(df)
     
     return df, excel_path, analytics
 
-# --- SEMANTIC ANALYSIS ENGINE ---
+# --- FIXED SEMANTIC ANALYSIS ---
 def perform_semantic_analysis(df):
     """
-    Converts raw grid columns into meaningful data for charts.
+    Robustly extracts Seat Nos and Marks even if mixed with text.
     """
-    seat_col = None
-    sgpa_col = None
-    subject_cols = []
-    
-    # Heuristic Column Identification
-    for col in df.columns:
-        sample = df[col].astype(str).tolist()[:20] # Check top 20 rows
-        digit_matches = sum(1 for x in sample if re.match(r"^\d{5,6}$", x))
-        float_matches = sum(1 for x in sample if re.match(r"^[0-9]\.\d{2}$", x))
-        
-        if digit_matches > 3: seat_col = col
-        elif float_matches > 3: sgpa_col = col
-        else: subject_cols.append(col) # Potential subject column
-
     students = []
-    subject_stats = {} # {Col_Name: {pass: 0, fail: 0, top_score: 0, scores: []}}
+    subject_stats = {} 
+
+    # Regex Compilations
+    seat_label_pat = re.compile(r"Seat\s*N[o0][:.\-\s]*(\d{5,6})", re.IGNORECASE)
+    sgpa_label_pat = re.compile(r"SGPA[:\s]*(\d+\.\d+)", re.IGNORECASE)
+    strict_digit_pat = re.compile(r"^\d{1,3}$") # Marks 0-999
 
     for idx, row in df.iterrows():
-        # Identify Student Row
-        if not seat_col or not re.match(r"^\d{5,6}$", str(row[seat_col])):
-            continue
-            
-        seat_no = str(row[seat_col])
+        # Scan row for Seat Number
+        seat_no = None
         sgpa = 0.0
-        try: sgpa = float(row[sgpa_col])
-        except: pass
         
+        # Convert row to string to search for labels
+        row_str = " ".join([str(v) for v in row.values])
+        
+        # 1. Try finding "Seat No: 12345" label
+        m_seat = seat_label_pat.search(row_str)
+        if m_seat:
+            seat_no = m_seat.group(1)
+        else:
+            # 2. Fallback: Look for standalone 5-digit number in first few columns
+            for val in row.values[:5]:
+                s_val = str(val).strip()
+                if s_val.isdigit() and len(s_val) == 5:
+                    seat_no = s_val
+                    break
+        
+        if not seat_no: continue # Skip row if no seat found
+
+        # 3. Find SGPA
+        m_sgpa = sgpa_label_pat.search(row_str)
+        if m_sgpa:
+            try: sgpa = float(m_sgpa.group(1))
+            except: pass
+        
+        # 4. Extract Subjects / Marks
         student_subjects = []
-        
-        for col in subject_cols:
+        for col in df.columns:
             val = str(row[col]).strip()
-            # If value looks like a mark/grade
-            if val in ['F', 'P', 'Ab'] or (val.replace('.','',1).isdigit() and float(val) <= 100):
+            # Skip the seat number itself
+            if val == seat_no: continue
+            
+            # Check if value is a Mark or Grade
+            is_mark = False
+            
+            # Is it a Grade?
+            if val in ['O', 'A+', 'A', 'B+', 'B', 'C', 'P', 'F', 'Ab']:
+                is_mark = True
+            # Is it a Number (0-100)?
+            elif strict_digit_pat.match(val):
+                if int(val) <= 100: is_mark = True
+                
+            if is_mark:
+                # Add to record
                 student_subjects.append({'col': col, 'val': val})
                 
-                # Update Subject Stats
+                # Stats
                 if col not in subject_stats: 
                     subject_stats[col] = {'pass':0, 'fail':0, 'scores':[]}
                 
-                if val == 'F' or val == 'Ab':
+                if val in ['F', 'Ab'] or (val.isdigit() and int(val) < 40): # Assuming <40 is fail roughly
                     subject_stats[col]['fail'] += 1
                 else:
                     subject_stats[col]['pass'] += 1
-                    try: subject_stats[col]['scores'].append(float(val))
-                    except: pass
+                    if val.isdigit(): subject_stats[col]['scores'].append(int(val))
 
         students.append({
             'seat_no': seat_no,
@@ -131,14 +145,15 @@ def perform_semantic_analysis(df):
             'subjects': student_subjects
         })
 
-    # Top Performers List
+    # Rank List
     students.sort(key=lambda x: x['sgpa'], reverse=True)
     rank_list = [{"rank": i+1, "seat_no": s['seat_no'], "sgpa": s['sgpa']} for i, s in enumerate(students[:20])]
 
-    # Subject Analysis for Charts
+    # Chart Data
     chart_data = []
     for col, stats in subject_stats.items():
-        if stats['pass'] + stats['fail'] > 5: # Ignore noise columns
+        total = stats['pass'] + stats['fail']
+        if total > 5: # Ignore noise columns
             avg = sum(stats['scores'])/len(stats['scores']) if stats['scores'] else 0
             chart_data.append({
                 'subject_id': col,
@@ -150,13 +165,13 @@ def perform_semantic_analysis(df):
 
     return {
         'total_students': len(students),
-        'average_sgpa': round(sum(s['sgpa'] for s in students)/len(students), 2) if students else 0, # Key matched with services.py
+        'average_sgpa': round(sum(s['sgpa'] for s in students)/len(students), 2) if students else 0,
         'overall_rank_list': rank_list,
         'subject_performance': chart_data,
-        'students_full': students # For drill-down
+        'students_full': students
     }
 
-# --- CORE VISION LOGIC (V10) ---
+# --- UNCHANGED HELPERS (V10) ---
 def get_words(page, source_type):
     words = []
     if source_type == "DIGITAL":
@@ -164,7 +179,6 @@ def get_words(page, source_type):
         for w in raw:
             words.append({'x': (w[0] + w[2]) / 2, 'y': (w[1] + w[3]) / 2, 'text': w[4]})
     else:
-        # Improved OCR handling: bytes instead of cv2 buffer
         pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
         img_bytes = pix.tobytes("png")
         results = ocr_reader.readtext(img_bytes, detail=1, paragraph=False)
@@ -236,41 +250,27 @@ def save_formatted_excel(df, original_filepath):
         os.makedirs(os.path.dirname(path), exist_ok=True)
         
         print(f"--- [Excel Writer] Saving Enhanced Report to: {path} ---")
-        
-        # Ensure No NaN values
         df = df.fillna("")
         
         with pd.ExcelWriter(path, engine='xlsxwriter') as writer:
             df.to_excel(writer, index=False, header=False, sheet_name='Result_Data')
             workbook = writer.book
             worksheet = writer.sheets['Result_Data']
-            
-            # --- STYLING ---
             fmt_text = workbook.add_format({'text_wrap': True, 'valign': 'top'})
-            fmt_fail = workbook.add_format({'text_wrap': True, 'font_color': '#9C0006', 'bg_color': '#FFC7CE'}) # Red for Fail
-            fmt_pass = workbook.add_format({'text_wrap': True, 'font_color': '#006100', 'bg_color': '#C6EFCE'}) # Green for Pass
+            fmt_fail = workbook.add_format({'text_wrap': True, 'font_color': '#9C0006', 'bg_color': '#FFC7CE'})
+            fmt_pass = workbook.add_format({'text_wrap': True, 'font_color': '#006100', 'bg_color': '#C6EFCE'})
             
-            # Auto-Fit & Conditional Formatting
             for idx, col in enumerate(df.columns):
                 max_len = 0
                 for r_idx, val in enumerate(df[col]):
                     val_str = str(val)
                     if len(val_str) > max_len: max_len = len(val_str)
-                    
-                    # Apply Conditional Formatting to cells
-                    if val_str == 'F':
-                        worksheet.write(r_idx, idx, val, fmt_fail)
-                    elif val_str in ['A+', 'O']:
-                        worksheet.write(r_idx, idx, val, fmt_pass)
-                    else:
-                        worksheet.write(r_idx, idx, val, fmt_text)
-                
+                    if val_str == 'F': worksheet.write(r_idx, idx, val, fmt_fail)
+                    elif val_str in ['A+', 'O']: worksheet.write(r_idx, idx, val, fmt_pass)
+                    else: worksheet.write(r_idx, idx, val, fmt_text)
                 width = min(max(max_len + 2, 10), 60)
                 worksheet.set_column(idx, idx, width)
-                
-            # Freeze First Column
             worksheet.freeze_panes(0, 1)
-            
         return os.path.join('docusense_reports', excel_name)
     except Exception as e:
         print(f"Excel Error: {e}")

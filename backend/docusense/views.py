@@ -3,85 +3,69 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework import permissions, status
+from django.http import HttpResponse, FileResponse
+import os
+from django.conf import settings
 from .models import AcademicDocument
 from .serializers import AcademicDocumentSerializer
 from .services import trigger_analysis_background
-from django.http import HttpResponse
-from .generators import generate_pdf_report
-
-
-
 
 class DocumentUploadView(APIView):
     permission_classes = [permissions.IsAuthenticated]
-    parser_classes = (MultiPartParser, FormParser) # Necessary for File Uploads
+    parser_classes = (MultiPartParser, FormParser)
 
     def get(self, request):
-        """ List all documents uploaded by the current user """
         docs = AcademicDocument.objects.filter(uploaded_by=request.user.profile).order_by('-upload_date')
         serializer = AcademicDocumentSerializer(docs, many=True)
         return Response(serializer.data)
 
     def post(self, request):
-        """ Upload and Trigger Analysis """
-        # 1. Validate File
         file_obj = request.FILES.get('file')
-        category = request.data.get('category', 'RESULT')
-        
         if not file_obj:
             return Response({"error": "No file provided"}, status=400)
 
-        # 2. Save to DB
         doc = AcademicDocument.objects.create(
             uploaded_by=request.user.profile,
             file=file_obj,
             filename=file_obj.name,
-            category=category,
             status='PENDING'
         )
-
-        # 3. Trigger the Service (Background)
+        
         trigger_analysis_background(doc.id)
-
-        # 4. Return Success
-        return Response(
-            AcademicDocumentSerializer(doc).data, 
-            status=status.HTTP_201_CREATED
-        )
+        return Response(AcademicDocumentSerializer(doc).data, status=status.HTTP_201_CREATED)
 
 class DocumentDetailView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, doc_id):
-        """ Poll this to check status (PENDING -> COMPLETED) """
         try:
             doc = AcademicDocument.objects.get(id=doc_id, uploaded_by=request.user.profile)
             return Response(AcademicDocumentSerializer(doc).data)
         except AcademicDocument.DoesNotExist:
             return Response({"error": "Document not found"}, status=404)
 
-
-
-class DocumentDownloadView(APIView):
+class ExcelDownloadView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, doc_id):
         try:
             doc = AcademicDocument.objects.get(id=doc_id, uploaded_by=request.user.profile)
             
-            if doc.status != 'COMPLETED':
-                return Response({"error": "Analysis not ready yet."}, status=400)
+            if not doc.analysis_data or 'excel_path' not in doc.analysis_data:
+                return Response({"error": "Excel not generated yet."}, status=400)
 
-            # Generate PDF
-            pdf_buffer = generate_pdf_report(doc)
-
-            # Return as File Response
-            filename = f"DocuSense_Report_{doc.id}.pdf"
-            response = HttpResponse(pdf_buffer, content_type='application/pdf')
-            response['Content-Disposition'] = f'attachment; filename="{filename}"'
-            return response
+            # Construct full path
+            relative_path = doc.analysis_data['excel_path']
+            full_path = os.path.join(settings.MEDIA_ROOT, relative_path)
+            
+            if os.path.exists(full_path):
+                f = open(full_path, 'rb')
+                response = FileResponse(f)
+                response['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                response['Content-Disposition'] = f'attachment; filename="{os.path.basename(full_path)}"'
+                return response
+            else:
+                return Response({"error": "File missing on server."}, status=404)
 
         except AcademicDocument.DoesNotExist:
             return Response({"error": "Document not found"}, status=404)
-        except Exception as e:
-            return Response({"error": str(e)}, status=500)

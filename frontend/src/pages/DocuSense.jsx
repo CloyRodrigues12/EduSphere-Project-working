@@ -8,7 +8,6 @@ import {
   Sparkles,
   Download,
   Cpu,
-  CheckCircle2,
   AlertTriangle,
 } from "lucide-react";
 import AnalysisModal from "../components/docusense/AnalysisModal";
@@ -54,6 +53,28 @@ const DocuSense = () => {
       alert("Upload failed");
     } finally {
       setUploading(false);
+    }
+  };
+
+  // --- NEW: Secure Download Handler ---
+  const handleDownload = async (docId, filename) => {
+    try {
+      const response = await axios.get(
+        `${import.meta.env.VITE_API_URL}/api/docusense/download/${docId}/`,
+        { responseType: "blob" } // Important for files
+      );
+
+      // Create Blob Link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      // Extract filename or use default
+      link.setAttribute("download", `${filename.split(".")[0]}_Report.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      alert("Download failed. File might not be ready.");
     }
   };
 
@@ -119,7 +140,6 @@ const DocuSense = () => {
 
             {documents.map((doc) => (
               <div key={doc.id} className="doc-row">
-                {/* 1. Icon State */}
                 <div className="doc-icon">
                   {doc.status === "PROCESSING" ? (
                     <Cpu className="spin-slow" />
@@ -130,7 +150,6 @@ const DocuSense = () => {
                   )}
                 </div>
 
-                {/* 2. Info / Progress */}
                 <div className="doc-info">
                   <div className="doc-name">{doc.filename}</div>
 
@@ -169,7 +188,6 @@ const DocuSense = () => {
                   )}
                 </div>
 
-                {/* 3. Actions */}
                 {doc.status === "COMPLETED" && (
                   <div style={{ display: "flex", gap: "10px" }}>
                     <button
@@ -179,10 +197,9 @@ const DocuSense = () => {
                     >
                       <BarChart2 size={18} />
                     </button>
-                    <a
-                      href={`${import.meta.env.VITE_API_URL}${
-                        doc.analysis_data?.excel_path
-                      }`}
+                    {/* DOWNLOAD BUTTON CALLS FUNCTION */}
+                    <button
+                      onClick={() => handleDownload(doc.id, doc.filename)}
                       className="upload-btn"
                       style={{
                         padding: "8px",
@@ -194,7 +211,7 @@ const DocuSense = () => {
                       }}
                     >
                       <Download size={18} />
-                    </a>
+                    </button>
                   </div>
                 )}
               </div>

@@ -1,10 +1,8 @@
-# backend/docusense/urls.py
 from django.urls import path
-from .views import DocumentUploadView, DocumentDetailView
-from .views import DocumentUploadView, DocumentDetailView, DocumentDownloadView
+from .views import DocumentUploadView, DocumentDetailView, ExcelDownloadView
 
 urlpatterns = [
-    path('upload/', DocumentUploadView.as_view(), name='doc_upload'),
-    path('status/<int:doc_id>/', DocumentDetailView.as_view(), name='doc_status'),
-    path('download/<int:doc_id>/', DocumentDownloadView.as_view(), name='doc_download'),
+    path('upload/', DocumentUploadView.as_view(), name='document-upload'),
+    path('status/<int:doc_id>/', DocumentDetailView.as_view(), name='document-detail'),
+    path('download/<int:doc_id>/', ExcelDownloadView.as_view(), name='document-download'),
 ]
