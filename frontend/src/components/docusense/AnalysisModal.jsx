@@ -27,7 +27,7 @@ const AnalysisModal = ({ doc, onClose }) => {
 
   const displayList = filterSubject
     ? full_data.filter((s) =>
-        s.subjects.some((sub) => sub.col === filterSubject)
+        s.subjects.some((sub) => sub.col === filterSubject),
       )
     : overall_rank_list;
 
@@ -164,15 +164,19 @@ const AnalysisModal = ({ doc, onClose }) => {
                   {displayList.slice(0, 100).map((s, i) => (
                     <tr key={i}>
                       <td>#{s.rank || i + 1}</td>
-                      <td>{s.seat_no}</td>
+                      <td>
+                        <div style={{ fontWeight: "bold" }}>{s.seat_no}</div>
+                        <div style={{ fontSize: "0.8rem", color: "#94a3b8" }}>
+                          {s.name || "Unknown"}
+                        </div>{" "}
+                        {/* Added Name */}
+                      </td>
                       <td>
                         {filterSubject ? (
                           <span style={{ fontWeight: "bold" }}>
-                            {
-                              s.subjects.find(
-                                (sub) => sub.col === filterSubject
-                              )?.val
-                            }
+                            {s.subjects.find((sub) =>
+                              sub.name.includes(filterSubject),
+                            )?.val || "-"}
                           </span>
                         ) : (
                           <span
@@ -184,16 +188,6 @@ const AnalysisModal = ({ doc, onClose }) => {
                       </td>
                     </tr>
                   ))}
-                  {displayList.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan="3"
-                        style={{ textAlign: "center", padding: "2rem" }}
-                      >
-                        No records found.
-                      </td>
-                    </tr>
-                  )}
                 </tbody>
               </table>
             </div>

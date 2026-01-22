@@ -5,19 +5,15 @@ import os
 import re
 import json
 import easyocr
-import time
 from collections import Counter
 from django.conf import settings
 
-print("--- [System] Initializing V20 Robust Engine... ---")
+print("--- [System] Initializing V23 Master Excel Engine... ---")
 ocr_reader = easyocr.Reader(['en'], gpu=True)
 
 def extract_data_smart_parser(file_path, progress_callback=None):
-    """
-    V20: Visual Grid with Robust Semantic Analysis.
-    """
     filename = os.path.basename(file_path)
-    if progress_callback: progress_callback(5, "Initializing AI Vision Engine...")
+    if progress_callback: progress_callback(5, "Initializing Vision...")
     
     doc = fitz.open(file_path)
     total_pages = len(doc)
@@ -29,162 +25,263 @@ def extract_data_smart_parser(file_path, progress_callback=None):
     # 1. Extraction
     for i, page in enumerate(doc):
         if progress_callback:
-            percent = 10 + int((i / total_pages) * 50)
+            percent = 10 + int((i / total_pages) * 40)
             progress_callback(percent, f"Scanning Page {i+1}/{total_pages} ({source_type})...")
         p_words = get_words(page, source_type)
-        clean_words = remove_ghost_text(p_words)
-        all_pages_words.append(clean_words)
+        p_words = remove_ghost_text(p_words)
+        all_pages_words.append(p_words)
 
-    # 2. Grid Discovery
-    if progress_callback: progress_callback(65, "Aligning Global Grid...")
+    # 2. Grid Alignment
+    if progress_callback: progress_callback(55, "Aligning Grid...")
     flat_words = [w for p in all_pages_words for w in p]
     master_columns = discover_global_columns(flat_words)
 
     # 3. Mapping
-    if progress_callback: progress_callback(75, "Mapping Data...")
+    if progress_callback: progress_callback(65, "Mapping Data...")
     all_rows = []
-    for clean_words in all_pages_words:
-        page_grid = map_to_master_grid(clean_words, master_columns)
-        all_rows.extend(page_grid)
+    for p_words in all_pages_words:
+        lines = cluster_words_into_lines(p_words)
+        for line in lines:
+            row_data = map_line_to_columns(line, master_columns)
+            all_rows.append(row_data)
         all_rows.append({}) 
 
-    # 4. DataFrame
-    df = pd.DataFrame(all_rows)
+    # 4. Raw Grid DataFrame
+    df_grid = pd.DataFrame(all_rows)
     for i in range(len(master_columns)):
         col_name = f"Col_{i}"
-        if col_name not in df.columns: df[col_name] = ""
-            
-    cols = sorted(list(df.columns), key=lambda x: int(x.split('_')[1]) if '_' in x else 999)
-    df = df[cols].fillna("")
+        if col_name not in df_grid.columns: df_grid[col_name] = ""
+    cols = sorted(list(df_grid.columns), key=lambda x: int(x.split('_')[1]) if '_' in x else 999)
+    df_grid = df_grid[cols].fillna("")
 
-    # 5. Save Excel
-    if progress_callback: progress_callback(85, "Generating Excel Report...")
-    excel_path = save_formatted_excel(df, file_path)
-    
-    # 6. Analysis (FIXED)
-    if progress_callback: progress_callback(90, "Analyzing Performance...")
-    analytics = perform_semantic_analysis(df)
-    
-    return df, excel_path, analytics
+    # 5. Semantic Analysis (Extracts Name, Seat, SGPA, Subjects)
+    if progress_callback: progress_callback(80, "Analyzing & Structuring Data...")
+    analytics = perform_semantic_analysis(df_grid)
 
-# --- FIXED SEMANTIC ANALYSIS ---
+    # 6. Generate Master Excel
+    if progress_callback: progress_callback(90, "Generating Master Report...")
+    excel_path = save_master_excel(analytics['students_full'], file_path)
+    
+    return df_grid, excel_path, analytics
+
 def perform_semantic_analysis(df):
-    """
-    Robustly extracts Seat Nos and Marks even if mixed with text.
-    """
     students = []
+    current_student = None
     subject_stats = {} 
 
-    # Regex Compilations
+    # Regex
     seat_label_pat = re.compile(r"Seat\s*N[o0][:.\-\s]*(\d{5,6})", re.IGNORECASE)
+    # Name pattern: Look for "Name:" followed by uppercase words
+    name_label_pat = re.compile(r"Name[:\s]*([A-Z\s.]+)", re.IGNORECASE)
     sgpa_label_pat = re.compile(r"SGPA[:\s]*(\d+\.\d+)", re.IGNORECASE)
-    strict_digit_pat = re.compile(r"^\d{1,3}$") # Marks 0-999
+    mark_clean_pat = re.compile(r"(\d{1,3})") 
 
     for idx, row in df.iterrows():
-        # Scan row for Seat Number
-        seat_no = None
-        sgpa = 0.0
+        row_values = [str(v).strip() for v in row.values if str(v).strip()]
+        row_str = " ".join(row_values)
         
-        # Convert row to string to search for labels
-        row_str = " ".join([str(v) for v in row.values])
+        # 1. DETECT NEW STUDENT
+        seat_match = seat_label_pat.search(row_str)
+        new_seat_no = None
+        new_name = "Unknown"
         
-        # 1. Try finding "Seat No: 12345" label
-        m_seat = seat_label_pat.search(row_str)
-        if m_seat:
-            seat_no = m_seat.group(1)
-        else:
-            # 2. Fallback: Look for standalone 5-digit number in first few columns
-            for val in row.values[:5]:
-                s_val = str(val).strip()
-                if s_val.isdigit() and len(s_val) == 5:
-                    seat_no = s_val
-                    break
+        if seat_match:
+            new_seat_no = seat_match.group(1)
+            # Try to extract Name from the same line
+            name_match = name_label_pat.search(row_str)
+            if name_match:
+                new_name = name_match.group(1).strip()
+            else:
+                # Heuristic: Text after seat no might be name
+                # E.g. "Seat No: 12345 Name: JOHN DOE"
+                parts = row_str.split("Name")
+                if len(parts) > 1:
+                    new_name = parts[1].split("PR")[0].strip().strip(":").strip() # Cleanup
         
-        if not seat_no: continue # Skip row if no seat found
+        # Fallback for Ledger (Seat No is first digit)
+        elif row_values and row_values[0].isdigit() and len(row_values[0]) >= 5:
+             if not current_student:
+                 new_seat_no = row_values[0]
+                 if len(row_values) > 1:
+                     new_name = row_values[1] # Name is usually next to seat no
 
-        # 3. Find SGPA
-        m_sgpa = sgpa_label_pat.search(row_str)
-        if m_sgpa:
-            try: sgpa = float(m_sgpa.group(1))
+        if new_seat_no:
+            if current_student: students.append(current_student)
+            current_student = {
+                'seat_no': new_seat_no, 
+                'name': new_name,
+                'sgpa': 0.0, 
+                'subjects': []
+            }
+
+        if not current_student: continue
+
+        # 2. CAPTURE SGPA
+        sgpa_match = sgpa_label_pat.search(row_str)
+        if sgpa_match:
+            try: current_student['sgpa'] = float(sgpa_match.group(1))
             except: pass
-        
-        # 4. Extract Subjects / Marks
-        student_subjects = []
-        for col in df.columns:
-            val = str(row[col]).strip()
-            # Skip the seat number itself
-            if val == seat_no: continue
-            
-            # Check if value is a Mark or Grade
-            is_mark = False
-            
-            # Is it a Grade?
-            if val in ['O', 'A+', 'A', 'B+', 'B', 'C', 'P', 'F', 'Ab']:
-                is_mark = True
-            # Is it a Number (0-100)?
-            elif strict_digit_pat.match(val):
-                if int(val) <= 100: is_mark = True
-                
-            if is_mark:
-                # Add to record
-                student_subjects.append({'col': col, 'val': val})
-                
-                # Stats
-                if col not in subject_stats: 
-                    subject_stats[col] = {'pass':0, 'fail':0, 'scores':[]}
-                
-                if val in ['F', 'Ab'] or (val.isdigit() and int(val) < 40): # Assuming <40 is fail roughly
-                    subject_stats[col]['fail'] += 1
-                else:
-                    subject_stats[col]['pass'] += 1
-                    if val.isdigit(): subject_stats[col]['scores'].append(int(val))
+        elif current_student['sgpa'] == 0.0:
+            for v in row_values:
+                if re.match(r"^[0-9]\.\d{2}$", v):
+                    try: current_student['sgpa'] = float(v)
+                    except: pass
 
-        students.append({
-            'seat_no': seat_no,
-            'sgpa': sgpa,
-            'subjects': student_subjects
-        })
+        # 3. CAPTURE MARKS
+        potential_sub_name = "Unknown Subject"
+        longest_text = ""
+        for v in row_values:
+            if len(v) > 3 and not re.search(r"\d", v) and "Seat" not in v and "SGPA" not in v:
+                if len(v) > len(longest_text): longest_text = v
+        if longest_text: potential_sub_name = longest_text
 
-    # Rank List
+        for col_name in df.columns:
+            raw_val = str(row[col_name]).strip()
+            if not raw_val or raw_val == current_student['seat_no']: continue
+            
+            clean_val = raw_val.replace(" P", "").replace(" F", "").replace("#", "").replace("*", "").strip()
+            is_valid_mark = False
+            mark_value = 0
+            
+            if raw_val in ['O', 'A+', 'A', 'B+', 'B', 'C', 'P', 'F', 'Ab']:
+                is_valid_mark = True
+            elif clean_val.isdigit():
+                m = int(clean_val)
+                if m <= 150:
+                    is_valid_mark = True
+                    mark_value = m
+
+            if is_valid_mark:
+                sub_key = potential_sub_name if potential_sub_name != "Unknown Subject" else f"Col_{col_name}"
+                
+                exists = False
+                for s in current_student['subjects']:
+                    if s['col'] == col_name and s['val'] == raw_val: exists = True
+                
+                if not exists:
+                    current_student['subjects'].append({
+                        'col': col_name,
+                        'name': sub_key,
+                        'val': raw_val
+                    })
+                    
+                    if sub_key not in subject_stats:
+                        subject_stats[sub_key] = {'pass':0, 'fail':0, 'scores':[]}
+                    
+                    if raw_val in ['F', 'Ab'] or (mark_value > 0 and mark_value < 35):
+                        subject_stats[sub_key]['fail'] += 1
+                    else:
+                        subject_stats[sub_key]['pass'] += 1
+                        if mark_value > 0: subject_stats[sub_key]['scores'].append(mark_value)
+
+    if current_student: students.append(current_student)
+
     students.sort(key=lambda x: x['sgpa'], reverse=True)
-    rank_list = [{"rank": i+1, "seat_no": s['seat_no'], "sgpa": s['sgpa']} for i, s in enumerate(students[:20])]
+    rank_list = [{"rank": i+1, "seat_no": s['seat_no'], "name": s['name'], "sgpa": s['sgpa']} for i, s in enumerate(students[:50])]
 
-    # Chart Data
     chart_data = []
-    for col, stats in subject_stats.items():
-        total = stats['pass'] + stats['fail']
-        if total > 5: # Ignore noise columns
+    for sub_name, stats in subject_stats.items():
+        if stats['pass'] + stats['fail'] > 5:
             avg = sum(stats['scores'])/len(stats['scores']) if stats['scores'] else 0
             chart_data.append({
-                'subject_id': col,
+                'subject_id': sub_name,
                 'pass': stats['pass'],
                 'fail': stats['fail'],
                 'avg': round(avg, 2),
                 'top_score': max(stats['scores']) if stats['scores'] else 0
             })
 
+    avg_sgpa = 0
+    valid_sgpa = [s['sgpa'] for s in students if s['sgpa'] > 0]
+    if valid_sgpa: avg_sgpa = round(sum(valid_sgpa)/len(valid_sgpa), 2)
+
     return {
         'total_students': len(students),
-        'average_sgpa': round(sum(s['sgpa'] for s in students)/len(students), 2) if students else 0,
+        'average_sgpa': avg_sgpa,
         'overall_rank_list': rank_list,
         'subject_performance': chart_data,
         'students_full': students
     }
 
-# --- UNCHANGED HELPERS (V10) ---
+def save_master_excel(students_data, original_filepath):
+    """
+    Creates a clean, structured Excel:
+    | Seat No | Name | SGPA | Subject 1 | Subject 2 | ... |
+    """
+    try:
+        filename = os.path.basename(original_filepath)
+        safe_name = os.path.splitext(filename)[0]
+        excel_name = f"{safe_name}_MASTER.xlsx"
+        path = os.path.join(settings.MEDIA_ROOT, 'docusense_reports', excel_name)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        
+        # 1. Collect all unique subject names
+        all_subjects = set()
+        for s in students_data:
+            for sub in s['subjects']:
+                all_subjects.add(sub['name'])
+        
+        sorted_subjects = sorted(list(all_subjects))
+        
+        # 2. Build rows
+        excel_rows = []
+        for s in students_data:
+            row = {
+                "Seat Number": s['seat_no'],
+                "Student Name": s['name'],
+                "SGPA": s['sgpa']
+            }
+            # Fill subjects
+            for sub in s['subjects']:
+                row[sub['name']] = sub['val']
+            excel_rows.append(row)
+            
+        df = pd.DataFrame(excel_rows)
+        
+        # Ensure columns order
+        cols = ["Seat Number", "Student Name", "SGPA"] + sorted_subjects
+        # Add missing columns if any (pandas does this but good to be explicit)
+        for c in cols:
+            if c not in df.columns: df[c] = ""
+        df = df[cols]
+
+        print(f"--- [Excel Writer] Saving Master Report to: {path} ---")
+        
+        with pd.ExcelWriter(path, engine='xlsxwriter') as writer:
+            df.to_excel(writer, index=False, sheet_name='Master_Data')
+            worksheet = writer.sheets['Master_Data']
+            
+            # Styling
+            header_fmt = writer.book.add_format({'bold': True, 'bg_color': '#DCE6F1', 'border': 1})
+            for col_num, value in enumerate(df.columns.values):
+                worksheet.write(0, col_num, value, header_fmt)
+                worksheet.set_column(col_num, col_num, 15)
+                
+            worksheet.set_column(1, 1, 25) # Wider Name column
+            worksheet.freeze_panes(1, 2) # Freeze Name & Seat
+            
+        return os.path.join('docusense_reports', excel_name)
+        
+    except Exception as e:
+        print(f"Master Excel Error: {e}")
+        return None
+
+# --- HELPERS (Unchanged) ---
 def get_words(page, source_type):
     words = []
     if source_type == "DIGITAL":
         raw = page.get_text("words")
         for w in raw:
-            words.append({'x': (w[0] + w[2]) / 2, 'y': (w[1] + w[3]) / 2, 'text': w[4]})
+            words.append({'x': (w[0]+w[2])/2, 'y': (w[1]+w[3])/2, 'text': w[4], 'x0': w[0], 'x1': w[2], 'y0': w[1], 'y1': w[3]})
     else:
         pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
         img_bytes = pix.tobytes("png")
         results = ocr_reader.readtext(img_bytes, detail=1, paragraph=False)
         for (bbox, text, conf) in results:
             if conf < 0.3: continue
-            words.append({'x': (bbox[0][0] + bbox[1][0]) / 4, 'y': (bbox[0][1] + bbox[2][1]) / 4, 'text': text})
+            x0, y0 = bbox[0][0]/2, bbox[0][1]/2
+            x1, y1 = bbox[2][0]/2, bbox[2][1]/2
+            words.append({'x': (x0+x1)/2, 'y': (y0+y1)/2, 'text': text, 'x0': x0, 'x1': x1, 'y0': y0, 'y1': y1})
     return words
 
 def remove_ghost_text(words):
@@ -195,7 +292,7 @@ def remove_ghost_text(words):
     unique.append(prev)
     for curr in words[1:]:
         dist = abs(curr['x'] - prev['x']) + abs(curr['y'] - prev['y'])
-        if curr['text'] == prev['text'] and dist < 5: continue 
+        if curr['text'] == prev['text'] and dist < 5: continue
         unique.append(curr)
         prev = curr
     return unique
@@ -205,73 +302,57 @@ def discover_global_columns(all_words):
     x_coords = [w['x'] for w in all_words]
     bins = [round(x/5)*5 for x in x_coords]
     counts = Counter(bins)
-    threshold = len(all_words) * 0.005
+    threshold = len(all_words) * 0.002
     valid_peaks = sorted([x for x, c in counts.items() if c > threshold])
     if not valid_peaks: return [0]
-    merged_cols = []
+    merged = []
     curr = valid_peaks[0]
     for next_p in valid_peaks[1:]:
         if next_p - curr > 25:
-            merged_cols.append(curr)
+            merged.append(curr)
             curr = next_p
         else:
             curr = (curr + next_p) / 2
-    merged_cols.append(curr)
-    return sorted(merged_cols)
+    merged.append(curr)
+    return sorted(merged)
 
-def map_to_master_grid(words, master_columns):
+def cluster_words_into_lines(words):
     if not words: return []
-    rows = {}
-    for w in words:
-        y_bucket = round(w['y'] / 10) * 10
-        if y_bucket not in rows: rows[y_bucket] = []
-        rows[y_bucket].append(w)
-    sorted_y = sorted(rows.keys())
-    grid_rows = []
-    for y in sorted_y:
-        row_words = rows[y]
-        row_words.sort(key=lambda w: w['x'])
-        row_data = {}
-        for w in row_words:
-            distances = [abs(w['x'] - col_x) for col_x in master_columns]
-            nearest_idx = distances.index(min(distances))
-            col_key = f"Col_{nearest_idx}"
-            if col_key in row_data: row_data[col_key] += " " + w['text']
-            else: row_data[col_key] = w['text']
-        grid_rows.append(row_data)
-    return grid_rows
+    words.sort(key=lambda w: w['y0'])
+    lines = []
+    current_line = [words[0]]
+    for w in words[1:]:
+        ref = current_line[-1]
+        overlap = min(ref['y1'], w['y1']) - max(ref['y0'], w['y0'])
+        if overlap > (ref['y1']-ref['y0']) * 0.4:
+            current_line.append(w)
+        else:
+            lines.append(current_line)
+            current_line = [w]
+    lines.append(current_line)
+    return lines
+
+def map_line_to_columns(line_words, columns):
+    row_data = {}
+    line_words.sort(key=lambda w: w['x0'])
+    for w in line_words:
+        distances = [abs(w['x'] - col_x) for col_x in columns]
+        if not distances: continue
+        nearest_idx = distances.index(min(distances))
+        col_key = f"Col_{nearest_idx}"
+        if col_key in row_data: row_data[col_key] += " " + w['text']
+        else: row_data[col_key] = w['text']
+    return row_data
 
 def save_formatted_excel(df, original_filepath):
+    # (Kept for compatibility, but Master Excel is superior)
     try:
         filename = os.path.basename(original_filepath)
         safe_name = os.path.splitext(filename)[0]
         excel_name = f"{safe_name}_REPLICA.xlsx"
         path = os.path.join(settings.MEDIA_ROOT, 'docusense_reports', excel_name)
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        
-        print(f"--- [Excel Writer] Saving Enhanced Report to: {path} ---")
-        df = df.fillna("")
-        
         with pd.ExcelWriter(path, engine='xlsxwriter') as writer:
             df.to_excel(writer, index=False, header=False, sheet_name='Result_Data')
-            workbook = writer.book
-            worksheet = writer.sheets['Result_Data']
-            fmt_text = workbook.add_format({'text_wrap': True, 'valign': 'top'})
-            fmt_fail = workbook.add_format({'text_wrap': True, 'font_color': '#9C0006', 'bg_color': '#FFC7CE'})
-            fmt_pass = workbook.add_format({'text_wrap': True, 'font_color': '#006100', 'bg_color': '#C6EFCE'})
-            
-            for idx, col in enumerate(df.columns):
-                max_len = 0
-                for r_idx, val in enumerate(df[col]):
-                    val_str = str(val)
-                    if len(val_str) > max_len: max_len = len(val_str)
-                    if val_str == 'F': worksheet.write(r_idx, idx, val, fmt_fail)
-                    elif val_str in ['A+', 'O']: worksheet.write(r_idx, idx, val, fmt_pass)
-                    else: worksheet.write(r_idx, idx, val, fmt_text)
-                width = min(max(max_len + 2, 10), 60)
-                worksheet.set_column(idx, idx, width)
-            worksheet.freeze_panes(0, 1)
         return os.path.join('docusense_reports', excel_name)
-    except Exception as e:
-        print(f"Excel Error: {e}")
-        return None
+    except: return None
