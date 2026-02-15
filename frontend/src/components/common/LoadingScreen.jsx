@@ -28,7 +28,7 @@ const LoadingScreen = ({ message = "Initializing EduSphere..." }) => {
           justify-content: center;
           z-index: 9999;
           
-          /* 1. TRANSPARENT Background (White/Black with low opacity) */
+          
           background-color: rgba(255, 255, 255, 0.1); 
           
           /* 2. BLUR EFFECT (Frosted Look) */
@@ -38,7 +38,7 @@ const LoadingScreen = ({ message = "Initializing EduSphere..." }) => {
           transition: all 0.4s ease;
         }
 
-        /* Dark Mode Adjustment for Transparency */
+        
         [data-theme="dark"] .loading-container {
           background-color: rgba(0, 0, 0, 0.2); /* Darker tint for dark mode */
         }
@@ -50,7 +50,7 @@ const LoadingScreen = ({ message = "Initializing EduSphere..." }) => {
           gap: 2rem;
         }
 
-        /* --- TECH SPINNER (Clean & Minimal) --- */
+        /* --- TECH SPINNER --- */
         .tech-spinner {
           position: relative;
           width: 70px;
@@ -93,12 +93,12 @@ const LoadingScreen = ({ message = "Initializing EduSphere..." }) => {
         }
 
         .loading-text {
-          color: var(--text-primary); /* Uses main text color */
+          color: var(--text-primary);
           font-weight: 500;
           font-size: 0.95rem;
           letter-spacing: 0.5px;
           margin: 0;
-          text-shadow: 0 2px 10px rgba(0,0,0,0.1); /* Subtle shadow for readability */
+          text-shadow: 0 2px 10px rgba(0,0,0,0.1); 
           animation: fade 2s ease-in-out infinite;
         }
 

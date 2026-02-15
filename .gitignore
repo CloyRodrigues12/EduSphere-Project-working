@@ -14,3 +14,6 @@ build/
 
 docusense_uploads/
 docusense_reports/
+pdf_toTrain/
+training_dataset/
+ocr_env/
