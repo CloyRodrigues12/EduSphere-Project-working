@@ -7,6 +7,7 @@ from core.views import GoogleLogin, SetupOrganizationView
 from core.views import GoogleLogin, SetupOrganizationView, StaffManagementView
 from core.views import GoogleLogin, SetupOrganizationView, StaffManagementView, CurrentUserView
 from django.urls import path, include
+from core.views import StudentUploadView
 
 def password_reset_redirect(request, uidb64, token):
     # This takes the tokens from the email link and sends the user to React (port 5173)
@@ -41,5 +42,7 @@ urlpatterns = [
     #DocuSense Routes
     path('api/docusense/', include('docusense.urls')),
 
+    
+path('api/upload/students/', StudentUploadView.as_view(), name='upload-students'),
 
 ]

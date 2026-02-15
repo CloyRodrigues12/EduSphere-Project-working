@@ -4,7 +4,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-
+from django.conf import settings
 # --- 1. The SaaS Hierarchy ---
 
 class Organization(models.Model):
@@ -76,3 +76,45 @@ def ensure_profile_exists(sender, instance, created, **kwargs):
         instance.profile.save()
     else:
         UserProfile.objects.create(user=instance)
+
+
+
+#---------------------------------uploadmodule=------------------
+class Student(models.Model):
+    # Link to the Organization (SaaS Security)
+    organization = models.ForeignKey('Organization', on_delete=models.CASCADE)
+    department = models.ForeignKey('Department', on_delete=models.CASCADE, null=True, blank=True)
+    
+    # Identifiers
+    roll_number = models.CharField(max_length=50)  # "ROLL NO"
+    enrollment_number = models.CharField(max_length=50, unique=True) # "ENROLLMENT NO"
+    aic_id = models.CharField(max_length=50, null=True, blank=True) # "AIC ID"
+    aadhar_number = models.CharField(max_length=20, null=True, blank=True) # "AADHAR NO"
+    
+    # Personal Info
+    full_name = models.CharField(max_length=255) # "NAME OF THE STUDENT"
+    name_on_aadhar = models.CharField(max_length=255, null=True, blank=True) # "NAME AS PER AADHAR CARD"
+    dob = models.DateField(null=True, blank=True) # "DOB"
+    gender = models.CharField(max_length=10, choices=[('Male', 'Male'), ('Female', 'Female'), ('Other', 'Other')]) # "GENDER"
+    mobile_number = models.CharField(max_length=15, null=True, blank=True) # "MOBILE NO"
+    
+    # Academic Context
+    academic_year = models.CharField(max_length=20) # e.g., "2025-2026"
+    current_semester = models.IntegerField(default=1) 
+    
+    # Meta
+    signature_status = models.CharField(max_length=100, null=True, blank=True) # "SIGN"
+    remarks = models.TextField(null=True, blank=True) # "REMARK"
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('organization', 'enrollment_number')
+        indexes = [
+            models.Index(fields=['enrollment_number']),
+            models.Index(fields=['roll_number']),
+        ]
+
+    def __str__(self):
+        return f"{self.roll_number} - {self.full_name}"

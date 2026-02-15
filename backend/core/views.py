@@ -7,6 +7,12 @@ from dj_rest_auth.registration.views import SocialLoginView
 from django.contrib.auth.models import User
 import traceback
 from core.models import Organization, UserProfile 
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework import status
+from core.ingestion.ecs_pipeline.students import StudentIngestionService
+from core.models import Department
 
 from django.core.mail import send_mail
 from django.conf import settings
@@ -329,3 +335,39 @@ class CurrentUserView(APIView):
             "org_type": org.type if org else "Institute",
             "is_setup_complete": profile.is_setup_complete
         })
+    
+
+class StudentUploadView(APIView):
+    parser_classes = (MultiPartParser, FormParser)
+
+    def post(self, request, *args, **kwargs):
+        file_obj = request.FILES.get('file')
+        academic_year = request.data.get('academic_year')
+        semester = request.data.get('semester') # Optional for Students, but good for context
+        
+        if not file_obj:
+            return Response({"error": "No file uploaded"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Get User's Context
+        organization = request.user.userprofile.organization
+        
+        # Determine Department (ECS logic vs Generic)
+        # For now, we assume the user's department
+        department = request.user.userprofile.department
+
+        # Initialize Service
+        service = StudentIngestionService(
+            file=file_obj,
+            organization=organization,
+            department=department,
+            academic_year=academic_year,
+            semester=semester
+        )
+        
+        # Run Process
+        result = service.process()
+        
+        if result['status'] == 'error':
+             return Response(result, status=status.HTTP_400_BAD_REQUEST)
+             
+        return Response(result, status=status.HTTP_201_CREATED)

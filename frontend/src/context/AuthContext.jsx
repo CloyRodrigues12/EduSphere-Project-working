@@ -24,7 +24,7 @@ export const AuthProvider = ({ children }) => {
         }
         return config;
       },
-      (error) => Promise.reject(error)
+      (error) => Promise.reject(error),
     );
 
     // 2. Response Interceptor: Handle 401 Token Expiry
@@ -46,7 +46,7 @@ export const AuthProvider = ({ children }) => {
             const refreshToken = localStorage.getItem("refresh_token");
             const res = await axios.post(
               `${import.meta.env.VITE_API_URL}/api/auth/token/refresh/`,
-              { refresh: refreshToken }
+              { refresh: refreshToken },
             );
 
             // Save new tokens
@@ -62,7 +62,7 @@ export const AuthProvider = ({ children }) => {
           }
         }
         return Promise.reject(error);
-      }
+      },
     );
 
     // Cleanup interceptors on unmount
@@ -92,7 +92,7 @@ export const AuthProvider = ({ children }) => {
         if (token) {
           try {
             const res = await axios.get(
-              `${import.meta.env.VITE_API_URL}/api/user/me/`
+              `${import.meta.env.VITE_API_URL}/api/user/me/`,
             );
             setUser(res.data);
             handleRedirect(res.data);
@@ -133,7 +133,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const res = await axios.post(
         `${import.meta.env.VITE_API_URL}/api/auth/google/`,
-        { access_token: googleData.access_token }
+        { access_token: googleData.access_token },
       );
       handleAuthResponse(res);
       return { success: true };
@@ -146,7 +146,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const res = await axios.post(
         `${import.meta.env.VITE_API_URL}/api/auth/login/`,
-        { email, password }
+        { email, password },
       );
       handleAuthResponse(res);
       return { success: true };
@@ -178,7 +178,7 @@ export const AuthProvider = ({ children }) => {
           password2: password,
           first_name: firstName,
           last_name: lastName,
-        }
+        },
       );
 
       handleAuthResponse(res);
@@ -192,7 +192,7 @@ export const AuthProvider = ({ children }) => {
     try {
       await axios.post(
         `${import.meta.env.VITE_API_URL}/api/auth/password/reset/`,
-        { email }
+        { email },
       );
       return { success: true };
     } catch (error) {
@@ -209,7 +209,7 @@ export const AuthProvider = ({ children }) => {
           token,
           new_password1: newPassword,
           new_password2: newPassword,
-        }
+        },
       );
       return { success: true };
     } catch (error) {

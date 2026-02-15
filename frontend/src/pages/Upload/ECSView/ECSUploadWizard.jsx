@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import {
   ChevronUp,
   ChevronDown,
@@ -9,11 +9,21 @@ import {
   Receipt,
   Info,
   Sparkles,
+  Loader2,
+  CheckCircle,
+  XCircle,
 } from "lucide-react";
+import AuthContext from "../../../context/AuthContext";
 import "./ECSUploadWizard.css";
 
 const ECSUploadWizard = () => {
+  const { authTokens } = useContext(AuthContext); // Get JWT Token
   const [isDragging, setIsDragging] = useState(false);
+
+  // New States for API Interaction
+  const [status, setStatus] = useState("IDLE"); // IDLE, UPLOADING, SUCCESS, ERROR
+  const [feedback, setFeedback] = useState(null); // Server response data
+
   const [context, setContext] = useState({
     category: "STUDENTS",
     startYear: 2025,
@@ -36,7 +46,7 @@ const ECSUploadWizard = () => {
       "Third Year (TE)",
       "Fourth Year (BE)",
     ];
-    return labels[Math.floor((sem - 1) / 2)];
+    return labels[Math.floor((sem - 1) / 2)] || "Unknown";
   };
 
   const adjustYear = (amount) => {
@@ -47,17 +57,74 @@ const ECSUploadWizard = () => {
     }));
   };
 
+  // --- API LOGIC START ---
+  const handleFileSelect = async (e) => {
+    const file = e.target.files[0];
+    if (file) await processUpload(file);
+  };
+
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) await processUpload(file);
+  };
+
+  const processUpload = async (file) => {
+    setStatus("UPLOADING");
+    setFeedback(null);
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("category", context.category);
+    formData.append("academic_year", `${context.startYear}-${context.endYear}`);
+    if (context.semester) formData.append("semester", context.semester);
+
+    try {
+      // Dynamic Endpoint Selection
+      let endpoint = "http://127.0.0.1:8000/api/upload/students/";
+      if (context.category === "RESULTS")
+        endpoint = "http://127.0.0.1:8000/api/upload/results/";
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${authTokens?.access}`,
+        },
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setStatus("SUCCESS");
+        setFeedback(data);
+      } else {
+        setStatus("ERROR");
+        setFeedback({
+          message: data.message || "Upload failed. Check file format.",
+        });
+      }
+    } catch (error) {
+      console.error(error);
+      setStatus("ERROR");
+      setFeedback({ message: "Network Error: Could not reach backend." });
+    }
+  };
+  // --- API LOGIC END ---
+
   return (
     <div className="ecs-page-container fade-in">
       <div className="ecs-main-layout">
-        {/* LEFT: CONFIGURATION PANEL (420px) */}
+        {/* LEFT: CONFIGURATION PANEL */}
         <div className="ecs-config-side d_glass-panel">
           <div className="config-header">
             <div className="header-icon-bg">
-              <Sparkles size={18} />
+              <Sparkles size={18} className="text-primary" />
             </div>
             <div>
-              <h2 className="text-primary">Data Injection</h2>
+              <h2 className="text-primary">ECS Injection</h2>
+              <p className="text-secondary">Departmental Data Pipeline</p>
             </div>
           </div>
 
@@ -68,7 +135,10 @@ const ECSUploadWizard = () => {
                 <div
                   key={cat.id}
                   className={`category-item ${context.category === cat.id ? "active" : ""}`}
-                  onClick={() => setContext({ ...context, category: cat.id })}
+                  onClick={() => {
+                    setContext({ ...context, category: cat.id });
+                    setStatus("IDLE");
+                  }}
                   style={{ "--item-color": cat.color }}
                 >
                   <div className="cat-icon-box">
@@ -84,20 +154,21 @@ const ECSUploadWizard = () => {
             <label className="section-label">2. Academic Year</label>
             <div className="elegant-year-card">
               <div className="year-info">
+                <span className="year-tag">Session Period</span>
                 <span className="year-value">
                   {context.startYear} — {context.endYear}
                 </span>
               </div>
               <div className="year-stepper-engine">
                 <button className="step-btn up" onClick={() => adjustYear(1)}>
-                  <ChevronUp size={15} />
+                  <ChevronUp size={20} />
                 </button>
                 <div className="step-divider" />
                 <button
                   className="step-btn down"
                   onClick={() => adjustYear(-1)}
                 >
-                  <ChevronDown size={15} />
+                  <ChevronDown size={20} />
                 </button>
               </div>
             </div>
@@ -126,48 +197,108 @@ const ECSUploadWizard = () => {
           )}
         </div>
 
-        {/* RIGHT: COMPACT UPLOAD AREA */}
+        {/* RIGHT: ACTION ZONE (Dynamic States) */}
         <div className="ecs-upload-side">
-          <div
-            className={`compact-glass-dropzone d_glass-panel ${isDragging ? "dragging" : ""}`}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setIsDragging(true);
-            }}
-            onDragLeave={() => setIsDragging(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setIsDragging(false);
-            }}
-          >
-            <div className="dropzone-core">
-              <div className="visual-feedback">
-                <CloudUpload size={52} className="main-upload-icon" />
-              </div>
+          {/* STATE: IDLE */}
+          {status === "IDLE" && (
+            <div
+              className={`compact-glass-dropzone d_glass-panel ${isDragging ? "dragging" : ""}`}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDragging(true);
+              }}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={handleDrop}
+            >
+              <div className="dropzone-core">
+                <div className="visual-feedback">
+                  <div className="glow-effect"></div>
+                  <CloudUpload size={54} className="main-upload-icon" />
+                </div>
 
-              {/* 🔹 Dynamic context preview INSIDE card */}
-              <div className="dropzone-context">
-                <span className="context-chip">{context.category}</span>
-                <span className="context-chip">
-                  {context.startYear}-{context.endYear}
-                </span>
-                {context.semester && (
-                  <span className="context-chip solid">
-                    Sem {context.semester}
-                  </span>
+                <div className="selection-preview">
+                  <h3>{context.category} Module</h3>
+                  <div className="preview-badges">
+                    <span className="badge-outline">
+                      {context.startYear}-{context.endYear}
+                    </span>
+                    {context.semester && (
+                      <span className="badge-solid">S{context.semester}</span>
+                    )}
+                  </div>
+                </div>
+
+                <p className="upload-text text-secondary">
+                  Drag & Drop your Excel file here
+                </p>
+                <label htmlFor="file-input" className="upload-action-btn">
+                  Browse Files
+                </label>
+                <input
+                  type="file"
+                  id="file-input"
+                  hidden
+                  onChange={handleFileSelect}
+                />
+              </div>
+              <div className="dropzone-footer">
+                <Info size={14} />
+                <span>ECS Pre-mapped Pipeline Active</span>
+              </div>
+            </div>
+          )}
+
+          {/* STATE: UPLOADING */}
+          {status === "UPLOADING" && (
+            <div className="compact-glass-dropzone d_glass-panel">
+              <Loader2 size={64} className="animate-spin text-primary" />
+              <h3 style={{ marginTop: "20px", color: "var(--text-primary)" }}>
+                Injecting Data...
+              </h3>
+              <p className="text-secondary">Validating against ECS Schema</p>
+            </div>
+          )}
+
+          {/* STATE: SUCCESS */}
+          {status === "SUCCESS" && (
+            <div className="compact-glass-dropzone d_glass-panel border-green">
+              <CheckCircle size={64} color="#10b981" />
+              <h3 className="success-text">Ingestion Complete</h3>
+              <div className="stats-box">
+                <p>
+                  <strong>{feedback?.processed || 0}</strong> Records Processed
+                </p>
+                {feedback?.errors?.length > 0 ? (
+                  <p className="text-warning">
+                    {feedback.errors.length} Rows Skipped
+                  </p>
+                ) : (
+                  <p className="text-secondary">No Errors Found</p>
                 )}
               </div>
-
-              <p className="upload-text">Drag & Drop your Excel file here</p>
-
-              <label htmlFor="file-input" className="upload-action-btn">
-                Browse Files
-              </label>
-              <input type="file" id="file-input" hidden />
-
-              <span className="upload-hint">Supports .xls, .xlsx</span>
+              <button
+                className="upload-action-btn"
+                onClick={() => setStatus("IDLE")}
+              >
+                Upload Another
+              </button>
             </div>
-          </div>
+          )}
+
+          {/* STATE: ERROR */}
+          {status === "ERROR" && (
+            <div className="compact-glass-dropzone d_glass-panel border-red">
+              <XCircle size={64} color="#ef4444" />
+              <h3 className="error-text">Upload Failed</h3>
+              <p className="error-msg">{feedback?.message}</p>
+              <button
+                className="upload-action-btn"
+                onClick={() => setStatus("IDLE")}
+              >
+                Try Again
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
