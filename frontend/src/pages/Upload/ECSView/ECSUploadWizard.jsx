@@ -1,7 +1,5 @@
-import React, { useState, useContext } from "react";
+import React, { useState } from "react";
 import {
-  ChevronUp,
-  ChevronDown,
   CloudUpload,
   Users,
   FileText,
@@ -12,24 +10,33 @@ import {
   Loader2,
   CheckCircle,
   XCircle,
+  AlertTriangle,
+  ArrowRight,
+  Table,
+  X,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
-import AuthContext from "../../../context/AuthContext";
 import "./ECSUploadWizard.css";
 
 const ECSUploadWizard = () => {
-  const { authTokens } = useContext(AuthContext); // Get JWT Token
-  const [isDragging, setIsDragging] = useState(false);
-
-  // New States for API Interaction
-  const [status, setStatus] = useState("IDLE"); // IDLE, UPLOADING, SUCCESS, ERROR
-  const [feedback, setFeedback] = useState(null); // Server response data
-
+  // --- STATE MANAGEMENT ---
+  const [step, setStep] = useState("IDLE");
   const [context, setContext] = useState({
     category: "STUDENTS",
     startYear: 2025,
     endYear: 2026,
     semester: null,
   });
+  const [file, setFile] = useState(null);
+  const [report, setReport] = useState(null);
+  const [duplicateWarning, setDuplicateWarning] = useState(false);
+  const [commitError, setCommitError] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  // UI States
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showPartialConfirmation, setShowPartialConfirmation] = useState(false);
 
   const categories = [
     { id: "STUDENTS", label: "Students", icon: Users, color: "#4f46e5" },
@@ -37,6 +44,14 @@ const ECSUploadWizard = () => {
     { id: "ATTENDANCE", label: "Attendance", icon: Calendar, color: "#f59e0b" },
     { id: "FEES", label: "Fees", icon: Receipt, color: "#ef4444" },
   ];
+
+  const adjustYear = (amount) => {
+    setContext((prev) => ({
+      ...prev,
+      startYear: prev.startYear + amount,
+      endYear: prev.endYear + amount,
+    }));
+  };
 
   const getYearLabel = (sem) => {
     if (!sem) return "Academic Level";
@@ -49,82 +64,399 @@ const ECSUploadWizard = () => {
     return labels[Math.floor((sem - 1) / 2)] || "Unknown";
   };
 
-  const adjustYear = (amount) => {
+  // --- NEW: Handle Category Switching Cleanly ---
+  const handleCategorySelect = (catId) => {
     setContext((prev) => ({
       ...prev,
-      startYear: prev.startYear + amount,
-      endYear: prev.endYear + amount,
+      category: catId,
+      // If switching TO Students, clear the semester (as it's not needed)
+      // If switching TO Results/Others, we can keep the previous semester selection
+      semester: catId === "STUDENTS" ? null : prev.semester,
     }));
+
+    // Reset all upload states
+    setStep("IDLE");
+    setFile(null);
+    setReport(null);
+    setDuplicateWarning(false);
+    setCommitError(null);
   };
 
-  // --- API LOGIC START ---
-  const handleFileSelect = async (e) => {
-    const file = e.target.files[0];
-    if (file) await processUpload(file);
+  // --- API HANDLERS ---
+  const getToken = () => localStorage.getItem("access_token");
+  const getBaseUrl = () =>
+    import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+
+  const handleFileSelect = async (selectedFile) => {
+    if (!selectedFile) return;
+    setFile(selectedFile);
+    await checkDuplicate(selectedFile);
   };
 
-  const handleDrop = async (e) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file) await processUpload(file);
-  };
-
-  const processUpload = async (file) => {
-    setStatus("UPLOADING");
-    setFeedback(null);
-
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("category", context.category);
-    formData.append("academic_year", `${context.startYear}-${context.endYear}`);
-    if (context.semester) formData.append("semester", context.semester);
-
+  const checkDuplicate = async (fileObj) => {
+    setStep("CHECKING");
     try {
-      // Dynamic Endpoint Selection
-      let endpoint = "http://127.0.0.1:8000/api/upload/students/";
-      if (context.category === "RESULTS")
-        endpoint = "http://127.0.0.1:8000/api/upload/results/";
-
-      const response = await fetch(endpoint, {
+      const res = await fetch(`${getBaseUrl()}/api/upload/check-duplicate/`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${authTokens?.access}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getToken()}`,
         },
-        body: formData,
+        body: JSON.stringify({ filename: fileObj.name }),
       });
+      const data = await res.json();
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setStatus("SUCCESS");
-        setFeedback(data);
+      if (data.exists) {
+        setDuplicateWarning(true);
       } else {
-        setStatus("ERROR");
-        setFeedback({
-          message: data.message || "Upload failed. Check file format.",
-        });
+        await fetchPreview(fileObj);
       }
-    } catch (error) {
-      console.error(error);
-      setStatus("ERROR");
-      setFeedback({ message: "Network Error: Could not reach backend." });
+    } catch (err) {
+      console.error(err);
+      setStep("ERROR");
+      setReport({ error: "Could not connect to server." });
     }
   };
-  // --- API LOGIC END ---
+
+  const fetchPreview = async (fileObj) => {
+    const activeFile = fileObj || file;
+    if (!activeFile) return;
+
+    setStep("PREVIEW_LOADING");
+    setDuplicateWarning(false);
+    setIsExpanded(false);
+    setShowPartialConfirmation(false);
+
+    const formData = new FormData();
+    formData.append("file", activeFile);
+    formData.append("category", context.category);
+
+    try {
+      const res = await fetch(`${getBaseUrl()}/api/upload/preview/`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${getToken()}` },
+        body: formData,
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        setReport(data);
+        setStep("PREVIEW");
+      } else {
+        setReport({ error: data.errors || "Schema validation failed" });
+        setStep("ERROR");
+      }
+    } catch (err) {
+      setStep("ERROR");
+      setReport({ error: "Network Error during preview generation." });
+    }
+  };
+
+  const commitUpload = async (mode) => {
+    if (!report?.log_id) return;
+    setStep("COMMITTING");
+    setCommitError(null);
+
+    try {
+      const res = await fetch(`${getBaseUrl()}/api/upload/commit/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getToken()}`,
+        },
+        body: JSON.stringify({
+          log_id: report.log_id,
+          mode: mode,
+        }),
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        setStep("SUCCESS");
+        setReport(null);
+      } else {
+        setCommitError(data.message);
+        setStep("PREVIEW");
+      }
+    } catch (err) {
+      setCommitError("Network Error: Failed to commit data.");
+      setStep("PREVIEW");
+    }
+  };
+
+  // --- DRAG & DROP HANDLERS ---
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) await handleFileSelect(files[0]);
+  };
+
+  // --- HELPER: GET PREVIEW ROWS ---
+  const getPreviewRows = () => {
+    if (!report?.preview_data) return [];
+    if (isExpanded) return report.preview_data;
+    return report.preview_data.slice(0, 5);
+  };
+
+  // --- CONFIRMATION MODAL ---
+  const renderPartialConfirmationModal = () => (
+    <div className="modal-overlay fade-in" style={{ zIndex: 1100 }}>
+      <div
+        className="modal-content glass-panel"
+        style={{ width: "500px", height: "auto", maxHeight: "none" }}
+      >
+        <div
+          className="modal-header"
+          style={{ borderBottom: "none", paddingBottom: 0 }}
+        >
+          <h3 className="text-warning">
+            <AlertTriangle size={22} /> Confirm Partial Upload
+          </h3>
+        </div>
+
+        <div
+          className="modal-scroll-area"
+          style={{ overflow: "visible", padding: "1.5rem" }}
+        >
+          <p
+            style={{
+              fontSize: "1rem",
+              marginBottom: "1.5rem",
+              color: "var(--text-primary)",
+              lineHeight: "1.5",
+            }}
+          >
+            You are about to insert{" "}
+            <strong>{report.summary.valid_count}</strong> valid records into the
+            database.
+          </p>
+
+          <div
+            style={{
+              backgroundColor: "rgba(239, 68, 68, 0.1)",
+              border: "1px solid rgba(239, 68, 68, 0.3)",
+              borderRadius: "12px",
+              padding: "1rem",
+              marginBottom: "1rem",
+            }}
+          >
+            <h4
+              style={{
+                color: "#ef4444",
+                margin: "0 0 0.5rem 0",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                fontSize: "0.95rem",
+              }}
+            >
+              <XCircle size={18} /> {report.summary.error_count} Records will be
+              SKIPPED
+            </h4>
+            <p
+              style={{
+                margin: 0,
+                fontSize: "0.85rem",
+                color: "var(--text-secondary)",
+              }}
+            >
+              These rows failed validation and will <strong>NOT</strong> be
+              saved. You can correct them in Excel and upload them later.
+            </p>
+          </div>
+
+          <p
+            style={{
+              fontSize: "0.85rem",
+              color: "var(--text-secondary)",
+              fontStyle: "italic",
+            }}
+          >
+            Proceeding will permanently commit the valid data.
+          </p>
+        </div>
+
+        <div className="modal-footer">
+          <button
+            className="btn-secondary"
+            onClick={() => setShowPartialConfirmation(false)}
+          >
+            Go Back
+          </button>
+          <button
+            className="btn-warning"
+            onClick={() => {
+              setShowPartialConfirmation(false);
+              commitUpload("PARTIAL");
+            }}
+          >
+            Yes, Commit Partial Data
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // --- PREVIEW MODAL ---
+  const renderPreviewModal = () => (
+    <div className="modal-overlay fade-in">
+      <div className="modal-content glass-panel">
+        <div className="modal-header">
+          <h3>
+            <Sparkles size={18} className="text-primary" /> Data Verification
+          </h3>
+          <button className="close-btn" onClick={() => setStep("IDLE")}>
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="report-summary">
+          <div className="stat-box valid">
+            <span className="stat-val">{report.summary.valid_count}</span>
+            <span className="stat-label">Valid Rows</span>
+          </div>
+          <div className="stat-box error">
+            <span className="stat-val">{report.summary.error_count}</span>
+            <span className="stat-label">Errors</span>
+          </div>
+          <div className="stat-box total">
+            <span className="stat-val">{report.summary.total_rows}</span>
+            <span className="stat-label">Total</span>
+          </div>
+        </div>
+
+        {commitError && (
+          <div className="error-banner">
+            <AlertTriangle size={18} />
+            <span>{commitError}</span>
+          </div>
+        )}
+
+        <div className="modal-scroll-area">
+          <div className="table-wrapper">
+            <div className="table-header-row">
+              <h4 className="table-title">
+                <Table size={16} className="text-primary" /> Valid Data Preview
+              </h4>
+              <button
+                className="expand-btn"
+                onClick={() => setIsExpanded(!isExpanded)}
+                title={isExpanded ? "Collapse" : "View All"}
+              >
+                {isExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                {isExpanded ? " Collapse" : " View All Rows"}
+              </button>
+            </div>
+
+            <div
+              className="table-scroll"
+              style={{ maxHeight: isExpanded ? "400px" : "auto" }}
+            >
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    {report.preview_data.length > 0 &&
+                      Object.keys(report.preview_data[0]).map((header) => (
+                        <th key={header}>{header}</th>
+                      ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {getPreviewRows().map((row, idx) => (
+                    <tr key={idx}>
+                      {Object.values(row).map((val, cIdx) => (
+                        <td key={cIdx}>{val}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {!isExpanded && report.preview_data.length > 5 && (
+              <div className="table-footer-hint">
+                Showing 5 of {report.preview_data.length} rows. Click "View All
+                Rows" to expand.
+              </div>
+            )}
+          </div>
+
+          {report.error_report.length > 0 && (
+            <div className="error-table-wrapper">
+              <h4 className="table-title error">
+                <AlertTriangle size={16} /> Issues Found
+              </h4>
+              <table className="error-table">
+                <thead>
+                  <tr>
+                    <th>Row</th>
+                    <th>Issue</th>
+                    <th>Data</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {report.error_report.map((err, idx) => (
+                    <tr key={idx}>
+                      <td>#{err.row_index}</td>
+                      <td className="text-red">{err.reasons.join(", ")}</td>
+                      <td className="text-mono">
+                        {Object.values(err.data)[0]}...
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        <div className="modal-footer">
+          <button className="btn-secondary" onClick={() => setStep("IDLE")}>
+            Cancel
+          </button>
+
+          {report.summary.error_count > 0 ? (
+            <button
+              className="btn-warning"
+              onClick={() => setShowPartialConfirmation(true)}
+            >
+              Proceed with Partial <ArrowRight size={16} />
+            </button>
+          ) : (
+            <button
+              className="btn-primary"
+              onClick={() => commitUpload("FULL")}
+            >
+              Commit All Records <CheckCircle size={16} />
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="ecs-page-container fade-in">
       <div className="ecs-main-layout">
-        {/* LEFT: CONFIGURATION PANEL */}
+        {/* LEFT: CONFIGURATION */}
         <div className="ecs-config-side d_glass-panel">
           <div className="config-header">
             <div className="header-icon-bg">
               <Sparkles size={18} className="text-primary" />
             </div>
             <div>
-              <h2 className="text-primary">ECS Injection</h2>
-              <p className="text-secondary">Departmental Data Pipeline</p>
+              <h2 className="text-primary">Data Injection</h2>
             </div>
           </div>
 
@@ -135,10 +467,7 @@ const ECSUploadWizard = () => {
                 <div
                   key={cat.id}
                   className={`category-item ${context.category === cat.id ? "active" : ""}`}
-                  onClick={() => {
-                    setContext({ ...context, category: cat.id });
-                    setStatus("IDLE");
-                  }}
+                  onClick={() => handleCategorySelect(cat.id)}
                   style={{ "--item-color": cat.color }}
                 >
                   <div className="cat-icon-box">
@@ -154,21 +483,20 @@ const ECSUploadWizard = () => {
             <label className="section-label">2. Academic Year</label>
             <div className="elegant-year-card">
               <div className="year-info">
-                <span className="year-tag">Session Period</span>
                 <span className="year-value">
                   {context.startYear} — {context.endYear}
                 </span>
               </div>
               <div className="year-stepper-engine">
                 <button className="step-btn up" onClick={() => adjustYear(1)}>
-                  <ChevronUp size={20} />
+                  ▲
                 </button>
                 <div className="step-divider" />
                 <button
                   className="step-btn down"
                   onClick={() => adjustYear(-1)}
                 >
-                  <ChevronDown size={20} />
+                  ▼
                 </button>
               </div>
             </div>
@@ -197,110 +525,130 @@ const ECSUploadWizard = () => {
           )}
         </div>
 
-        {/* RIGHT: ACTION ZONE (Dynamic States) */}
+        {/* RIGHT: ACTION ZONE */}
         <div className="ecs-upload-side">
-          {/* STATE: IDLE */}
-          {status === "IDLE" && (
-            <div
-              className={`compact-glass-dropzone d_glass-panel ${isDragging ? "dragging" : ""}`}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setIsDragging(true);
-              }}
-              onDragLeave={() => setIsDragging(false)}
-              onDrop={handleDrop}
-            >
-              <div className="dropzone-core">
-                <div className="visual-feedback">
-                  <div className="glow-effect"></div>
-                  <CloudUpload size={54} className="main-upload-icon" />
-                </div>
-
-                <div className="selection-preview">
-                  <h3>{context.category} Module</h3>
-                  <div className="preview-badges">
-                    <span className="badge-outline">
-                      {context.startYear}-{context.endYear}
-                    </span>
-                    {context.semester && (
-                      <span className="badge-solid">S{context.semester}</span>
-                    )}
-                  </div>
-                </div>
-
-                <p className="upload-text text-secondary">
-                  Drag & Drop your Excel file here
-                </p>
-                <label htmlFor="file-input" className="upload-action-btn">
-                  Browse Files
-                </label>
-                <input
-                  type="file"
-                  id="file-input"
-                  hidden
-                  onChange={handleFileSelect}
-                />
-              </div>
-              <div className="dropzone-footer">
-                <Info size={14} />
-                <span>ECS Pre-mapped Pipeline Active</span>
+          {duplicateWarning ? (
+            <div className="compact-glass-dropzone d_glass-panel border-warning fade-in">
+              <AlertTriangle size={64} className="text-warning" />
+              <h3>Duplicate File Detected</h3>
+              <p
+                className="text-secondary text-center"
+                style={{ maxWidth: "300px" }}
+              >
+                "{file?.name}" has been uploaded before. Do you want to process
+                it again?
+              </p>
+              <div className="action-row">
+                <button
+                  className="btn-secondary"
+                  onClick={() => {
+                    setDuplicateWarning(false);
+                    setStep("IDLE");
+                    setFile(null);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn-warning"
+                  onClick={() => fetchPreview(file)}
+                >
+                  Proceed Anyway
+                </button>
               </div>
             </div>
-          )}
-
-          {/* STATE: UPLOADING */}
-          {status === "UPLOADING" && (
-            <div className="compact-glass-dropzone d_glass-panel">
-              <Loader2 size={64} className="animate-spin text-primary" />
-              <h3 style={{ marginTop: "20px", color: "var(--text-primary)" }}>
-                Injecting Data...
-              </h3>
-              <p className="text-secondary">Validating against ECS Schema</p>
-            </div>
-          )}
-
-          {/* STATE: SUCCESS */}
-          {status === "SUCCESS" && (
+          ) : step === "SUCCESS" ? (
             <div className="compact-glass-dropzone d_glass-panel border-green">
-              <CheckCircle size={64} color="#10b981" />
-              <h3 className="success-text">Ingestion Complete</h3>
-              <div className="stats-box">
-                <p>
-                  <strong>{feedback?.processed || 0}</strong> Records Processed
-                </p>
-                {feedback?.errors?.length > 0 ? (
-                  <p className="text-warning">
-                    {feedback.errors.length} Rows Skipped
-                  </p>
-                ) : (
-                  <p className="text-secondary">No Errors Found</p>
-                )}
-              </div>
+              <CheckCircle size={64} className="text-success" />
+              <h3>Ingestion Complete</h3>
+              <p>Data successfully merged into Master Records.</p>
               <button
                 className="upload-action-btn"
-                onClick={() => setStatus("IDLE")}
+                onClick={() => setStep("IDLE")}
               >
                 Upload Another
               </button>
             </div>
-          )}
-
-          {/* STATE: ERROR */}
-          {status === "ERROR" && (
+          ) : step === "ERROR" ? (
             <div className="compact-glass-dropzone d_glass-panel border-red">
-              <XCircle size={64} color="#ef4444" />
-              <h3 className="error-text">Upload Failed</h3>
-              <p className="error-msg">{feedback?.message}</p>
+              <XCircle size={64} className="text-error" />
+              <h3>Upload Failed</h3>
+              <p className="error-msg">
+                {report?.error || "An unexpected error occurred."}
+              </p>
               <button
                 className="upload-action-btn"
-                onClick={() => setStatus("IDLE")}
+                onClick={() => setStep("IDLE")}
               >
                 Try Again
               </button>
             </div>
+          ) : (
+            <div
+              className={`compact-glass-dropzone d_glass-panel ${isDragging ? "dragging" : ""}`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              <div className="dropzone-core">
+                {step === "CHECKING" ||
+                step === "PREVIEW_LOADING" ||
+                step === "COMMITTING" ? (
+                  <>
+                    <Loader2 size={54} className="animate-spin text-primary" />
+                    <h3 style={{ marginTop: "15px" }}>Processing...</h3>
+                    <p className="text-secondary">
+                      {step === "CHECKING" && "Checking for duplicates..."}
+                      {step === "PREVIEW_LOADING" && "Validating Schema..."}
+                      {step === "COMMITTING" && "Saving Data..."}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <CloudUpload size={54} className="main-upload-icon" />
+                    <div className="selection-preview">
+                      <h3>{context.category} Ingestion</h3>
+                      <div className="preview-badges">
+                        {/* 🔹 ADDED CATEGORY BADGE HERE */}
+                        <span className="badge-outline">
+                          {
+                            categories.find((c) => c.id === context.category)
+                              ?.label
+                          }
+                        </span>
+                        <span className="badge-outline">
+                          {context.startYear}-{context.endYear}
+                        </span>
+                        {context.semester && (
+                          <span className="badge-solid">
+                            S{context.semester}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <p className="upload-text text-secondary">
+                      Drag & Drop your Excel file here
+                    </p>
+                    <label htmlFor="file-input" className="upload-action-btn">
+                      Browse Files
+                    </label>
+                    <input
+                      type="file"
+                      id="file-input"
+                      hidden
+                      onChange={(e) => handleFileSelect(e.target.files[0])}
+                    />
+                  </>
+                )}
+              </div>
+            </div>
           )}
         </div>
       </div>
+
+      {/* MODALS */}
+      {step === "PREVIEW" && report && renderPreviewModal()}
+      {showPartialConfirmation && renderPartialConfirmationModal()}
     </div>
   );
 };
