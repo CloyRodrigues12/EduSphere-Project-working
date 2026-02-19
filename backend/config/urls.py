@@ -1,5 +1,10 @@
 from django.contrib import admin
 from django.urls import path, include
+from django.shortcuts import redirect
+from django.conf import settings
+from django.conf.urls.static import static
+from django.contrib import admin
+from django.urls import path, include
 from django.views.generic import TemplateView
 from django.shortcuts import redirect
 from core.views import GoogleLogin 
@@ -8,6 +13,24 @@ from core.views import GoogleLogin, SetupOrganizationView, StaffManagementView
 from core.views import GoogleLogin, SetupOrganizationView, StaffManagementView, CurrentUserView
 from django.urls import path, include
 from core.views import StudentUploadView
+from core.views import CheckDuplicateUploadView
+from core.views import CheckDuplicateUploadView, StudentUploadView
+from core.views import UploadPreviewView, commit_upload, CheckDuplicateUploadView 
+
+def password_reset_redirect(request, uidb64, token):
+    # This takes the tokens from the email link and sends the user to React (port 5173)
+    return redirect(f"http://localhost:5173/password-reset/confirm/{uidb64}/{token}")
+
+
+# Import ALL your views here
+from core.views import (
+    GoogleLogin, 
+    SetupOrganizationView, 
+    StaffManagementView, 
+    CurrentUserView, 
+    StudentUploadView,
+    FacultyManagementView 
+)
 
 def password_reset_redirect(request, uidb64, token):
     # This takes the tokens from the email link and sends the user to React (port 5173)
@@ -16,33 +39,33 @@ def password_reset_redirect(request, uidb64, token):
 urlpatterns = [
     path('admin/', admin.site.urls),
     
-    # Standard Auth (Login/Logout/Password Reset)
+    # --- AUTHENTICATION ---
     path('api/auth/', include('dj_rest_auth.urls')),
-    
-    # Registration
     path('api/auth/registration/', include('dj_rest_auth.registration.urls')),
-    
-    # Google Login Endpoint
     path('api/auth/google/', GoogleLogin.as_view(), name='google_login'),
 
-    # Setup Organization Endpoint
+    # --- ORGANIZATION & USER ---
     path('api/setup-organization/', SetupOrganizationView.as_view()),
- 
-    # Staff Management Endpoint
-    path('api/staff/', StaffManagementView.as_view()),
-
     path('api/user/me/', CurrentUserView.as_view()),
 
-    path(
-        'password-reset/confirm/<uidb64>/<token>/', 
-        password_reset_redirect, 
-        name='password_reset_confirm'
-    ),
+    # --- TEAM MANAGEMENT ---
+    path('api/staff/', StaffManagementView.as_view()),  # For Viewers/Clerks
+    path('api/faculty/', FacultyManagementView.as_view(), name='faculty-list'), # For Teachers
 
-    #DocuSense Routes
+    ## --- STUDENT DATA ---
+    path('api/upload/check-duplicate/', CheckDuplicateUploadView.as_view(), name='check-duplicate'),
+    path('api/upload/preview/', UploadPreviewView.as_view(), name='upload-preview'),
+    path('api/upload/commit/', commit_upload, name='commit-upload'),
+
+    # --- PASSWORD RESET ---
+    path('password-reset/confirm/<uidb64>/<token>/', password_reset_redirect, name='password_reset_confirm'),
+
+    # --- DOCUSENSE ---
     path('api/docusense/', include('docusense.urls')),
 
     
-path('api/upload/students/', StudentUploadView.as_view(), name='upload-students'),
-
 ]
+
+# This allows Django to serve uploaded images during development
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

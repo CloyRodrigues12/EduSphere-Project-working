@@ -1,3 +1,5 @@
+# backend/core/serializers.py
+
 from rest_framework import serializers
 from dj_rest_auth.serializers import UserDetailsSerializer, PasswordResetSerializer, PasswordResetConfirmSerializer
 from dj_rest_auth.registration.serializers import RegisterSerializer
@@ -7,6 +9,9 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.encoding import force_str
 from django.contrib.auth.password_validation import validate_password
+
+from django.contrib.auth.models import User
+from .models import UserProfile, Department, Organization, AcademicYear
 
 # 1. User Details (for /user/me/)
 class CustomUserDetailsSerializer(UserDetailsSerializer):
@@ -91,3 +96,64 @@ class CustomRegisterSerializer(RegisterSerializer):
             user.username = self.validated_data.get('username')
             
         user.save()
+
+
+
+
+# --- 1. Structural Serializers (For Dropdowns) ---
+
+class DepartmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Department
+        fields = ['id', 'name', 'code']
+
+class AcademicYearSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AcademicYear
+        fields = ['id', 'name', 'start_date', 'end_date', 'is_active']
+
+# --- 2. Faculty Serializer (The Complex One) ---
+
+class FacultySerializer(serializers.ModelSerializer):
+    """
+    Serializes the Faculty Profile + Linked User Info.
+    """
+    email = serializers.EmailField(source='user.email', read_only=True)
+    full_name = serializers.CharField(source='user.first_name', read_only=True) # Using first_name as full name container for now
+    department_name = serializers.CharField(source='department.name', read_only=True)
+
+    class Meta:
+        model = UserProfile
+        fields = [
+            'id', 
+            'email', 
+            'full_name', 
+            'department', 
+            'department_name',
+            'designation', 
+            'phone_number', 
+            'role',
+            'is_setup_complete',
+            'profile_picture'
+        ]
+
+class AddFacultySerializer(serializers.Serializer):
+    """
+    Input Validation for the 'Add Faculty' Form.
+    """
+    email = serializers.EmailField()
+    full_name = serializers.CharField(max_length=255)
+    designation = serializers.CharField(max_length=100)
+    department_id = serializers.IntegerField()
+    phone_number = serializers.CharField(max_length=15, required=False, allow_blank=True)
+    profile_picture = serializers.ImageField(required=False, allow_null=True)
+
+    def validate_email(self, value):
+        # We allow existing users (e.g., if they were Staff, we upgrade them)
+        # But we warn if they are already FACULTY
+        user_qs = User.objects.filter(email=value)
+        if user_qs.exists():
+            user = user_qs.first()
+            if hasattr(user, 'profile') and user.profile.role == 'FACULTY':
+                raise serializers.ValidationError("This user is already registered as Faculty.")
+        return value

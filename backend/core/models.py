@@ -1,120 +1,273 @@
-# backend/core/models.py
-
 from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.conf import settings
-# --- 1. The SaaS Hierarchy ---
+
+# ==========================================
+# 1. THE STRUCTURE (Space)
+# ==========================================
 
 class Organization(models.Model):
-    """
-    The top-level entity (e.g., 'St. Xavier's Trust').
-    """
+    """ The College/Institute (e.g., 'St. Xavier's Trust') """
     TYPE_CHOICES = [
         ('School', 'School'),
         ('College', 'College'),
         ('University', 'University'),
-        ('Coaching', 'Coaching'),
     ]
-
     name = models.CharField(max_length=255)
-    type = models.CharField(max_length=50, choices=TYPE_CHOICES, default='School') 
+    type = models.CharField(max_length=50, choices=TYPE_CHOICES, default='College')
     address = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.name} ({self.type})"
+        return self.name
 
 class Department(models.Model):
-    """
-    Sub-divisions (e.g., 'Computer Engineering', 'Accounts').
-    """
+    """ The Functional Unit (e.g., 'ECS', 'IT', 'Exam Cell') """
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='departments')
-    name = models.CharField(max_length=100)
-    config = models.JSONField(default=dict, blank=True)
+    name = models.CharField(max_length=100) # e.g., "Electronics & Computer Science"
+    code = models.CharField(max_length=20, unique=True) # e.g., "ECS", "IT"
+    
+    def __str__(self):
+        return self.name
+
+# ==========================================
+# 2. THE CHRONOMETER (Time)
+# ==========================================
+
+class AcademicYear(models.Model):
+    """ 
+    The Master Filter. 
+    Everything (Attendance, Marks, Workload) belongs to ONE year.
+    """
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
+    name = models.CharField(max_length=20) # e.g., "2025-2026"
+    start_date = models.DateField()
+    end_date = models.DateField()
+    is_active = models.BooleanField(default=False) 
+
+    class Meta:
+        unique_together = ('organization', 'name')
+
+    def save(self, *args, **kwargs):
+        # Logic: If setting this to active, set all others to inactive
+        if self.is_active:
+            AcademicYear.objects.filter(organization=self.organization).update(is_active=False)
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.name} - {self.organization.name}"
+        return f"{self.name} ({'Active' if self.is_active else 'Closed'})"
 
-# --- 2. The User Profile ---
+# ==========================================
+# 3. THE ACTORS (People)
+# ==========================================
 
 class UserProfile(models.Model):
     """
-    Extends the standard Django User to add SaaS roles.
+    The Single Source of Truth for Staff.
+    Includes both 'System Viewers' and 'Faculty'.
     """
     ROLE_CHOICES = [
-        ('SUPER_ADMIN', 'Super Admin'),
-        ('ORG_ADMIN', 'Organization Admin'), 
-        ('STAFF', 'Staff/Teacher'), 
+        ('SUPER_ADMIN', 'Super Admin'),   # IT Head
+        ('ORG_ADMIN', 'Principal/HOD'),   # Can Setup Academic Year
+        ('FACULTY', 'Faculty'),           # Teaching Staff (Has Workload)
+        ('STAFF', 'Non-Teaching Staff'),  # Clerks (View Only)
         ('STUDENT', 'Student'), 
     ]
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     
-    # Links to the SaaS Tenant
+    # Context
     organization = models.ForeignKey(Organization, on_delete=models.SET_NULL, null=True, blank=True)
     department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True)
     
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='STAFF') 
-    # NEW FIELD: Store the specific job title (Principal, HOD, etc.)
-    designation = models.CharField(max_length=100, blank=True, null=True) 
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='FACULTY') 
     
-    # Setup Flags & Permissions
-    is_setup_complete = models.BooleanField(default=False)
+    # Registry Details
+    designation = models.CharField(max_length=100, blank=True, null=True) # e.g. "Asst. Professor"
     phone_number = models.CharField(max_length=15, blank=True, null=True)
-    permissions = models.JSONField(default=dict, blank=True)
+    profile_picture = models.ImageField(upload_to='faculty_profiles/', blank=True, null=True)
+    
+    # Feature Flags
+    is_setup_complete = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"{self.user.username} ({self.role})"
-
-# --- 3. Signals ---
+        return f"{self.user.email} - {self.role}"
 
 @receiver(post_save, sender=User)
 def ensure_profile_exists(sender, instance, created, **kwargs):
-    if hasattr(instance, 'profile'):
-        instance.profile.save()
-    else:
-        UserProfile.objects.create(user=instance)
+    if created:
+        UserProfile.objects.get_or_create(user=instance)
 
+# ==========================================
+# 4. THE CURRICULUM (The "Factory" Rules)
+# ==========================================
 
+class Course(models.Model):
+    """
+    A Subject in the Catalog.
+    Defines 'What' is taught, not 'When' or 'Who'.
+    """
+    SUBJECT_TYPE_CHOICES = [
+        ('THEORY', 'Theory (Core)'),      # Whole Class
+        ('LAB', 'Practical / Lab'),       # Batches
+        ('PRO_ELECTIVE', 'Professional Elective'), # Selected Students
+        ('OPEN_ELECTIVE', 'Open Elective'),        # Cross-Dept Students
+    ]
 
-#---------------------------------uploadmodule=------------------
+    department = models.ForeignKey(Department, on_delete=models.CASCADE) # The "Owner" Dept
+    name = models.CharField(max_length=255) # "Database Management Systems"
+    code = models.CharField(max_length=20)  # "ECS501"
+    
+    semester = models.IntegerField() # 1 to 8
+    subject_type = models.CharField(max_length=20, choices=SUBJECT_TYPE_CHOICES)
+    credits = models.IntegerField(default=4)
+    
+    # For Open Electives: Visible to other departments?
+    is_open_elective = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ('department', 'code')
+
+    def __str__(self):
+        return f"{self.code} - {self.name} ({self.subject_type})"
+
+class StudentGroup(models.Model):
+    """
+    The Audience.
+    Instead of just 'Class', we have flexible groups.
+    """
+    GROUP_TYPE_CHOICES = [
+        ('CLASS', 'Whole Class'),         # e.g. "TE ECS"
+        ('BATCH', 'Lab Batch'),           # e.g. "TE ECS - A"
+        ('ELECTIVE', 'Elective Section')  # e.g. "PE-Blockchain"
+    ]
+
+    academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE)
+    department = models.ForeignKey(Department, on_delete=models.CASCADE)
+    
+    name = models.CharField(max_length=50) 
+    type = models.CharField(max_length=20, choices=GROUP_TYPE_CHOICES)
+    semester = models.IntegerField()
+    
+    # Hierarchy: Batch A belongs to TE ECS
+    parent_group = models.ForeignKey('self', null=True, blank=True, on_delete=models.CASCADE)
+    
+    # M2M Link: Which students are in this group?
+    # (We will link this to your existing Student model)
+    students = models.ManyToManyField('Student', blank=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.academic_year.name})"
+
+# ==========================================
+# 5. THE ALLOCATION (The Permission System)
+# ==========================================
+
+class TeachingAllocation(models.Model):
+    """
+    The Commissioning Table.
+    This Row = Permission to Teach.
+    """
+    academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE)
+    
+    # Who?
+    faculty = models.ForeignKey(UserProfile, on_delete=models.CASCADE, limit_choices_to={'role': 'FACULTY'})
+    
+    # What?
+    subject = models.ForeignKey(Course, on_delete=models.CASCADE)
+    
+    # To Whom? (The critical fix for Theory vs Lab)
+    student_group = models.ForeignKey(StudentGroup, on_delete=models.CASCADE)
+    
+    # Constraints
+    allocated_hours = models.FloatField(default=0) # For Workload Calc
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('academic_year', 'subject', 'student_group')
+        verbose_name = "Teaching Allocation"
+
+    def __str__(self):
+        return f"{self.faculty.user.email} -> {self.subject.code} ({self.student_group.name})"
+
+# ==========================================
+# 6. EXISTING STUDENT MODEL 
+# ==========================================
 class Student(models.Model):
-    # Link to the Organization (SaaS Security)
+    # Link to the Organization & Department
     organization = models.ForeignKey('Organization', on_delete=models.CASCADE)
     department = models.ForeignKey('Department', on_delete=models.CASCADE, null=True, blank=True)
     
     # Identifiers
-    roll_number = models.CharField(max_length=50)  # "ROLL NO"
-    enrollment_number = models.CharField(max_length=50, unique=True) # "ENROLLMENT NO"
-    aic_id = models.CharField(max_length=50, null=True, blank=True) # "AIC ID"
-    aadhar_number = models.CharField(max_length=20, null=True, blank=True) # "AADHAR NO"
+    roll_number = models.CharField(max_length=50)  
+    enrollment_number = models.CharField(max_length=50, unique=True) 
+    aic_id = models.CharField(max_length=50, null=True, blank=True) 
+    aadhar_number = models.CharField(max_length=20, null=True, blank=True) 
     
     # Personal Info
-    full_name = models.CharField(max_length=255) # "NAME OF THE STUDENT"
-    name_on_aadhar = models.CharField(max_length=255, null=True, blank=True) # "NAME AS PER AADHAR CARD"
-    dob = models.DateField(null=True, blank=True) # "DOB"
-    gender = models.CharField(max_length=10, choices=[('Male', 'Male'), ('Female', 'Female'), ('Other', 'Other')]) # "GENDER"
-    mobile_number = models.CharField(max_length=15, null=True, blank=True) # "MOBILE NO"
+    full_name = models.CharField(max_length=255) 
+    email = models.EmailField(blank=True, null=True) 
     
-    # Academic Context
-    academic_year = models.CharField(max_length=20) # e.g., "2025-2026"
+    # --- RESTORED FIELDS FROM YOUR INGESTION SCRIPT ---
+    dob = models.DateField(null=True, blank=True)
+    gender = models.CharField(max_length=20, null=True, blank=True)
+    mobile_number = models.CharField(max_length=15, null=True, blank=True)
+    name_on_aadhar = models.CharField(max_length=255, null=True, blank=True)
+    signature_status = models.CharField(max_length=50, null=True, blank=True)
+    remarks = models.TextField(null=True, blank=True)
+    
+    # Context
+    academic_year = models.ForeignKey('AcademicYear', on_delete=models.SET_NULL, null=True, blank=True)
     current_semester = models.IntegerField(default=1) 
-    
-    # Meta
-    signature_status = models.CharField(max_length=100, null=True, blank=True) # "SIGN"
-    remarks = models.TextField(null=True, blank=True) # "REMARK"
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    class Meta:
-        unique_together = ('organization', 'enrollment_number')
-        indexes = [
-            models.Index(fields=['enrollment_number']),
-            models.Index(fields=['roll_number']),
-        ]
-
     def __str__(self):
         return f"{self.roll_number} - {self.full_name}"
+    
+# ==========================================
+# 7. THE AUDIT TRAIL (Data Import Logs)
+# ==========================================
+
+class DataImportLog(models.Model):
+    """
+    Tracks every bulk upload event for audit purposes.
+    "Who changed the data and when?"
+    """
+    STATUS_CHOICES = [
+        ('PENDING', 'Processing...'),
+        ('SUCCESS', 'Success'),
+        ('PARTIAL_SUCCESS', 'Partial Success (Some rows failed)'),
+        ('FAILED', 'Failed'),
+    ]
+
+    IMPORT_TYPE_CHOICES = [
+        ('STUDENT_REGISTRATION', 'Student Registration'),
+        ('FACULTY_LOAD', 'Faculty Workload'),
+        ('MARKS_ENTRY', 'Exam Marks'),
+        ('ATTENDANCE', 'Attendance Records'),
+    ]
+
+    # Context
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
+    academic_year = models.ForeignKey(AcademicYear, on_delete=models.SET_NULL, null=True, blank=True)
+    uploaded_by = models.ForeignKey(UserProfile, on_delete=models.SET_NULL, null=True)
+    
+    # File Details
+    file_name = models.CharField(max_length=255)
+    import_type = models.CharField(max_length=50, choices=IMPORT_TYPE_CHOICES)
+    file = models.FileField(upload_to='import_logs/', null=True, blank=True)
+    
+    # Outcome
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
+    success_count = models.IntegerField(default=0)
+    error_log = models.TextField(blank=True, null=True) # Stores JSON or Text of specific row errors
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.import_type} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"

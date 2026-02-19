@@ -5,7 +5,6 @@ import {
   FileText,
   Calendar,
   Receipt,
-  Info,
   Sparkles,
   Loader2,
   CheckCircle,
@@ -64,17 +63,12 @@ const ECSUploadWizard = () => {
     return labels[Math.floor((sem - 1) / 2)] || "Unknown";
   };
 
-  // --- NEW: Handle Category Switching Cleanly ---
   const handleCategorySelect = (catId) => {
     setContext((prev) => ({
       ...prev,
       category: catId,
-      // If switching TO Students, clear the semester (as it's not needed)
-      // If switching TO Results/Others, we can keep the previous semester selection
       semester: catId === "STUDENTS" ? null : prev.semester,
     }));
-
-    // Reset all upload states
     setStep("IDLE");
     setFile(null);
     setReport(null);
@@ -102,7 +96,11 @@ const ECSUploadWizard = () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${getToken()}`,
         },
-        body: JSON.stringify({ filename: fileObj.name }),
+        // FIX: Now sending the Academic Year so the backend checks the right bucket
+        body: JSON.stringify({
+          filename: fileObj.name,
+          academic_year: `${context.startYear}-${context.endYear}`,
+        }),
       });
       const data = await res.json();
 
@@ -130,6 +128,9 @@ const ECSUploadWizard = () => {
     const formData = new FormData();
     formData.append("file", activeFile);
     formData.append("category", context.category);
+    // FIX: Send Context Data to backend
+    formData.append("academic_year", `${context.startYear}-${context.endYear}`);
+    if (context.semester) formData.append("semester", context.semester);
 
     try {
       const res = await fetch(`${getBaseUrl()}/api/upload/preview/`, {
@@ -203,7 +204,6 @@ const ECSUploadWizard = () => {
     if (files && files.length > 0) await handleFileSelect(files[0]);
   };
 
-  // --- HELPER: GET PREVIEW ROWS ---
   const getPreviewRows = () => {
     if (!report?.preview_data) return [];
     if (isExpanded) return report.preview_data;
@@ -215,7 +215,7 @@ const ECSUploadWizard = () => {
     <div className="modal-overlay fade-in" style={{ zIndex: 1100 }}>
       <div
         className="modal-content glass-panel"
-        style={{ width: "500px", height: "auto", maxHeight: "none" }}
+        style={{ width: "500px", height: "auto" }}
       >
         <div
           className="modal-header"
@@ -235,7 +235,6 @@ const ECSUploadWizard = () => {
               fontSize: "1rem",
               marginBottom: "1.5rem",
               color: "var(--text-primary)",
-              lineHeight: "1.5",
             }}
           >
             You are about to insert{" "}
@@ -276,16 +275,6 @@ const ECSUploadWizard = () => {
               saved. You can correct them in Excel and upload them later.
             </p>
           </div>
-
-          <p
-            style={{
-              fontSize: "0.85rem",
-              color: "var(--text-secondary)",
-              fontStyle: "italic",
-            }}
-          >
-            Proceeding will permanently commit the valid data.
-          </p>
         </div>
 
         <div className="modal-footer">
@@ -353,7 +342,6 @@ const ECSUploadWizard = () => {
               <button
                 className="expand-btn"
                 onClick={() => setIsExpanded(!isExpanded)}
-                title={isExpanded ? "Collapse" : "View All"}
               >
                 {isExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
                 {isExpanded ? " Collapse" : " View All Rows"}
@@ -367,7 +355,7 @@ const ECSUploadWizard = () => {
               <table className="data-table">
                 <thead>
                   <tr>
-                    {report.preview_data.length > 0 &&
+                    {report.preview_data?.length > 0 &&
                       Object.keys(report.preview_data[0]).map((header) => (
                         <th key={header}>{header}</th>
                       ))}
@@ -384,15 +372,9 @@ const ECSUploadWizard = () => {
                 </tbody>
               </table>
             </div>
-            {!isExpanded && report.preview_data.length > 5 && (
-              <div className="table-footer-hint">
-                Showing 5 of {report.preview_data.length} rows. Click "View All
-                Rows" to expand.
-              </div>
-            )}
           </div>
 
-          {report.error_report.length > 0 && (
+          {report.error_report?.length > 0 && (
             <div className="error-table-wrapper">
               <h4 className="table-title error">
                 <AlertTriangle size={16} /> Issues Found
@@ -402,16 +384,24 @@ const ECSUploadWizard = () => {
                   <tr>
                     <th>Row</th>
                     <th>Issue</th>
-                    <th>Data</th>
+                    <th>Data Preview</th>
                   </tr>
                 </thead>
                 <tbody>
                   {report.error_report.map((err, idx) => (
                     <tr key={idx}>
-                      <td>#{err.row_index}</td>
-                      <td className="text-red">{err.reasons.join(", ")}</td>
+                      {/* FIX: Crash prevented here by matching backend property names */}
+                      <td>#{err.row || err.row_index}</td>
+                      <td className="text-red">
+                        {err.error ||
+                          (err.reasons && err.reasons.join(", ")) ||
+                          "Unknown Error"}
+                      </td>
                       <td className="text-mono">
-                        {Object.values(err.data)[0]}...
+                        {err.data && Object.values(err.data).length > 0
+                          ? Object.values(err.data)[0]
+                          : "N/A"}
+                        ...
                       </td>
                     </tr>
                   ))}
@@ -425,7 +415,6 @@ const ECSUploadWizard = () => {
           <button className="btn-secondary" onClick={() => setStep("IDLE")}>
             Cancel
           </button>
-
           {report.summary.error_count > 0 ? (
             <button
               className="btn-warning"
@@ -535,8 +524,8 @@ const ECSUploadWizard = () => {
                 className="text-secondary text-center"
                 style={{ maxWidth: "300px" }}
               >
-                "{file?.name}" has been uploaded before. Do you want to process
-                it again?
+                "{file?.name}" has been uploaded before for {context.startYear}-
+                {context.endYear}. Do you want to process it again?
               </p>
               <div className="action-row">
                 <button
@@ -609,7 +598,6 @@ const ECSUploadWizard = () => {
                     <div className="selection-preview">
                       <h3>{context.category} Ingestion</h3>
                       <div className="preview-badges">
-                        {/* 🔹 ADDED CATEGORY BADGE HERE */}
                         <span className="badge-outline">
                           {
                             categories.find((c) => c.id === context.category)

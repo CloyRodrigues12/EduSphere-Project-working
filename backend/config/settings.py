@@ -252,3 +252,9 @@ EMAIL_USE_TLS = True
 # CREDENTIALS
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER') #Gmail address 
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD') #App Password
+
+import os
+
+# --- MEDIA FILES (User Uploads like Profile Pics) ---
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
