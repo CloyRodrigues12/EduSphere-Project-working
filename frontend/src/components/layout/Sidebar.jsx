@@ -13,6 +13,7 @@ import {
   X,
   AlertCircle,
   Shield,
+  Library,
 } from "lucide-react";
 import "./Sidebar.css";
 import { FileSearch } from "lucide-react";
@@ -25,6 +26,7 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
   // 3. Dynamic Menu Logic
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/" },
+    { icon: Library, label: "Subject Catalog", path: "/subjects" },
     { icon: Users, label: "Students", path: "/students" },
     { icon: Banknote, label: "Fees", path: "/fees" },
     { icon: UploadCloud, label: "Upload Data", path: "/upload" },

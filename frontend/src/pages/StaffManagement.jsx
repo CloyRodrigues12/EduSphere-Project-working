@@ -8,17 +8,21 @@ import {
   Clock,
   Upload,
   X,
-  MoreVertical,
+  Trash2,
   Mail,
   Phone,
   Briefcase,
   User as UserIcon,
+  AlertTriangle,
+  Check,
+  Edit2,
+  Send,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { staffService } from "../services/api";
 import "./StaffManagement.css";
 
-// --- Utility Functions for Auto-Avatars ---
+// FIX: Look for both full_name and name safely
 const getInitials = (name) => {
   if (!name) return "F";
   const cleanName = name.replace(/^(Dr\.|Prof\.|Mr\.|Mrs\.|Ms\.)\s+/i, "");
@@ -29,35 +33,57 @@ const getInitials = (name) => {
 };
 
 const AVATAR_GRADIENTS = [
-  "linear-gradient(135deg, #4f46e5, #3730a3)", // Indigo
-  "linear-gradient(135deg, #059669, #047857)", // Emerald
-  "linear-gradient(135deg, #e11d48, #be123c)", // Rose
-  "linear-gradient(135deg, #d97706, #b45309)", // Amber
-  "linear-gradient(135deg, #475569, #334155)", // Slate
-  "linear-gradient(135deg, #0284c7, #0369a1)", // Sky Blue
-  "linear-gradient(135deg, #9333ea, #7e22ce)", // Purple
+  "linear-gradient(135deg, #4f46e5, #3730a3)",
+  "linear-gradient(135deg, #059669, #047857)",
+  "linear-gradient(135deg, #e11d48, #be123c)",
+  "linear-gradient(135deg, #d97706, #b45309)",
+  "linear-gradient(135deg, #475569, #334155)",
+  "linear-gradient(135deg, #0284c7, #0369a1)",
+  "linear-gradient(135deg, #9333ea, #7e22ce)",
 ];
 
 const getColorForName = (name) => {
   if (!name) return AVATAR_GRADIENTS[0];
   let hash = 0;
-  for (let i = 0; i < name.length; i++) {
+  for (let i = 0; i < name.length; i++)
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const index = Math.abs(hash) % AVATAR_GRADIENTS.length;
-  return AVATAR_GRADIENTS[index];
+  return AVATAR_GRADIENTS[Math.abs(hash) % AVATAR_GRADIENTS.length];
 };
 
 const StaffManagement = () => {
   const [activeTab, setActiveTab] = useState("faculty");
   const [members, setMembers] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
+
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [toast, setToast] = useState({
+    show: false,
+    message: "",
+    type: "success",
+  });
 
   useEffect(() => {
     fetchMembers();
+    fetchDepartments();
   }, [activeTab]);
+
+  const showToast = (message, type = "success") => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: "", type: "" }), 3000);
+  };
+
+  const fetchDepartments = async () => {
+    try {
+      const res = await staffService.getDepartments();
+      setDepartments(res.data);
+    } catch (e) {
+      console.error("Could not load departments");
+    }
+  };
 
   const fetchMembers = async () => {
     setLoading(true);
@@ -68,21 +94,58 @@ const StaffManagement = () => {
           : await staffService.getFaculty();
       setMembers(response.data);
     } catch (error) {
-      console.error("Failed to fetch members", error);
+      showToast("Failed to fetch team members", "error");
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredMembers = members.filter(
-    (m) =>
-      m.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.email?.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+  const handleResendInvite = async (email, role) => {
+    try {
+      await staffService.inviteStaff({ email, role, action: "resend" });
+      showToast(`Invite resent to ${email}`, "success");
+    } catch (err) {
+      showToast("Failed to resend invite", "error");
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      if (activeTab === "staff")
+        await staffService.deleteStaff(deleteTarget.id);
+      else await staffService.deleteFaculty(deleteTarget.id);
+      showToast("User removed successfully", "success");
+      fetchMembers();
+    } catch (err) {
+      showToast(err.response?.data?.error || "Delete failed", "error");
+    } finally {
+      setDeleteTarget(null);
+    }
+  };
+
+  // FIX: Make search filter check both full_name and name
+  const filteredMembers = members.filter((m) => {
+    const displayName = m.full_name || m.name || "";
+    return (
+      displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      m.email?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  });
 
   return (
     <div className="staff-container">
-      {/* Header */}
+      <div
+        className={`toast-notification ${toast.type} ${toast.show ? "show" : ""}`}
+      >
+        {toast.type === "success" ? (
+          <Check size={18} />
+        ) : (
+          <AlertTriangle size={18} />
+        )}
+        <span>{toast.message}</span>
+      </div>
+
       <div className="page-header">
         <div>
           <h1 className="page-title">Team Management</h1>
@@ -94,14 +157,13 @@ const StaffManagement = () => {
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           className="btn-primary"
-          onClick={() => setShowModal(true)}
+          onClick={() => setShowAddModal(true)}
         >
-          <UserPlus size={18} />
+          <UserPlus size={18} />{" "}
           {activeTab === "staff" ? "Invite Staff" : "Add Faculty"}
         </motion.button>
       </div>
 
-      {/* Tabs */}
       <div className="tabs-container">
         {["faculty", "staff"].map((tab) => (
           <button
@@ -125,7 +187,6 @@ const StaffManagement = () => {
         ))}
       </div>
 
-      {/* Search */}
       <div className="toolbar">
         <div className="search-bar">
           <Search size={18} className="search-icon" />
@@ -138,7 +199,6 @@ const StaffManagement = () => {
         </div>
       </div>
 
-      {/* Table */}
       <div className="table-card">
         {loading ? (
           <div className="loading-state">
@@ -153,80 +213,124 @@ const StaffManagement = () => {
                 <th>Role / Designation</th>
                 <th>Department</th>
                 <th>Status</th>
-                <th></th>
+                <th style={{ textAlign: "right" }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               <AnimatePresence mode="wait">
                 {filteredMembers.length > 0 ? (
-                  filteredMembers.map((member) => (
-                    <motion.tr
-                      key={member.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0 }}
-                    >
-                      <td>
-                        <div className="user-cell">
-                          {member.profile_picture ? (
-                            <img
-                              src={`http://127.0.0.1:8000${member.profile_picture}`}
-                              alt="Profile"
-                              className="avatar-img"
-                            />
-                          ) : (
-                            <div
-                              className="avatar-circle"
-                              style={{
-                                background: getColorForName(member.name),
-                              }}
-                            >
-                              {getInitials(member.name)}
-                            </div>
-                          )}
-                          <div>
-                            <div className="font-medium">{member.name}</div>
-                            <div className="text-sm text-muted">
-                              {member.email}
+                  filteredMembers.map((member) => {
+                    // FIX: Safe display name resolution for the table
+                    const displayName =
+                      member.full_name || member.name || "Unknown";
+
+                    return (
+                      <motion.tr
+                        key={member.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                      >
+                        <td>
+                          <div className="user-cell">
+                            {member.profile_picture ? (
+                              <img
+                                src={`http://127.0.0.1:8000${member.profile_picture}`}
+                                alt="Profile"
+                                className="avatar-img"
+                              />
+                            ) : (
+                              <div
+                                className="avatar-circle"
+                                style={{
+                                  background: getColorForName(displayName),
+                                }}
+                              >
+                                {getInitials(displayName)}
+                              </div>
+                            )}
+                            <div>
+                              <div className="font-medium">{displayName}</div>
+                              <div className="text-sm text-muted">
+                                {member.email}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </td>
-                      <td>
-                        {activeTab === "faculty" ? (
-                          <span className="badge badge-designation">
-                            {member.designation || "Faculty"}
-                          </span>
-                        ) : (
-                          <span className="badge badge-role">
-                            {member.role_code === "ORG_ADMIN"
-                              ? "Admin"
-                              : "Staff"}
-                          </span>
-                        )}
-                      </td>
-                      <td>
-                        {member.department_name || member.department || "-"}
-                      </td>
-                      <td>
-                        {member.is_setup_complete ||
-                        member.status === "Active" ? (
-                          <span className="status-badge active">
-                            <CheckCircle size={14} /> Active
-                          </span>
-                        ) : (
-                          <span className="status-badge pending">
-                            <Clock size={14} /> Invited
-                          </span>
-                        )}
-                      </td>
-                      <td>
-                        <button className="btn-icon">
-                          <MoreVertical size={16} />
-                        </button>
-                      </td>
-                    </motion.tr>
-                  ))
+                        </td>
+                        <td>
+                          {activeTab === "faculty" ? (
+                            <span className="badge badge-designation">
+                              {member.designation || "Faculty"}
+                            </span>
+                          ) : (
+                            <span className="badge badge-role">
+                              {member.role_code === "ORG_ADMIN"
+                                ? "Admin"
+                                : "Staff"}
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          {member.department_name || member.department || "-"}
+                        </td>
+                        <td>
+                          {member.is_setup_complete ||
+                          member.status === "Active" ? (
+                            <span className="status-badge active">
+                              <CheckCircle size={14} /> Active
+                            </span>
+                          ) : (
+                            <span className="status-badge pending">
+                              <Clock size={14} /> Invited
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ textAlign: "right" }}>
+                          <div
+                            style={{
+                              display: "flex",
+                              gap: "0.5rem",
+                              justifyContent: "flex-end",
+                            }}
+                          >
+                            {activeTab === "faculty" && (
+                              <button
+                                className="btn-icon action-edit"
+                                onClick={() => setEditTarget(member)}
+                                title="Edit Faculty"
+                              >
+                                <Edit2 size={16} />
+                              </button>
+                            )}
+                            {activeTab === "staff" &&
+                              member.status === "Invited" && (
+                                <button
+                                  className="btn-icon action-edit"
+                                  onClick={() =>
+                                    handleResendInvite(
+                                      member.email,
+                                      member.role_code,
+                                    )
+                                  }
+                                  title="Resend Email"
+                                >
+                                  <Send size={16} />
+                                </button>
+                              )}
+                            {member.role_code !== "ORG_ADMIN" && (
+                              <button
+                                className="btn-icon action-delete"
+                                onClick={() => setDeleteTarget(member)}
+                                title="Remove User"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </motion.tr>
+                    );
+                  })
                 ) : (
                   <motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                     <td colSpan="5" className="empty-state">
@@ -241,66 +345,152 @@ const StaffManagement = () => {
         )}
       </div>
 
-      {/* Modals */}
       <AnimatePresence>
-        {showModal &&
+        {showAddModal &&
           (activeTab === "staff" ? (
             <InviteStaffModal
-              onClose={() => setShowModal(false)}
+              onClose={() => setShowAddModal(false)}
               onRefresh={fetchMembers}
+              showToast={showToast}
             />
           ) : (
-            <AddFacultyModal
-              onClose={() => setShowModal(false)}
+            <FacultyFormModal
+              onClose={() => setShowAddModal(false)}
               onRefresh={fetchMembers}
+              showToast={showToast}
+              departments={departments}
             />
           ))}
+
+        {editTarget && (
+          <FacultyFormModal
+            facultyData={editTarget}
+            onClose={() => setEditTarget(null)}
+            onRefresh={fetchMembers}
+            showToast={showToast}
+            departments={departments}
+          />
+        )}
+
+        {deleteTarget && (
+          <div className="modal-overlay">
+            <motion.div
+              className="modal-content premium-modal delete-modal"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+            >
+              <div className="delete-icon-wrapper">
+                <Trash2 size={32} />
+              </div>
+              <h3 style={{ textAlign: "center", marginBottom: "0.5rem" }}>
+                Remove User?
+              </h3>
+              <p
+                style={{
+                  textAlign: "center",
+                  color: "var(--text-secondary)",
+                  marginBottom: "2rem",
+                }}
+              >
+                Are you sure you want to remove{" "}
+                <strong>{deleteTarget.full_name || deleteTarget.name}</strong>?
+              </p>
+              <div
+                className="modal-actions"
+                style={{
+                  justifyContent: "center",
+                  borderTop: "none",
+                  paddingTop: 0,
+                }}
+              >
+                <button
+                  className="btn-secondary"
+                  onClick={() => setDeleteTarget(null)}
+                >
+                  Cancel
+                </button>
+                <button className="btn-danger" onClick={confirmDelete}>
+                  Yes, Remove
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
       </AnimatePresence>
     </div>
   );
 };
 
-// --- Sub-Component: Add Faculty Modal (Auto-Color) ---
-const AddFacultyModal = ({ onClose, onRefresh }) => {
+const FacultyFormModal = ({
+  onClose,
+  onRefresh,
+  showToast,
+  departments,
+  facultyData = null,
+}) => {
+  const isEdit = !!facultyData;
+
+  // FIX: Correctly look for full_name OR name during initialization
+  const resolvedName = facultyData?.full_name || facultyData?.name || "";
+
   const [formData, setFormData] = useState({
-    full_name: "",
-    email: "",
-    designation: "Assistant Professor",
-    phone_number: "",
-    department_id: 1,
+    full_name: resolvedName,
+    email: facultyData?.email || "",
+    designation: facultyData?.designation || "Assistant Professor",
+    phone_number: facultyData?.phone_number || "",
+    department_id:
+      facultyData?.department ||
+      (departments.length > 0 ? departments[0].id : ""),
     profile_picture: null,
+    remove_picture: false,
   });
-  const [preview, setPreview] = useState(null);
+
+  const [preview, setPreview] = useState(
+    facultyData?.profile_picture
+      ? `http://127.0.0.1:8000${facultyData.profile_picture}`
+      : null,
+  );
   const [loading, setLoading] = useState(false);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      setFormData({ ...formData, profile_picture: file });
+      setFormData({
+        ...formData,
+        profile_picture: file,
+        remove_picture: false,
+      });
       setPreview(URL.createObjectURL(file));
     }
   };
 
   const removeImage = () => {
-    setFormData({ ...formData, profile_picture: null });
+    setFormData({ ...formData, profile_picture: null, remove_picture: true });
     setPreview(null);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-
     const payload = new FormData();
     Object.keys(formData).forEach((key) => {
       if (formData[key] !== null) payload.append(key, formData[key]);
     });
 
     try {
-      await staffService.addFaculty(payload);
+      if (isEdit) await staffService.editFaculty(facultyData.id, payload);
+      else await staffService.addFaculty(payload);
+
+      showToast(
+        isEdit
+          ? "Faculty member updated!"
+          : "Faculty member added successfully!",
+      );
       onRefresh();
       onClose();
     } catch (err) {
-      alert("Error adding faculty");
+      showToast(err.response?.data?.error || "Error saving faculty", "error");
     } finally {
       setLoading(false);
     }
@@ -310,24 +500,24 @@ const AddFacultyModal = ({ onClose, onRefresh }) => {
     <div className="modal-overlay">
       <motion.div
         className="modal-content premium-modal"
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 20 }}
       >
         <div className="modal-header">
           <div>
-            <h3>Add New Faculty</h3>
+            <h3>{isEdit ? "Edit Faculty Profile" : "Add New Faculty"}</h3>
             <p className="modal-subtitle">
-              Create their academic profile and permissions.
+              {isEdit
+                ? "Update their academic details."
+                : "Create their academic profile."}
             </p>
           </div>
           <button onClick={onClose} className="close-btn">
             <X size={20} />
           </button>
         </div>
-
         <form onSubmit={handleSubmit} className="premium-form">
-          {/* Avatar Area */}
           <div className="avatar-selection-area">
             <div className="avatar-preview-large">
               {preview ? (
@@ -336,39 +526,30 @@ const AddFacultyModal = ({ onClose, onRefresh }) => {
                 <div
                   className="monogram-avatar"
                   style={{
-                    background: getColorForName(
-                      formData.full_name || formData.email || "F",
-                    ),
+                    background: getColorForName(formData.full_name || "F"),
                   }}
                 >
                   {getInitials(formData.full_name)}
                 </div>
               )}
             </div>
-
             <div className="avatar-options">
               {preview ? (
                 <div className="file-active-controls">
-                  <span className="text-sm font-medium text-success flex items-center gap-1">
-                    <CheckCircle size={14} /> Custom photo applied
+                  <span className="text-success flex items-center gap-1">
+                    <CheckCircle size={14} /> Photo Applied
                   </span>
                   <button
                     type="button"
                     onClick={removeImage}
-                    className="text-sm btn-link-danger"
+                    className="btn-link-danger"
                   >
                     Remove photo
                   </button>
                 </div>
               ) : (
                 <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium text-muted">
-                    A professional avatar is auto-generated.
-                  </label>
-                  <label
-                    className="upload-link-btn"
-                    title="Upload custom photo"
-                  >
+                  <label className="upload-link-btn">
                     <Upload size={16} /> Upload Custom Photo
                     <input
                       type="file"
@@ -381,16 +562,14 @@ const AddFacultyModal = ({ onClose, onRefresh }) => {
               )}
             </div>
           </div>
-
           <div className="form-grid">
-            <div className="input-group">
+            <div className="sinput-group">
               <label>Full Name</label>
               <div className="input-wrapper">
                 <UserIcon size={18} className="input-icon" />
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Dr. Sarah Connor"
                   value={formData.full_name}
                   onChange={(e) =>
                     setFormData({ ...formData, full_name: e.target.value })
@@ -398,25 +577,52 @@ const AddFacultyModal = ({ onClose, onRefresh }) => {
                 />
               </div>
             </div>
-
-            <div className="input-group">
+            <div className="sinput-group">
               <label>College Email</label>
               <div className="input-wrapper">
                 <Mail size={18} className="input-icon" />
                 <input
                   type="email"
                   required
-                  placeholder="sarah@college.edu"
+                  disabled={isEdit}
                   value={formData.email}
                   onChange={(e) =>
                     setFormData({ ...formData, email: e.target.value })
+                  }
+                  style={
+                    isEdit
+                      ? { backgroundColor: "var(--bg-main)", opacity: 0.7 }
+                      : {}
                   }
                 />
               </div>
             </div>
 
+            <div className="sinput-group">
+              <label>Assigned Department</label>
+              <div className="input-wrapper">
+                <GraduationCap size={18} className="input-icon" />
+                <select
+                  required
+                  value={formData.department_id}
+                  onChange={(e) =>
+                    setFormData({ ...formData, department_id: e.target.value })
+                  }
+                >
+                  <option value="" disabled>
+                    Select Department...
+                  </option>
+                  {departments.map((dept) => (
+                    <option key={dept.id} value={dept.id}>
+                      {dept.name} ({dept.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             <div className="input-row">
-              <div className="input-group">
+              <div className="sinput-group">
                 <label>Designation</label>
                 <div className="input-wrapper">
                   <Briefcase size={18} className="input-icon" />
@@ -433,14 +639,12 @@ const AddFacultyModal = ({ onClose, onRefresh }) => {
                   </select>
                 </div>
               </div>
-
-              <div className="input-group">
+              <div className="sinput-group">
                 <label>Phone Number</label>
                 <div className="input-wrapper">
                   <Phone size={18} className="input-icon" />
                   <input
                     type="text"
-                    placeholder="+91..."
                     value={formData.phone_number}
                     onChange={(e) =>
                       setFormData({ ...formData, phone_number: e.target.value })
@@ -450,13 +654,16 @@ const AddFacultyModal = ({ onClose, onRefresh }) => {
               </div>
             </div>
           </div>
-
           <div className="modal-actions">
-            <button type="button" onClick={onClose} className="btn-text">
+            <button type="button" onClick={onClose} className="btn-secondary">
               Cancel
             </button>
             <button type="submit" disabled={loading} className="btn-primary">
-              {loading ? "Saving..." : "Create Faculty Profile"}
+              {loading
+                ? "Saving..."
+                : isEdit
+                  ? "Save Changes"
+                  : "Create Profile"}
             </button>
           </div>
         </form>
@@ -465,8 +672,7 @@ const AddFacultyModal = ({ onClose, onRefresh }) => {
   );
 };
 
-// --- Sub-Component: Invite Staff Modal ---
-const InviteStaffModal = ({ onClose, onRefresh }) => {
+const InviteStaffModal = ({ onClose, onRefresh, showToast }) => {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("STAFF");
   const [loading, setLoading] = useState(false);
@@ -476,10 +682,11 @@ const InviteStaffModal = ({ onClose, onRefresh }) => {
     setLoading(true);
     try {
       await staffService.inviteStaff({ email, role });
+      showToast(`Invite sent to ${email}`);
       onRefresh();
       onClose();
     } catch (err) {
-      alert("Error inviting staff");
+      showToast(err.response?.data?.error || "Error inviting staff", "error");
     } finally {
       setLoading(false);
     }
@@ -495,43 +702,38 @@ const InviteStaffModal = ({ onClose, onRefresh }) => {
       >
         <div className="modal-header">
           <div>
-            <h3>Invite Staff Member</h3>
-            <p className="modal-subtitle">
-              Send an invitation to join the admin dashboard.
-            </p>
+            <h3>Invite Staff</h3>
+            <p className="modal-subtitle">Send an invitation to join.</p>
           </div>
           <button onClick={onClose} className="close-btn">
             <X size={20} />
           </button>
         </div>
-
         <form onSubmit={handleSubmit} className="premium-form">
-          <div className="input-group">
+          <div className="sinput-group">
             <label>Email Address</label>
             <div className="input-wrapper">
               <Mail size={18} className="input-icon" />
               <input
                 type="email"
                 required
-                placeholder="admin@college.edu"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
           </div>
-          <div className="input-group">
+          <div className="sinput-group">
             <label>Access Level</label>
             <div className="input-wrapper">
               <Briefcase size={18} className="input-icon" />
               <select value={role} onChange={(e) => setRole(e.target.value)}>
                 <option value="STAFF">Viewer (Read Only)</option>
-                <option value="ORG_ADMIN">Organization Admin</option>
+                <option value="ORG_ADMIN">Admin</option>
               </select>
             </div>
           </div>
-
           <div className="modal-actions">
-            <button type="button" onClick={onClose} className="btn-text">
+            <button type="button" onClick={onClose} className="btn-secondary">
               Cancel
             </button>
             <button type="submit" disabled={loading} className="btn-primary">

@@ -15,6 +15,7 @@ import StaffManagement from "./pages/StaffManagement";
 import PasswordResetConfirm from "./pages/PasswordResetConfirm";
 import DocuSense from "./pages/DocuSense";
 import ECSUploadWizard from "./pages/Upload/ECSView/ECSUploadWizard";
+import SubjectCatalog from "./pages/SubjectCatalog";
 
 // Placeholder Component
 const Placeholder = ({ title }) => (
@@ -67,6 +68,7 @@ const AppLayout = () => {
             <Route path="/upload" element={<ECSUploadWizard />} />
             <Route path="/docusense" element={<DocuSense />} />
             <Route path="/staff" element={<StaffManagement />} />
+            <Route path="/subjects" element={<SubjectCatalog />} />
           </Routes>
         </div>
       </div>

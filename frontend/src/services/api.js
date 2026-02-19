@@ -19,21 +19,30 @@ api.interceptors.request.use((config) => {
 });
 
 export const staffService = {
-  // 1. Office Staff (Viewers)
+  getDepartments: () => api.get("/departments/"), // NEW
+
   getStaff: () => api.get("/staff/"),
   inviteStaff: (data) => api.post("/staff/", data),
+  deleteStaff: (id) => api.delete(`/staff/?id=${id}`),
 
-  // 2. Faculty (Teachers)
   getFaculty: () => api.get("/faculty/"),
   addFaculty: (formData) =>
     api.post("/faculty/", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     }),
+  editFaculty: (id, formData) =>
+    api.patch(`/faculty/?id=${id}`, formData, {
+      // NEW
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
+  deleteFaculty: (id) => api.delete(`/faculty/?id=${id}`),
+};
 
-  // 3. Departments (Helper for Dropdowns)
-  // Note: We will need a simple endpoint for this,
-  // for now we can rely on what we have or hardcode if the endpoint isn't ready.
-  getDepartments: () => api.get("/setup/departments/"),
+export const academicService = {
+  getSubjects: (semester) => api.get(`/subjects/?semester=${semester}`),
+  addSubject: (data) => api.post("/subjects/", data),
+  updateSubject: (data) => api.put("/subjects/", data),
+  deleteSubject: (id) => api.delete(`/subjects/?id=${id}`),
 };
 
 export default api;

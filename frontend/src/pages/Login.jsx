@@ -189,10 +189,10 @@ const Login = () => {
             {loading
               ? "Processing..."
               : mode === "login"
-              ? "Sign In"
-              : mode === "register"
-              ? "Create Account"
-              : "Send Link"}
+                ? "Sign In"
+                : mode === "register"
+                  ? "Create Account"
+                  : "Send Link"}
           </button>
         </form>
 

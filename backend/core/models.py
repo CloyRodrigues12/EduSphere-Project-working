@@ -110,21 +110,20 @@ class Course(models.Model):
     Defines 'What' is taught, not 'When' or 'Who'.
     """
     SUBJECT_TYPE_CHOICES = [
-        ('THEORY', 'Theory (Core)'),      # Whole Class
-        ('LAB', 'Practical / Lab'),       # Batches
-        ('PRO_ELECTIVE', 'Professional Elective'), # Selected Students
-        ('OPEN_ELECTIVE', 'Open Elective'),        # Cross-Dept Students
+        ('THEORY', 'Theory (Compulsory)'),         # Updated Label
+        ('LAB', 'Practical / Lab'),       
+        ('PRO_ELECTIVE', 'Professional Elective'), 
+        ('OPEN_ELECTIVE', 'Open Elective'),        
     ]
 
-    department = models.ForeignKey(Department, on_delete=models.CASCADE) # The "Owner" Dept
-    name = models.CharField(max_length=255) # "Database Management Systems"
-    code = models.CharField(max_length=20)  # "ECS501"
+    department = models.ForeignKey(Department, on_delete=models.CASCADE) 
+    name = models.CharField(max_length=255) 
+    code = models.CharField(max_length=20)  
     
-    semester = models.IntegerField() # 1 to 8
+    semester = models.IntegerField() 
     subject_type = models.CharField(max_length=20, choices=SUBJECT_TYPE_CHOICES)
-    credits = models.IntegerField(default=4)
+    credits = models.IntegerField(default=3) # Changed default to 3
     
-    # For Open Electives: Visible to other departments?
     is_open_elective = models.BooleanField(default=False)
 
     class Meta:

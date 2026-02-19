@@ -16,6 +16,8 @@ from core.views import StudentUploadView
 from core.views import CheckDuplicateUploadView
 from core.views import CheckDuplicateUploadView, StudentUploadView
 from core.views import UploadPreviewView, commit_upload, CheckDuplicateUploadView 
+from core.views import DepartmentListView 
+from core.views import SubjectCatalogView
 
 def password_reset_redirect(request, uidb64, token):
     # This takes the tokens from the email link and sends the user to React (port 5173)
@@ -52,6 +54,9 @@ urlpatterns = [
     path('api/staff/', StaffManagementView.as_view()),  # For Viewers/Clerks
     path('api/faculty/', FacultyManagementView.as_view(), name='faculty-list'), # For Teachers
 
+    path('api/departments/', DepartmentListView.as_view(), name='department-list'),
+
+    
     ## --- STUDENT DATA ---
     path('api/upload/check-duplicate/', CheckDuplicateUploadView.as_view(), name='check-duplicate'),
     path('api/upload/preview/', UploadPreviewView.as_view(), name='upload-preview'),
@@ -60,8 +65,13 @@ urlpatterns = [
     # --- PASSWORD RESET ---
     path('password-reset/confirm/<uidb64>/<token>/', password_reset_redirect, name='password_reset_confirm'),
 
+    # --- ACADEMIC CONFIGURATION ---
+    path('api/subjects/', SubjectCatalogView.as_view(), name='subject-catalog'),
+
     # --- DOCUSENSE ---
     path('api/docusense/', include('docusense.urls')),
+
+
 
     
 ]

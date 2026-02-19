@@ -13,6 +13,10 @@ from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.models import User
 from .models import UserProfile, Department, Organization, AcademicYear
 
+
+
+from .models import Course
+
 # 1. User Details (for /user/me/)
 class CustomUserDetailsSerializer(UserDetailsSerializer):
     role = serializers.CharField(source="profile.role", read_only=True)
@@ -157,3 +161,10 @@ class AddFacultySerializer(serializers.Serializer):
             if hasattr(user, 'profile') and user.profile.role == 'FACULTY':
                 raise serializers.ValidationError("This user is already registered as Faculty.")
         return value
+
+
+
+class CourseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Course
+        fields = '__all__'

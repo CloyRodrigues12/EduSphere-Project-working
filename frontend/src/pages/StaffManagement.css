@@ -205,18 +205,18 @@
   justify-content: center;
   align-items: center;
   z-index: 1000;
-  padding: 1rem;
+  padding: 0.4rem;
 }
 
 /* Modal Container */
 .premium-modal {
   background: var(--bg-card);
   border-radius: 20px;
-  width: 100%;
+  width: 90%;
   max-width: 650px;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
   border: 1px solid var(--border-color);
-  overflow: hidden;
+  overflow: visible;
   color: var(--text-primary);
   transition:
     background-color 0.3s,
@@ -229,7 +229,7 @@
 
 /* Modal Header */
 .modal-header {
-  padding: 2rem 2.5rem 1.5rem;
+  padding: 1.5rem 2.5rem 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -239,8 +239,8 @@
 
 .modal-header h3 {
   margin: 0;
-  font-size: 1.4rem;
-  font-weight: 700;
+  font-size: 1.2rem;
+  font-weight: 760;
   color: var(--text-primary);
 }
 .modal-subtitle {
@@ -252,10 +252,10 @@
 /* Close Button */
 .close-btn {
   background: var(--bg-main);
-  border: 1px solid var(--border-color);
+  border: 2px solid var(--border-color);
   color: var(--text-secondary);
-  width: 36px;
-  height: 36px;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -269,22 +269,26 @@
 }
 
 .premium-form {
-  padding: 2rem 2.5rem;
+  padding: 1rem 2.5rem;
   background: var(--bg-card);
 }
 
 /* --- 🌟 Avatar Selection Grid --- */
 .avatar-selection-area {
   display: flex;
-  gap: 2rem;
+  width: 30%;
+  gap: 3rem;
   align-items: center;
-  margin-bottom: 2.5rem;
-  padding: 1.5rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
   background: var(--bg-main);
   border-radius: 16px;
   border: 1px solid var(--border-color);
 }
-
+.monogram-avatar {
+  min-width: 60px;
+  min-height: 60px;
+}
 .avatar-preview-large img,
 .avatar-preview-large .placeholder {
   width: 80px;
@@ -303,55 +307,6 @@
   color: var(--text-secondary);
 }
 
-.avatar-options {
-  flex: 1;
-}
-.avatar-options label {
-  display: block;
-  margin-bottom: 0.75rem;
-  color: var(--text-primary);
-}
-
-.preset-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-.preset-btn {
-  width: 50px;
-  height: 50px;
-  border-radius: 12px; /* Changed from circle to rounded square for professional look */
-  border: 2px solid var(--border-color);
-  background: var(--bg-card);
-  cursor: pointer;
-  padding: 4px;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-.preset-btn img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-.preset-btn:hover {
-  border-color: var(--text-secondary);
-  transform: translateY(-2px);
-}
-.preset-btn.selected {
-  border-color: var(--primary-color);
-  background: rgba(79, 70, 229, 0.1);
-}
-.preset-btn.loading {
-  opacity: 0.5;
-  cursor: wait;
-  filter: grayscale(1);
-}
-
 .custom-upload-btn {
   background: var(--bg-main);
   color: var(--text-secondary);
@@ -364,8 +319,6 @@
 
 /* --- Inputs & Fields Optimized for Dark Mode --- */
 .form-grid {
-  display: flex;
-  flex-direction: column;
   gap: 1.5rem;
 }
 .input-row {
@@ -375,13 +328,15 @@
 .input-row > div {
   flex: 1;
 }
-
-.input-group label {
+.sinput-group {
+  width: 50%;
+}
+.sinput-group label {
   display: block;
-  margin-bottom: 0.5rem;
   font-size: 0.9rem;
   font-weight: 500;
   color: var(--text-primary);
+  margin-top: 0.8rem;
 }
 
 .input-wrapper {
@@ -393,6 +348,7 @@
 .input-icon {
   position: absolute;
   left: 1rem;
+  top: 2rem;
   color: var(--text-secondary);
   pointer-events: none;
 }
@@ -443,7 +399,7 @@ input:-webkit-autofill:active {
   display: flex;
   justify-content: flex-end;
   gap: 1rem;
-  margin-top: 2.5rem;
+  margin-top: 0.5rem;
   padding-top: 1.5rem;
   border-top: 1px solid var(--border-color);
 }
@@ -576,4 +532,187 @@ input:-webkit-autofill:active {
 }
 .text-sm {
   font-size: 0.875rem;
+}
+/* --- RESTORED: Delete Modal & Actions --- */
+
+/* 1. Base Icon Button Styling (This was missing!) */
+.btn-icon {
+  background: transparent;
+  border: none;
+  padding: 0.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.action-delete {
+  color: var(--text-secondary);
+}
+
+.action-delete:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* 2. Adaptive Delete Modal Sizing */
+.delete-modal {
+  max-width: 400px !important; /* Forces it to be narrower than normal modals */
+  width: 90% !important;
+  height: auto !important; /* Forces it to hug the content */
+  min-height: min-content !important;
+  padding: 2.5rem 2rem 2rem !important;
+  text-align: center;
+}
+
+.delete-icon-wrapper {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.5rem auto;
+}
+
+/* 3. Delete Action Buttons */
+.btn-danger {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 0.8rem 1.8rem;
+  border-radius: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 0.8rem 1.8rem;
+  border-radius: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  background: var(--border-color);
+}
+
+/* --- RESTORED: Toast Notifications --- */
+.toast-notification {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  padding: 1rem 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 500;
+  transform: translateY(100px);
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  z-index: 9999;
+  border-left: 4px solid var(--primary-color);
+}
+
+.toast-notification.show {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.toast-notification.success {
+  border-left-color: var(--success-color);
+}
+.toast-notification.success svg {
+  color: var(--success-color);
+}
+.toast-notification.error {
+  border-left-color: #ef4444;
+}
+.toast-notification.error svg {
+  color: #ef4444;
+}
+
+/* --- RESTORED: Delete Modal & Actions --- */
+.action-delete {
+  color: var(--text-secondary);
+}
+.action-delete:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.delete-modal {
+  max-width: 400px;
+  padding: 2.5rem 2rem;
+  text-align: center;
+}
+
+.delete-icon-wrapper {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.5rem auto;
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 0.8rem 1.8rem;
+  border-radius: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 0.8rem 1.8rem;
+  border-radius: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  background: var(--border-color);
+}
+
+/* Update to the existing button actions block */
+.action-edit {
+  color: var(--text-secondary);
+}
+.action-edit:hover {
+  color: var(--primary-color);
+  background: rgba(79, 70, 229, 0.1);
 }

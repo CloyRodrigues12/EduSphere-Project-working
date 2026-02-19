@@ -25,6 +25,11 @@ from django.db import transaction
 from .models import UserProfile, Department
 from .serializers import FacultySerializer, AddFacultySerializer
 
+from core.serializers import DepartmentSerializer
+
+from core.models import Course, TeachingAllocation
+from core.serializers import CourseSerializer
+
 # 1. Google Login
 class GoogleLogin(SocialLoginView):
     adapter_class = GoogleOAuth2Adapter
@@ -86,9 +91,9 @@ class StaffManagementView(APIView):
             return False
         return request.user.profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']
 
+    # --- THE MISSING GET METHOD (Restored) ---
     def get(self, request):
         try:
-            # 1. SECURITY FIX: Block non-admins
             if not self.check_admin_access(request):
                 return Response({"error": "Access Denied: Admins only."}, status=403)
 
@@ -101,8 +106,6 @@ class StaffManagementView(APIView):
             data = []
             for member in members:
                 u = member.user 
-
-                # 2. Status Logic
                 status_label = "Active" if u.last_login else "Invited"
                 
                 data.append({
@@ -114,7 +117,6 @@ class StaffManagementView(APIView):
                     "department": member.department.name if member.department else "-",
                     "status": status_label,
                     "last_login": u.last_login
-                    # Note: 'permissions' field was removed to fit the new Strict Role architecture
                 })
             
             return Response(data)
@@ -123,41 +125,44 @@ class StaffManagementView(APIView):
             traceback.print_exc()
             return Response({"error": str(e)}, status=500)
 
+    # --- THE UPDATED POST METHOD (With Resend Logic) ---
     def post(self, request):
-        """ Robust Invite System with Styled Email Notification """
         if not self.check_admin_access(request):
             return Response({"error": "Permission denied"}, status=403)
 
         email = request.data.get('email')
         role = request.data.get('role', 'STAFF')
+        action = request.data.get('action') # 'resend' or None
         
         if not email:
             return Response({"error": "Email is required"}, status=400)
 
-        # 1. Check if user exists
+        # 1. Handle New vs Resend
         if User.objects.filter(email=email).exists():
-            return Response({"error": "User with this email already exists!"}, status=400)
-
-        try:
-            # 2. Create the User
+            if action == 'resend':
+                new_user = User.objects.get(email=email)
+                if new_user.profile.organization != request.user.profile.organization:
+                    return Response({"error": "Unauthorized to resend to this user"}, status=403)
+            else:
+                return Response({"error": "User with this email already exists!"}, status=400)
+        else:
+            if action == 'resend':
+                return Response({"error": "User not found to resend"}, status=404)
+            # Create fresh user
             new_user = User.objects.create(username=email, email=email)
             new_user.set_unusable_password()
             new_user.save()
 
-            # 3. Create Profile
+        try:
             profile, created = UserProfile.objects.get_or_create(user=new_user)
-            
-            # 4. Link Organization
             admin_org = request.user.profile.organization
-            if not admin_org:
-                return Response({"error": "You are not part of an organization!"}, status=400)
-
+            
             profile.organization = admin_org
             profile.role = role
             profile.is_setup_complete = True 
             profile.save()
 
-            # --- 5. PREPARE EMAIL DATA ---
+            # --- PREPARE EMAIL DATA ---
             try:
                 from django.core.mail import send_mail
                 from django.conf import settings
@@ -238,6 +243,7 @@ class StaffManagementView(APIView):
             print("Invite Error:", e)
             return Response({"error": "Failed to create user. Check server logs."}, status=500)
 
+    # --- THE DELETE METHOD ---
     def delete(self, request):
         """ Safe Delete: Handles normal users AND broken 'ghost' users """
         if not self.check_admin_access(request):
@@ -468,44 +474,46 @@ class FacultyManagementView(APIView):
         return Response(serializer.data)
 
     def post(self, request):
-        # The 'Add Faculty' Action
+        """ Add a new Faculty member to the Registry """
+        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+            return Response({"error": "Permission denied"}, status=403)
+
         serializer = AddFacultySerializer(data=request.data)
         if serializer.is_valid():
             data = serializer.validated_data
             
             try:
+                # 1. Define 'org' and 'dept' before using them!
+                org = request.user.profile.organization
+                dept = Department.objects.get(id=data['department_id'], organization=org)
+
                 with transaction.atomic():
-                    # 1. Resolve Organization & Department
-                    admin_profile = request.user.profile
-                    org = admin_profile.organization
-                    dept = Department.objects.get(id=data['department_id'], organization=org)
-
-                    # 2. Check if User exists (The "Shadow Account" Logic)
+                    # 2. Create or Get User
                     user, created = User.objects.get_or_create(
-                        email=data['email'],
-                        defaults={
-                            'username': data['email'], # Use email as username
-                            'first_name': data['full_name'],
-                            'is_active': True
-                        }
+                        username=data['email'],
+                        defaults={'email': data['email'], 'first_name': data['full_name'], 'is_active': True}
                     )
-
-                    # 3. Handle Profile Creation/Update
+                    
+                    # 3. Create or Get Profile
                     profile, profile_created = UserProfile.objects.get_or_create(user=user)
                     
-                    # Force update their role and location to match the new assignment
+                    # 🚨 SECURITY FIX: Prevent Admins from downgrading themselves
+                    if not profile_created and profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']:
+                        return Response({
+                            "error": "This email belongs to an Admin. You cannot overwrite an Admin account into a Faculty account."
+                        }, status=400)
+
+                    # 4. Save Faculty Data
                     profile.role = 'FACULTY'
                     profile.organization = org
                     profile.department = dept
                     profile.designation = data['designation']
                     profile.phone_number = data.get('phone_number', '')
-                    #Save the image if provided
-                    if 'profile_picture' in data and data['profile_picture']:
-                        profile.profile_picture = data['profile_picture']
+                    
+                    if 'profile_picture' in request.FILES:
+                        profile.profile_picture = request.FILES['profile_picture']
+                        
                     profile.save()
-
-                    # 4. (Optional) Send Invitation Email here
-                    # send_faculty_welcome_email(user.email)
 
                     return Response(
                         FacultySerializer(profile).data, 
@@ -516,6 +524,77 @@ class FacultyManagementView(APIView):
                 return Response({"error": "Invalid Department ID"}, status=400)
             except Exception as e:
                 return Response({"error": str(e)}, status=500)
+        
+        return Response(serializer.errors, status=400)
+    
+    def patch(self, request):
+        """ Edit a Faculty Member """
+        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+            return Response({"error": "Permission denied"}, status=403)
+
+        profile_id = request.GET.get('id')
+        try:
+            profile = UserProfile.objects.get(
+                id=profile_id, 
+                organization=request.user.profile.organization,
+                role='FACULTY'
+            )
+            
+            # Update User Base Name
+            full_name = request.data.get('full_name')
+            if full_name:
+                profile.user.first_name = full_name
+                profile.user.save()
+            
+            # Update Profile Details
+            if 'designation' in request.data:
+                profile.designation = request.data['designation']
+            if 'phone_number' in request.data:
+                profile.phone_number = request.data['phone_number']
+            if 'department_id' in request.data:
+                dept = Department.objects.get(id=request.data['department_id'], organization=profile.organization)
+                profile.department = dept
+                
+            # Update Profile Picture
+            if 'profile_picture' in request.FILES:
+                profile.profile_picture = request.FILES['profile_picture']
+            elif 'remove_picture' in request.data and request.data['remove_picture'] == 'true':
+                profile.profile_picture = None
+
+            profile.save()
+            return Response(FacultySerializer(profile).data)
+
+        except UserProfile.DoesNotExist:
+            return Response({"error": "Faculty not found"}, status=404)
+        except Department.DoesNotExist:
+            return Response({"error": "Invalid Department ID"}, status=400)
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
+            
+    def delete(self, request):
+        """ Remove a Faculty member and their shadow account """
+        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+            return Response({"error": "Permission denied"}, status=403)
+
+        profile_id = request.GET.get('id')
+        try:
+            target_profile = UserProfile.objects.get(
+                id=profile_id, 
+                organization=request.user.profile.organization,
+                role='FACULTY'
+            )
+            
+            # 🚨 SECURITY FIX: Prevent deleting yourself
+            if target_profile.user.id == request.user.id:
+                return Response({"error": "You cannot delete your own account!"}, status=400)
+            
+            target_profile.user.delete()
+            return Response({"message": "Faculty removed successfully"})
+
+        except UserProfile.DoesNotExist:
+            return Response({"error": "Faculty not found"}, status=404)
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
         
         return Response(serializer.errors, status=400)
 
@@ -711,3 +790,91 @@ class StudentUploadView(APIView):
             import_log.error_log = f"System crash: {str(e)}"
             import_log.save()
             return Response({"error": str(e)}, status=500)
+
+
+
+
+# ==========================================
+# NEW: Department Dropdown Fetcher
+# ==========================================
+class DepartmentListView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        org = request.user.profile.organization
+        departments = Department.objects.filter(organization=org)
+        return Response(DepartmentSerializer(departments, many=True).data)
+
+
+#------------------------------------------------------------------------------------------------------------------
+
+
+# ==========================================
+# SUBJECT CATALOG (Phase 2)
+# ==========================================
+class SubjectCatalogView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        """ Fetch subjects for the user's department, optionally filtered by semester """
+        dept = request.user.profile.department
+        if not dept:
+            return Response({"error": "You are not assigned to a department"}, status=400)
+
+        semester = request.GET.get('semester')
+        courses = Course.objects.filter(department=dept)
+        
+        if semester:
+            courses = courses.filter(semester=semester)
+            
+        return Response(CourseSerializer(courses, many=True).data)
+
+    def post(self, request):
+        """ Create a new subject """
+        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+            return Response({"error": "Permission denied"}, status=403)
+
+        data = request.data.copy()
+        data['department'] = request.user.profile.department.id
+
+        serializer = CourseSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=201)
+        return Response(serializer.errors, status=400)
+
+    def put(self, request):
+        """ Update an existing subject """
+        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+            return Response({"error": "Permission denied"}, status=403)
+
+        course_id = request.data.get('id')
+        try:
+            course = Course.objects.get(id=course_id, department=request.user.profile.department)
+            serializer = CourseSerializer(course, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data)
+            return Response(serializer.errors, status=400)
+        except Course.DoesNotExist:
+            return Response({"error": "Course not found"}, status=404)
+
+    def delete(self, request):
+        """ Safely delete a subject """
+        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+            return Response({"error": "Permission denied"}, status=403)
+
+        course_id = request.GET.get('id')
+        try:
+            course = Course.objects.get(id=course_id, department=request.user.profile.department)
+            
+            # THE DELETION LOCK: Prevent deleting subjects that are already allocated!
+            if TeachingAllocation.objects.filter(subject=course).exists():
+                return Response({
+                    "error": "Cannot delete this subject because it is already allocated to a teacher. Remove the allocation first."
+                }, status=400)
+                
+            course.delete()
+            return Response({"message": "Subject deleted successfully"})
+        except Course.DoesNotExist:
+            return Response({"error": "Course not found"}, status=404)
