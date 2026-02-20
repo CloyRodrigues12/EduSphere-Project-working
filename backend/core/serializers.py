@@ -17,6 +17,9 @@ from .models import UserProfile, Department, Organization, AcademicYear
 
 from .models import Course
 
+
+from .models import Student, StudentGroup
+
 # 1. User Details (for /user/me/)
 class CustomUserDetailsSerializer(UserDetailsSerializer):
     role = serializers.CharField(source="profile.role", read_only=True)
@@ -167,4 +170,27 @@ class AddFacultySerializer(serializers.Serializer):
 class CourseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Course
+        fields = '__all__'
+
+
+
+class StudentSerializer(serializers.ModelSerializer):
+    department_name = serializers.CharField(source='department.name', read_only=True)
+    academic_year_name = serializers.CharField(source='academic_year.name', read_only=True)
+
+    class Meta:
+        model = Student
+        fields = '__all__'
+
+class StudentMiniSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Student
+        fields = ['id', 'full_name', 'enrollment_number']
+
+class StudentGroupSerializer(serializers.ModelSerializer):
+    student_count = serializers.IntegerField(source='students.count', read_only=True)
+    students_list = StudentMiniSerializer(source='students', many=True, read_only=True) # <-- ADD THIS LINE
+    
+    class Meta:
+        model = StudentGroup
         fields = '__all__'

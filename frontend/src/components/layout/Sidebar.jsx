@@ -27,7 +27,7 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/" },
     { icon: Library, label: "Subject Catalog", path: "/subjects" },
-    { icon: Users, label: "Students", path: "/students" },
+    { icon: Users, label: "Dir & Batches", path: "/students" },
     { icon: Banknote, label: "Fees", path: "/fees" },
     { icon: UploadCloud, label: "Upload Data", path: "/upload" },
     { icon: BookOpenCheck, label: "Research AI", path: "/research" },

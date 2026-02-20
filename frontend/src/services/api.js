@@ -45,4 +45,34 @@ export const academicService = {
   deleteSubject: (id) => api.delete(`/subjects/?id=${id}`),
 };
 
+export const studentService = {
+  // Master Directory
+  getStudents: (semester, search) =>
+    api.get(
+      `/students/directory/?semester=${semester || ""}&search=${search || ""}`,
+    ),
+  bulkUpdateSemester: (studentIds, newSemester) =>
+    api.patch("/students/directory/", {
+      student_ids: studentIds,
+      new_semester: newSemester,
+    }),
+
+  // Batch Management
+  getGroups: (academicYearId, semester) =>
+    api.get(
+      `/student-groups/?academic_year=${academicYearId}&semester=${semester || ""}`,
+    ),
+  createGroup: (data) => api.post("/student-groups/", data),
+  updateGroup: (data) => api.put("/student-groups/", data),
+  deleteGroup: (id) => api.delete(`/student-groups/?id=${id}`),
+
+  // The "Bucket Filler" Action
+  updateGroupStudents: (groupId, studentIds, action) =>
+    api.patch("/student-groups/", {
+      group_id: groupId,
+      student_ids: studentIds,
+      action: action,
+    }),
+};
+
 export default api;

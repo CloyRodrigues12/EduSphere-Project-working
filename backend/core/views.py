@@ -30,6 +30,11 @@ from core.serializers import DepartmentSerializer
 from core.models import Course, TeachingAllocation
 from core.serializers import CourseSerializer
 
+
+from django.db.models import Q
+from core.models import Student, StudentGroup
+from core.serializers import StudentSerializer, StudentGroupSerializer
+
 # 1. Google Login
 class GoogleLogin(SocialLoginView):
     adapter_class = GoogleOAuth2Adapter
@@ -878,3 +883,146 @@ class SubjectCatalogView(APIView):
             return Response({"message": "Subject deleted successfully"})
         except Course.DoesNotExist:
             return Response({"error": "Course not found"}, status=404)
+
+
+
+
+
+
+# ==========================================
+# 1. THE STUDENT DIRECTORY (Master List & Bulk Promote)
+# ==========================================
+class StudentDirectoryView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        """ Fetch students with advanced filtering """
+        dept = request.user.profile.department
+        if not dept:
+            return Response({"error": "You are not assigned to a department"}, status=400)
+        
+        # Filters
+        semester = request.GET.get('semester')
+        search = request.GET.get('search', '')
+        
+        students = Student.objects.filter(department=dept)
+        
+        if semester:
+            students = students.filter(current_semester=semester)
+            
+        if search:
+            students = students.filter(
+                Q(full_name__icontains=search) | 
+                Q(enrollment_number__icontains=search)
+            )
+            
+        return Response(StudentSerializer(students, many=True).data)
+
+    def patch(self, request):
+        """ Bulk Semester Update (Promotion/Demotion) """
+        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+            return Response({"error": "Permission denied"}, status=403)
+            
+        student_ids = request.data.get('student_ids', [])
+        new_semester = request.data.get('new_semester')
+        
+        if not student_ids or not new_semester:
+            return Response({"error": "Missing data: Please provide student IDs and the target semester."}, status=400)
+            
+        # Security: Ensure they only update students in their department
+        updated_count = Student.objects.filter(
+            id__in=student_ids, 
+            department=request.user.profile.department
+        ).update(current_semester=new_semester)
+        
+        return Response({"message": f"Successfully updated {updated_count} students to Semester {new_semester}"})
+
+
+# ==========================================
+# 2. STUDENT BATCH MANAGEMENT (The Buckets)
+# ==========================================
+class StudentGroupView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        """ Get all groups for the current Academic Year """
+        dept = request.user.profile.department
+        ay_id = request.GET.get('academic_year')
+        semester = request.GET.get('semester')
+        
+        if not dept or not ay_id:
+            return Response({"error": "Department and Academic Year are required"}, status=400)
+            
+        groups = StudentGroup.objects.filter(department=dept, academic_year_id=ay_id)
+        
+        if semester:
+            groups = groups.filter(semester=semester)
+            
+        return Response(StudentGroupSerializer(groups, many=True).data)
+
+    def post(self, request):
+        """ Create a new Batch / Group """
+        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+            return Response({"error": "Permission denied"}, status=403)
+            
+        data = request.data.copy()
+        data['department'] = request.user.profile.department.id
+        
+        serializer = StudentGroupSerializer(data=data)
+        if serializer.is_valid():
+            group = serializer.save()
+            return Response(StudentGroupSerializer(group).data, status=201)
+        return Response(serializer.errors, status=400)
+    
+    def put(self, request):
+        """ Update Batch / Group details (Name, Type) """
+        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+            return Response({"error": "Permission denied"}, status=403)
+            
+        group_id = request.data.get('id')
+        try:
+            group = StudentGroup.objects.get(id=group_id, department=request.user.profile.department)
+            serializer = StudentGroupSerializer(group, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data)
+            return Response(serializer.errors, status=400)
+        except StudentGroup.DoesNotExist:
+            return Response({"error": "Group not found"}, status=404)
+
+    def patch(self, request):
+        """ Add or Remove students from a specific group """
+        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+            return Response({"error": "Permission denied"}, status=403)
+            
+        group_id = request.data.get('group_id')
+        action = request.data.get('action') # 'add', 'remove', or 'set'
+        student_ids = request.data.get('student_ids', [])
+        
+        try:
+            group = StudentGroup.objects.get(id=group_id, department=request.user.profile.department)
+            
+            # The Magic Django ManyToMany logic
+            if action == 'add':
+                group.students.add(*student_ids)
+            elif action == 'remove':
+                group.students.remove(*student_ids)
+            elif action == 'set':
+                group.students.set(student_ids)
+            
+            return Response(StudentGroupSerializer(group).data)
+        except StudentGroup.DoesNotExist:
+            return Response({"error": "Group not found"}, status=404)
+
+    def delete(self, request):
+        """ Delete a Batch (This does NOT delete the students, just the bucket) """
+        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+            return Response({"error": "Permission denied"}, status=403)
+            
+        group_id = request.GET.get('id')
+        try:
+            group = StudentGroup.objects.get(id=group_id, department=request.user.profile.department)
+            group.delete()
+            return Response({"message": "Group deleted successfully"})
+        except StudentGroup.DoesNotExist:
+            return Response({"error": "Group not found"}, status=404)

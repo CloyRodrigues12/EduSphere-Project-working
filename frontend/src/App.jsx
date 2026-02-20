@@ -16,6 +16,7 @@ import PasswordResetConfirm from "./pages/PasswordResetConfirm";
 import DocuSense from "./pages/DocuSense";
 import ECSUploadWizard from "./pages/Upload/ECSView/ECSUploadWizard";
 import SubjectCatalog from "./pages/SubjectCatalog";
+import StudentDirectory from "./pages/StudentDirectory";
 
 // Placeholder Component
 const Placeholder = ({ title }) => (
@@ -57,10 +58,7 @@ const AppLayout = () => {
         <div style={{ flex: 1, paddingBottom: "2rem" }}>
           <Routes>
             <Route path="/" element={<DashboardHome />} />
-            <Route
-              path="/students"
-              element={<Placeholder title="Student Management" />}
-            />
+
             <Route
               path="/fees"
               element={<Placeholder title="Fees Collection" />}
@@ -69,6 +67,7 @@ const AppLayout = () => {
             <Route path="/docusense" element={<DocuSense />} />
             <Route path="/staff" element={<StaffManagement />} />
             <Route path="/subjects" element={<SubjectCatalog />} />
+            <Route path="/students" element={<StudentDirectory />} />
           </Routes>
         </div>
       </div>
