@@ -30,10 +30,13 @@ from core.serializers import DepartmentSerializer
 from core.models import Course, TeachingAllocation
 from core.serializers import CourseSerializer
 
-
 from django.db.models import Q
 from core.models import Student, StudentGroup
 from core.serializers import StudentSerializer, StudentGroupSerializer
+
+from django.db import transaction
+from core.models import TeachingAllocation, UserProfile
+from core.serializers import TeachingAllocationSerializer
 
 # 1. Google Login
 class GoogleLogin(SocialLoginView):
@@ -1026,3 +1029,97 @@ class StudentGroupView(APIView):
             return Response({"message": "Group deleted successfully"})
         except StudentGroup.DoesNotExist:
             return Response({"error": "Group not found"}, status=404)
+
+
+
+# ==========================================
+# 1. THE ALLOCATION MATRIX (Admin View)
+# ==========================================
+class AllocationManagerView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        """ Fetch all allocations for the department (Admin View) """
+        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+            return Response({"error": "Permission denied"}, status=403)
+            
+        ay_id = request.GET.get('academic_year')
+        faculty_id = request.GET.get('faculty_id') # Optional filter
+        
+        allocations = TeachingAllocation.objects.filter(
+            subject__department=request.user.profile.department,
+            academic_year_id=ay_id
+        )
+        
+        if faculty_id:
+            allocations = allocations.filter(faculty_id=faculty_id)
+            
+        return Response(TeachingAllocationSerializer(allocations, many=True).data)
+
+    def post(self, request):
+        """ Bulk Create Allocations (The 'Multiple Batches' Magic) """
+        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+            return Response({"error": "Permission denied"}, status=403)
+            
+        ay_id = request.data.get('academic_year')
+        faculty_id = request.data.get('faculty_id')
+        subject_id = request.data.get('subject_id')
+        group_ids = request.data.get('student_group_ids', []) # THIS IS THE ARRAY!
+        
+        if not all([ay_id, faculty_id, subject_id, group_ids]):
+            return Response({"error": "Missing required fields"}, status=400)
+
+        created_allocations = []
+        
+        try:
+            # Use a transaction so if one fails, they all fail (Data Integrity)
+            with transaction.atomic():
+                for group_id in group_ids:
+                    # get_or_create prevents duplicates if the HOD clicks twice
+                    allocation, created = TeachingAllocation.objects.get_or_create(
+                        academic_year_id=ay_id,
+                        faculty_id=faculty_id,
+                        subject_id=subject_id,
+                        student_group_id=group_id
+                    )
+                    created_allocations.append(allocation)
+                    
+            return Response({
+                "message": f"Successfully created {len(created_allocations)} allocations!",
+                "data": TeachingAllocationSerializer(created_allocations, many=True).data
+            }, status=201)
+            
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
+
+    def delete(self, request):
+        """ Remove a specific allocation """
+        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+            return Response({"error": "Permission denied"}, status=403)
+            
+        allocation_id = request.GET.get('id')
+        try:
+            TeachingAllocation.objects.get(id=allocation_id).delete()
+            return Response({"message": "Allocation removed"})
+        except TeachingAllocation.DoesNotExist:
+            return Response({"error": "Not found"}, status=404)
+
+
+# ==========================================
+# 2. FACULTY DASHBOARD (Teacher View)
+# ==========================================
+class MyClassesView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        """ Fetch ONLY the classes assigned to the logged-in teacher """
+        # We only want classes for the currently ACTIVE Academic Year
+        try:
+            allocations = TeachingAllocation.objects.filter(
+                faculty=request.user.profile,
+                academic_year__is_active=True
+            ).order_by('subject__semester', 'subject__name')
+            
+            return Response(TeachingAllocationSerializer(allocations, many=True).data)
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)

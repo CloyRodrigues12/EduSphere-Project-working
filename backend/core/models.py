@@ -186,11 +186,12 @@ class TeachingAllocation(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('academic_year', 'subject', 'student_group')
+        unique_together = ('academic_year', 'faculty', 'subject', 'student_group')
         verbose_name = "Teaching Allocation"
 
     def __str__(self):
-        return f"{self.faculty.user.email} -> {self.subject.code} ({self.student_group.name})"
+        return f"{self.faculty.user.first_name} - {self.subject.name} - {self.student_group.name}"
+        
 
 # ==========================================
 # 6. EXISTING STUDENT MODEL 

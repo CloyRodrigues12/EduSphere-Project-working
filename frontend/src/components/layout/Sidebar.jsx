@@ -14,6 +14,7 @@ import {
   AlertCircle,
   Shield,
   Library,
+  Layers,
 } from "lucide-react";
 import "./Sidebar.css";
 import { FileSearch } from "lucide-react";
@@ -40,6 +41,12 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
       icon: Shield,
       label: "Team & Perms",
       path: "/staff",
+    });
+
+    navItems.splice(3, 0, {
+      icon: Layers,
+      label: "Allocation Matrix",
+      path: "/allocations",
     });
   }
 

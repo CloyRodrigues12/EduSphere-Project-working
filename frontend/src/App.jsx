@@ -17,6 +17,7 @@ import DocuSense from "./pages/DocuSense";
 import ECSUploadWizard from "./pages/Upload/ECSView/ECSUploadWizard";
 import SubjectCatalog from "./pages/SubjectCatalog";
 import StudentDirectory from "./pages/StudentDirectory";
+import AllocationMatrix from "./pages/AllocationMatrix";
 
 // Placeholder Component
 const Placeholder = ({ title }) => (
@@ -68,6 +69,7 @@ const AppLayout = () => {
             <Route path="/staff" element={<StaffManagement />} />
             <Route path="/subjects" element={<SubjectCatalog />} />
             <Route path="/students" element={<StudentDirectory />} />
+            <Route path="/allocations" element={<AllocationMatrix />} />
           </Routes>
         </div>
       </div>

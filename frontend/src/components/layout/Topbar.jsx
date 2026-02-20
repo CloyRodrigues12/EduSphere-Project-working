@@ -63,7 +63,7 @@ const Topbar = ({ title, onMenuClick }) => {
 
         const response = await axios.get(
           `${import.meta.env.VITE_API_URL}/api/user/me/`,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${token}` } },
         );
 
         const userData = response.data;
@@ -76,7 +76,7 @@ const Topbar = ({ title, onMenuClick }) => {
           designation: userData.designation,
           orgType: userData.org_type,
           avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(
-            userData.name
+            userData.name,
           )}&background=6366f1&color=fff&bold=true`,
         });
       } catch (error) {
@@ -99,7 +99,7 @@ const Topbar = ({ title, onMenuClick }) => {
         <button className="icon-btn menu-trigger" onClick={onMenuClick}>
           <Menu size={24} />
         </button>
-        <h1 className="page-title">{title}</h1>
+        <h1 className="tpage-title">{title}</h1>
       </div>
 
       {/* Right */}
@@ -226,7 +226,7 @@ const Topbar = ({ title, onMenuClick }) => {
               </div>
             </div>
           </div>,
-          document.body
+          document.body,
         )}
     </header>
   );

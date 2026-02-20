@@ -43,6 +43,17 @@ export const academicService = {
   addSubject: (data) => api.post("/subjects/", data),
   updateSubject: (data) => api.put("/subjects/", data),
   deleteSubject: (id) => api.delete(`/subjects/?id=${id}`),
+
+  // --- Allocation Matrix ---
+  getAllocations: (academicYearId, facultyId) =>
+    api.get(
+      `/allocations/?academic_year=${academicYearId}&faculty_id=${facultyId || ""}`,
+    ),
+  createAllocations: (data) => api.post("/allocations/", data), // Expects { academic_year, faculty_id, subject_id, student_group_ids: [] }
+  deleteAllocation: (id) => api.delete(`/allocations/?id=${id}`),
+
+  // --- Faculty Dashboard ---
+  getMyClasses: () => api.get("/faculty/my-classes/"),
 };
 
 export const studentService = {

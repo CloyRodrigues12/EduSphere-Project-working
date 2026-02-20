@@ -576,7 +576,7 @@ const PromoteModal = ({ onClose, onConfirm, selectedCount, currentSem }) => {
         </div>
 
         <div className="premium-form" style={{ padding: "1rem 0" }}>
-          <div className="input-group">
+          <div className="sinput-group">
             <label>Target Semester</label>
             <select
               className="standard-input"

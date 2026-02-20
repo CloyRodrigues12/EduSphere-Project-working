@@ -19,6 +19,7 @@ from core.views import UploadPreviewView, commit_upload, CheckDuplicateUploadVie
 from core.views import DepartmentListView 
 from core.views import SubjectCatalogView
 from core.views import StudentDirectoryView, StudentGroupView
+from core.views import AllocationManagerView, MyClassesView
 
 def password_reset_redirect(request, uidb64, token):
     # This takes the tokens from the email link and sends the user to React (port 5173)
@@ -68,11 +69,19 @@ urlpatterns = [
 
     
 
-    # --- ACADEMIC CONFIGURATION ---
+
+   # --- ACADEMIC CONFIGURATION ---
     path('api/subjects/', SubjectCatalogView.as_view(), name='subject-catalog'),
     path('api/students/directory/', StudentDirectoryView.as_view(), name='student-directory'),
     path('api/student-groups/', StudentGroupView.as_view(), name='student-groups'),
+    
+    # --- PHASE 3: ALLOCATIONS & DASHBOARDS ---
+    path('api/allocations/', AllocationManagerView.as_view(), name='allocation-manager'),
+    path('api/faculty/my-classes/', MyClassesView.as_view(), name='my-classes'),
 
+
+
+    
     # --- DOCUSENSE ---
     path('api/docusense/', include('docusense.urls')),
 

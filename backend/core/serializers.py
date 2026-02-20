@@ -13,12 +13,11 @@ from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.models import User
 from .models import UserProfile, Department, Organization, AcademicYear
 
-
-
 from .models import Course
 
-
 from .models import Student, StudentGroup
+
+from .models import TeachingAllocation
 
 # 1. User Details (for /user/me/)
 class CustomUserDetailsSerializer(UserDetailsSerializer):
@@ -193,4 +192,22 @@ class StudentGroupSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = StudentGroup
+        fields = '__all__'
+
+
+
+class TeachingAllocationSerializer(serializers.ModelSerializer):
+    # Flatten the data for the frontend cards
+    subject_name = serializers.CharField(source='subject.name', read_only=True)
+    subject_code = serializers.CharField(source='subject.code', read_only=True)
+    subject_type = serializers.CharField(source='subject.subject_type', read_only=True)
+    
+    group_name = serializers.CharField(source='student_group.name', read_only=True)
+    group_type = serializers.CharField(source='student_group.type', read_only=True)
+    student_count = serializers.IntegerField(source='student_group.students.count', read_only=True)
+    
+    faculty_name = serializers.CharField(source='faculty.user.first_name', read_only=True)
+
+    class Meta:
+        model = TeachingAllocation
         fields = '__all__'
