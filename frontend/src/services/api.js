@@ -54,6 +54,11 @@ export const academicService = {
 
   // --- Faculty Dashboard ---
   getMyClasses: () => api.get("/faculty/my-classes/"),
+
+  // --- NEW: Academic Years ---
+  getAcademicYears: () => api.get("/academic-years/"),
+  createAcademicYear: (data) => api.post("/academic-years/", data),
+  updateAcademicYear: (data) => api.put("/academic-years/", data),
 };
 
 export const studentService = {

@@ -18,9 +18,10 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { studentService } from "../services/api";
 import "./StudentDirectory.css";
+import { useAcademic } from "../context/AcademicContext";
 
 const StudentDirectory = () => {
-  const activeAcademicYear = { id: 1, name: "2025-2026" };
+  const { activeAcademicYear } = useAcademic();
 
   const [students, setStudents] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -40,9 +41,11 @@ const StudentDirectory = () => {
   });
 
   useEffect(() => {
-    fetchData();
-    setSelectedStudents(new Set());
-  }, [activeSem, searchTerm]);
+    if (activeAcademicYear) {
+      fetchData();
+      setSelectedStudents(new Set());
+    }
+  }, [activeSem, searchTerm, activeAcademicYear]);
 
   const showToast = (message, type = "success") => {
     setToast({ show: true, message, type });
@@ -120,7 +123,10 @@ const StudentDirectory = () => {
       showToast("Failed to delete group.", "error");
     }
   };
-
+  // loading guard
+  if (!activeAcademicYear) {
+    return <div className="spinner" style={{ margin: "5rem auto" }}></div>;
+  }
   return (
     <div className="directory-container fade-in">
       <div

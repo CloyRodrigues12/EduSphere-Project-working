@@ -490,3 +490,40 @@
     opacity: 1;
   }
 }
+
+/* --- Academic Year Topbar Badge --- */
+.academic-year-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-input);
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border-color);
+  margin-right: 12px;
+}
+
+.year-selector {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-weight: 500;
+  font-size: 0.9rem;
+  cursor: pointer;
+  outline: none;
+  /* Removes default webkit styling for cleaner look */
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.year-selector:focus {
+  outline: none;
+}
+
+.settings-link {
+  transition: color 0.2s ease;
+}
+
+.settings-link:hover {
+  color: var(--primary-color) !important;
+}

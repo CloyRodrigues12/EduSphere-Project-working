@@ -16,9 +16,10 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { staffService, academicService, studentService } from "../services/api";
 import "./AllocationMatrix.css";
+import { useAcademic } from "../context/AcademicContext";
 
 const AllocationMatrix = () => {
-  const activeAcademicYear = { id: 1, name: "2025-2026" };
+  const { activeAcademicYear } = useAcademic();
 
   const [facultyList, setFacultyList] = useState([]);
   const [allocations, setAllocations] = useState([]);
@@ -96,6 +97,10 @@ const AllocationMatrix = () => {
     const displayName = f.full_name || f.name || "";
     return displayName.toLowerCase().includes(searchTerm.toLowerCase());
   });
+  // --- NAVIGATION GUARD: Redirect if no active academic year ---
+  if (!activeAcademicYear) {
+    return <div className="spinner" style={{ margin: "5rem auto" }}></div>;
+  }
 
   return (
     <div className="allocation-container fade-in">

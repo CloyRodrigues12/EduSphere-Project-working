@@ -15,6 +15,7 @@ import {
   Shield,
   Library,
   Layers,
+  Settings,
 } from "lucide-react";
 import "./Sidebar.css";
 import { FileSearch } from "lucide-react";
@@ -31,9 +32,17 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
     { icon: Users, label: "Dir & Batches", path: "/students" },
     { icon: Banknote, label: "Fees", path: "/fees" },
     { icon: UploadCloud, label: "Upload Data", path: "/upload" },
-    { icon: BookOpenCheck, label: "Research AI", path: "/research" },
     { icon: FileSearch, label: "DocuSense AI", path: "/docusense" },
   ];
+
+  if (user?.role_code === "ORG_ADMIN" || user?.role_code === "SUPER_ADMIN") {
+    // ... existing admin links
+    navItems.push({
+      icon: Settings,
+      label: "Academic Settings",
+      path: "/academic-settings",
+    });
+  }
 
   // 4. Only add "Team" if user is an Admin
   if (user?.role_code === "ORG_ADMIN" || user?.role_code === "SUPER_ADMIN") {

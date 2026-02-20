@@ -1,0 +1,165 @@
+/* --- SCOPED TO ACADEMIC SETTINGS ONLY --- */
+.academic-settings-container {
+  padding: 2rem;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+.academic-settings-container .glass-panel {
+  border-radius: 12px;
+}
+.academic-settings-container h3 {
+  padding: 0.5rem;
+}
+.academic-settings-container .year-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 2rem;
+}
+
+.academic-settings-container .year-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-main);
+  transition: all 0.2s;
+}
+
+.academic-settings-container .year-card.active-year {
+  border-color: var(--primary-color);
+  background: rgba(79, 70, 229, 0.03);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.1);
+}
+
+.academic-settings-container .year-name {
+  font-size: 1.25rem;
+  color: var(--text-primary);
+  margin: 0 0 5px 0;
+}
+
+.academic-settings-container .year-dates {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  font-family: monospace;
+}
+
+.academic-settings-container .active-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #10b981;
+  font-weight: 600;
+  font-size: 0.95rem;
+  background: rgba(16, 185, 129, 0.1);
+  padding: 6px 12px;
+  border-radius: 8px;
+}
+
+/* --- Custom Year Stepper UI --- */
+.academic-settings-container .custom-year-stepper {
+  width: 40%;
+  display: flex;
+  align-items: center;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
+  height: 52px;
+  margin-top: 6px;
+}
+
+.academic-settings-container .stepper-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  height: 100%;
+  padding: 0 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.academic-settings-container .stepper-btn:hover {
+  background: rgba(79, 70, 229, 0.1);
+  color: var(--primary-color);
+}
+
+.academic-settings-container .stepper-display {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-left: 1px solid var(--border-color);
+  border-right: 1px solid var(--border-color);
+  height: 100%;
+  background: var(--bg-card);
+}
+
+.academic-settings-container .stepper-main {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: monospace;
+}
+
+/* =========================================
+   GLOBAL FORM STYLES (Light/Dark Optimized)
+   ========================================= */
+
+.academic-settings-container .input-group {
+  margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 1. Fix Label Contrast */
+.academic-settings-container .input-group label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(
+    --text-primary
+  ); /* Ensures dark text in light mode, white text in dark mode */
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 2. Fix Input & Select Contrast */
+.academic-settings-container .standard-input {
+  width: 50%;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-input);
+  color: var(--text-primary); /* Forces the typed text to match the theme */
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+/* 3. Add a Premium Focus Ring (Matches your Primary Color) */
+.academic-settings-container .standard-input:focus {
+  border-color: var(--primary-color);
+  background-color: var(--bg-card);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15); /* Soft glowing ring */
+}
+
+/* 4. Fix Placeholder Text Visibility */
+.academic-settings-container .standard-input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+/* 5. Fix Checkbox & Radio Labels */
+.academic-settings-container .checkbox-group label {
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  cursor: pointer;
+}

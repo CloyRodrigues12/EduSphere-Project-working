@@ -38,6 +38,10 @@ from django.db import transaction
 from core.models import TeachingAllocation, UserProfile
 from core.serializers import TeachingAllocationSerializer
 
+from core.models import AcademicYear
+from rest_framework import serializers
+
+
 # 1. Google Login
 class GoogleLogin(SocialLoginView):
     adapter_class = GoogleOAuth2Adapter
@@ -1123,3 +1127,66 @@ class MyClassesView(APIView):
             return Response(TeachingAllocationSerializer(allocations, many=True).data)
         except Exception as e:
             return Response({"error": str(e)}, status=500)
+
+
+
+# Quick serializer for the view
+class AcademicYearSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AcademicYear
+        fields = '__all__'
+
+# ==========================================
+# ACADEMIC YEAR MANAGEMENT
+# ==========================================
+class AcademicYearView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        """ Fetch all academic years for the organization """
+        # Only Org Admins/Super Admins might need to see all, 
+        # but everyone needs to know the active one.
+        org = request.user.profile.organization
+        years = AcademicYear.objects.filter(organization=org).order_by('-start_date')
+        return Response(AcademicYearSerializer(years, many=True).data)
+
+    def post(self, request):
+        """ Create a new Academic Year """
+        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+            return Response({"error": "Permission denied"}, status=403)
+            
+        data = request.data.copy()
+        data['organization'] = request.user.profile.organization.id
+        
+        serializer = AcademicYearSerializer(data=data)
+        if serializer.is_valid():
+            # If they set this as active, deactivate all others first
+            if serializer.validated_data.get('is_active', False):
+                AcademicYear.objects.filter(organization=request.user.profile.organization).update(is_active=False)
+            
+            serializer.save()
+            return Response(serializer.data, status=201)
+        return Response(serializer.errors, status=400)
+
+    def put(self, request):
+        """ Update an Academic Year (e.g., Set as Active) """
+        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+            return Response({"error": "Permission denied"}, status=403)
+            
+        ay_id = request.data.get('id')
+        try:
+            year = AcademicYear.objects.get(id=ay_id, organization=request.user.profile.organization)
+            
+            # If marking as active, deactivate the others
+            is_active = request.data.get('is_active')
+            if str(is_active).lower() == 'true':
+                AcademicYear.objects.filter(organization=request.user.profile.organization).update(is_active=False)
+                year.is_active = True
+                
+            serializer = AcademicYearSerializer(year, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data)
+            return Response(serializer.errors, status=400)
+        except AcademicYear.DoesNotExist:
+            return Response({"error": "Academic Year not found"}, status=404)

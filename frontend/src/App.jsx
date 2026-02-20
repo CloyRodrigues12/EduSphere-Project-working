@@ -1,6 +1,7 @@
 import React from "react";
 import { Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
+import { AcademicProvider } from "./context/AcademicContext";
 
 // Components
 import Sidebar from "./components/layout/Sidebar";
@@ -18,6 +19,8 @@ import ECSUploadWizard from "./pages/Upload/ECSView/ECSUploadWizard";
 import SubjectCatalog from "./pages/SubjectCatalog";
 import StudentDirectory from "./pages/StudentDirectory";
 import AllocationMatrix from "./pages/AllocationMatrix";
+
+import AcademicSettings from "./pages/AcademicSettings";
 
 // Placeholder Component
 const Placeholder = ({ title }) => (
@@ -70,6 +73,7 @@ const AppLayout = () => {
             <Route path="/subjects" element={<SubjectCatalog />} />
             <Route path="/students" element={<StudentDirectory />} />
             <Route path="/allocations" element={<AllocationMatrix />} />
+            <Route path="/academic-settings" element={<AcademicSettings />} />
           </Routes>
         </div>
       </div>
@@ -80,34 +84,36 @@ const AppLayout = () => {
 function App() {
   return (
     <AuthProvider>
-      <Routes>
-        {/* Public Routes */}
-        <Route path="/login" element={<Login />} />
-        <Route
-          path="/password-reset/confirm/:uid/:token"
-          element={<PasswordResetConfirm />}
-        />
+      <AcademicProvider>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/login" element={<Login />} />
+          <Route
+            path="/password-reset/confirm/:uid/:token"
+            element={<PasswordResetConfirm />}
+          />
 
-        {/* Protected Routes (Requires Login) */}
-        <Route
-          path="/setup"
-          element={
-            <ProtectedRoute>
-              <SetupWizard />
-            </ProtectedRoute>
-          }
-        />
+          {/* Protected Routes (Requires Login) */}
+          <Route
+            path="/setup"
+            element={
+              <ProtectedRoute>
+                <SetupWizard />
+              </ProtectedRoute>
+            }
+          />
 
-        {/* The Catch-All for Dashboard (Protected) */}
-        <Route
-          path="/*"
-          element={
-            <ProtectedRoute>
-              <AppLayout />
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
+          {/* The Catch-All for Dashboard (Protected) */}
+          <Route
+            path="/*"
+            element={
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </AcademicProvider>
     </AuthProvider>
   );
 }

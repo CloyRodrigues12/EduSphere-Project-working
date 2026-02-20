@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
+import { Link } from "react-router-dom";
 import axios from "axios";
 import {
   Sun,
@@ -14,15 +15,26 @@ import {
   Building2,
   BadgeCheck,
   AlertTriangle,
+  Calendar,
+  Info,
 } from "lucide-react";
 import "./Topbar.css";
 import { useAuth } from "../../context/AuthContext";
+import { useAcademic } from "../../context/AcademicContext";
 
 const Topbar = ({ title, onMenuClick }) => {
   const { logout } = useAuth();
+
+  // Bring in the global academic state!
+  const { activeAcademicYear, academicYears, setActiveAcademicYear } =
+    useAcademic();
+
   const [theme, setTheme] = useState("light");
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  // State to hold the year the user *wants* to switch to before confirming
+  const [pendingYear, setPendingYear] = useState(null);
 
   const menuRef = useRef(null);
 
@@ -92,6 +104,20 @@ const Topbar = ({ title, onMenuClick }) => {
     setShowLogoutConfirm(false);
   };
 
+  // --- NEW: Handle Year Dropdown Change ---
+  const handleYearSelect = (e) => {
+    const selectedId = parseInt(e.target.value);
+    const selected = academicYears.find((ay) => ay.id === selectedId);
+    if (selected && selected.id !== activeAcademicYear.id) {
+      setPendingYear(selected); // Trigger Modal instead of changing instantly
+    }
+  };
+
+  const confirmYearSwitch = () => {
+    setActiveAcademicYear(pendingYear);
+    setPendingYear(null);
+  };
+
   return (
     <header className="topbar glass-panel">
       {/* Left */}
@@ -99,7 +125,7 @@ const Topbar = ({ title, onMenuClick }) => {
         <button className="icon-btn menu-trigger" onClick={onMenuClick}>
           <Menu size={24} />
         </button>
-        <h1 className="tpage-title">{title}</h1>
+        <h1 className="page-title">{title}</h1>
       </div>
 
       {/* Right */}
@@ -108,6 +134,40 @@ const Topbar = ({ title, onMenuClick }) => {
           <Search size={18} className="search-icon" />
           <input type="text" placeholder="Search..." />
         </div>
+
+        {/* --- Global Academic Year Selector/Badge --- */}
+        {activeAcademicYear && (
+          <div className="academic-year-badge">
+            <Calendar size={16} className="text-primary" />
+            <select
+              className="year-selector"
+              value={activeAcademicYear.id}
+              onChange={handleYearSelect} // <-- Hooked up to the new handler
+              title="Change Viewing Context"
+            >
+              {academicYears.map((ay) => (
+                <option key={ay.id} value={ay.id}>
+                  {ay.name} {ay.is_active ? "(Current)" : ""}
+                </option>
+              ))}
+            </select>
+            {/* Show Settings link only for Admins */}
+            {(user.role === "ORG_ADMIN" || user.role === "SUPER_ADMIN") && (
+              <Link
+                to="/academic-settings"
+                className="settings-link text-muted"
+                title="Manage Academic Years"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  marginLeft: "4px",
+                }}
+              >
+                <Settings size={16} />
+              </Link>
+            )}
+          </div>
+        )}
 
         <button className="icon-btn" onClick={toggleTheme}>
           {theme === "light" ? <Moon size={20} /> : <Sun size={20} />}
@@ -133,7 +193,7 @@ const Topbar = ({ title, onMenuClick }) => {
             />
             <div className="profile-info">
               <span className="name">{user.name}</span>
-              <span className="role">{user.role}</span>
+              <span className="role">{user.role?.replace("_", " ")}</span>
             </div>
             <ChevronDown
               size={16}
@@ -200,7 +260,9 @@ const Topbar = ({ title, onMenuClick }) => {
         </div>
       </div>
 
-      {/* --- 2. RENDER MODAL IN PORTAL (Outside Topbar) --- */}
+      {/* --- MODALS RENDERED IN PORTAL (Outside Topbar) --- */}
+
+      {/* 1. Logout Modal */}
       {showLogoutConfirm &&
         createPortal(
           <div
@@ -222,6 +284,47 @@ const Topbar = ({ title, onMenuClick }) => {
                 </button>
                 <button className="danger-btn" onClick={handleLogout}>
                   Yes, Sign Out
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* 2. NEW: Switch Year Context Modal */}
+      {pendingYear &&
+        createPortal(
+          <div className="modal-overlay" onClick={() => setPendingYear(null)}>
+            <div className="confirm-card" onClick={(e) => e.stopPropagation()}>
+              <div
+                className="warning-icon"
+                style={{
+                  color: "#3b82f6",
+                  background: "rgba(59, 130, 246, 0.1)",
+                }}
+              >
+                <Info size={32} />
+              </div>
+              <h3>Change Dashboard Context?</h3>
+              <p>
+                You are switching your view to the{" "}
+                <strong>{pendingYear.name}</strong> academic year. This will
+                reload directories, matrices, and dashboards to show past or
+                future data.
+              </p>
+              <div className="confirm-actions" style={{ marginTop: "1.5rem" }}>
+                <button
+                  className="text-btn"
+                  onClick={() => setPendingYear(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn-primary"
+                  onClick={confirmYearSwitch}
+                  style={{ padding: "0.6rem 1.2rem", borderRadius: "8px" }}
+                >
+                  Switch View
                 </button>
               </div>
             </div>

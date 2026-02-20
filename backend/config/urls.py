@@ -20,6 +20,7 @@ from core.views import DepartmentListView
 from core.views import SubjectCatalogView
 from core.views import StudentDirectoryView, StudentGroupView
 from core.views import AllocationManagerView, MyClassesView
+from core.views import AcademicYearView
 
 def password_reset_redirect(request, uidb64, token):
     # This takes the tokens from the email link and sends the user to React (port 5173)
@@ -48,9 +49,12 @@ urlpatterns = [
     path('api/auth/registration/', include('dj_rest_auth.registration.urls')),
     path('api/auth/google/', GoogleLogin.as_view(), name='google_login'),
 
+
     # --- ORGANIZATION & USER ---
     path('api/setup-organization/', SetupOrganizationView.as_view()),
     path('api/user/me/', CurrentUserView.as_view()),
+
+    path('api/academic-years/', AcademicYearView.as_view(), name='academic-years'),
 
     # --- TEAM MANAGEMENT ---
     path('api/staff/', StaffManagementView.as_view()),  # For Viewers/Clerks
