@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { attendanceService, academicService } from "../services/api";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { useAuth } from "../context/AuthContext";
 import { useAcademic } from "../context/AcademicContext";
 import {
@@ -21,6 +23,7 @@ import {
   ChevronRight,
   Trash2,
   AlertTriangle,
+  Download,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import "./Attendance.css";
@@ -47,6 +50,24 @@ const Attendance = () => {
   const [viewMode, setViewMode] = useState("list");
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(null);
+
+  // PDF Export State
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportRange, setExportRange] = useState({ start: "", end: "" });
+  const [mergeShared, setMergeShared] = useState(true);
+
+  // 1. Bulletproof Local Timezone Date Generator
+  const setMonthRange = () => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, "0");
+
+    const firstDay = `${y}-${m}-01`;
+    const lastDayNum = new Date(y, today.getMonth() + 1, 0).getDate();
+    const lastDay = `${y}-${m}-${lastDayNum}`;
+
+    setExportRange({ start: firstDay, end: lastDay });
+  };
 
   // Modals
   const [showNewModal, setShowNewModal] = useState(false);
@@ -346,7 +367,114 @@ const Attendance = () => {
       </div>
     );
   };
+  const generatePDFReport = async (e) => {
+    e.preventDefault();
 
+    try {
+      const { start, end } = exportRange;
+      const res = await attendanceService.getReport(
+        allocationId,
+        start,
+        end,
+        mergeShared,
+      );
+      const data = res.data;
+
+      const doc = new jsPDF("p", "pt", "a4");
+
+      doc.setFontSize(18);
+      doc.setTextColor(40);
+      doc.text("EduSphere - Subject Attendance Report", 40, 40);
+
+      doc.setFontSize(11);
+      doc.setTextColor(100);
+      doc.text(
+        `Subject: ${data.subject_name || "N/A"} (${data.subject_code || "N/A"})`,
+        40,
+        60,
+      );
+
+      // Directly prints the exact semester linked in the database
+      doc.text(`Semester: ${data.semester || "N/A"}`, 40, 75);
+      doc.text(`Batch: ${data.batch_name || "N/A"}`, 250, 75);
+
+      doc.text(`Faculty: Prof. ${data.faculty_name || "N/A"}`, 40, 90);
+
+      let durationText = "No classes recorded in this period";
+      if (data.first_session_date && data.last_session_date) {
+        const firstD = new Date(data.first_session_date).toLocaleDateString(
+          "en-GB",
+        );
+        const lastD = new Date(data.last_session_date).toLocaleDateString(
+          "en-GB",
+        );
+        durationText = firstD === lastD ? firstD : `${firstD} to ${lastD}`;
+      }
+
+      doc.text(`Duration: ${durationText}`, 40, 105);
+      doc.text(`Theory Conducted (TC): ${data.total_conducted} Hours`, 40, 120);
+      doc.text(
+        `Generated on: ${new Date().toLocaleDateString("en-GB")}`,
+        40,
+        135,
+      );
+
+      const tableColumns = [
+        "Roll No.",
+        "Student Name",
+        "Attended (TA)",
+        "Absent",
+        "Duty Leaves",
+        "Percentage",
+      ];
+      const tableRows = (data.students || []).map((s) => [
+        s.roll_number,
+        s.name,
+        s.ta,
+        s.absent,
+        s.duty,
+        `${s.percentage}%`,
+      ]);
+
+      autoTable(doc, {
+        startY: 150,
+        head: [tableColumns],
+        body: tableRows,
+        theme: "grid",
+        headStyles: {
+          fillColor: [79, 70, 229],
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+        },
+        alternateRowStyles: { fillColor: [245, 247, 250] },
+        columnStyles: {
+          0: { cellWidth: 70 },
+          5: { fontStyle: "bold", textColor: [0, 0, 0] },
+        },
+        didParseCell: function (data) {
+          if (data.section === "body" && data.column.index === 5) {
+            const percentage = parseFloat(data.cell.raw);
+            if (percentage < 75) {
+              data.cell.styles.textColor = [239, 68, 68];
+              data.cell.styles.fontStyle = "bold";
+            }
+          }
+        },
+      });
+
+      const cleanSubjectCode = (data.subject_code || "SUB").replace(
+        /[^a-zA-Z0-9]/g,
+        "",
+      );
+      doc.save(
+        `${data.batch_name || "Batch"}_${cleanSubjectCode}_Attendance.pdf`,
+      );
+      setShowExportModal(false);
+    } catch (err) {
+      console.error("PDF Error:", err);
+      alert("Failed to generate report. Check the console for details.");
+    }
+  };
   if (loading)
     return <div className="spinner" style={{ margin: "5rem auto" }}></div>;
 
@@ -527,6 +655,12 @@ const Attendance = () => {
                 </button>
               </div>
               <button
+                className="att-btn att-btn-secondary"
+                onClick={() => setShowExportModal(true)}
+              >
+                <Download size={18} /> Export PDF
+              </button>
+              <button
                 className="att-btn att-btn-primary"
                 onClick={() => setShowNewModal(true)}
               >
@@ -670,6 +804,129 @@ const Attendance = () => {
                     style={{ width: "100%" }}
                   >
                     Proceed to Roll Call ➔
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+        {/* EXPORT PDF MODAL */}
+        {showExportModal && (
+          <div className="att-modal-overlay">
+            <motion.div
+              className="att-modal-content"
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            >
+              <div className="att-modal-header">
+                <div>
+                  <h3>Generate Report</h3>
+                  <p>Select a date range for the attendance calculation.</p>
+                </div>
+                <button
+                  onClick={() => setShowExportModal(false)}
+                  className="att-close-btn"
+                >
+                  &times;
+                </button>
+              </div>
+
+              <div
+                style={{ display: "flex", gap: "10px", marginBottom: "1.5rem" }}
+              >
+                <button
+                  type="button"
+                  className="att-btn att-btn-secondary"
+                  style={{ flex: 1, fontSize: "0.85rem" }}
+                  onClick={() => setExportRange({ start: "", end: "" })}
+                >
+                  All Time
+                </button>
+                <button
+                  type="button"
+                  className="att-btn att-btn-secondary"
+                  style={{ flex: 1, fontSize: "0.85rem" }}
+                  onClick={setMonthRange}
+                >
+                  Current Month
+                </button>
+              </div>
+
+              <form onSubmit={generatePDFReport} className="att-form">
+                <div style={{ display: "flex", gap: "15px" }}>
+                  <div className="att-input-group" style={{ flex: 1 }}>
+                    <label>Start Date</label>
+                    <input
+                      type="date"
+                      value={exportRange.start}
+                      onChange={(e) =>
+                        setExportRange({
+                          ...exportRange,
+                          start: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="att-input-group" style={{ flex: 1 }}>
+                    <label>End Date</label>
+                    <input
+                      type="date"
+                      value={exportRange.end}
+                      onChange={(e) =>
+                        setExportRange({ ...exportRange, end: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+                <div
+                  style={{
+                    marginTop: "1.5rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    id="mergeShared"
+                    checked={mergeShared}
+                    onChange={(e) => setMergeShared(e.target.checked)}
+                    style={{
+                      width: "18px",
+                      height: "18px",
+                      accentColor: "var(--primary-color)",
+                    }}
+                  />
+                  <label
+                    htmlFor="mergeShared"
+                    style={{
+                      fontSize: "0.9rem",
+                      color: "var(--text-primary)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <strong>Merge Shared Faculty</strong>
+                    <span
+                      style={{
+                        display: "block",
+                        color: "var(--text-muted)",
+                        fontSize: "0.8rem",
+                        fontWeight: "normal",
+                      }}
+                    >
+                      Combines attendance if this subject is taught by multiple
+                      teachers.
+                    </span>
+                  </label>
+                </div>
+                <div style={{ marginTop: "2rem" }}>
+                  <button
+                    type="submit"
+                    className="att-btn att-btn-primary"
+                    style={{ width: "100%" }}
+                  >
+                    <Download size={18} /> Download PDF
                   </button>
                 </div>
               </form>

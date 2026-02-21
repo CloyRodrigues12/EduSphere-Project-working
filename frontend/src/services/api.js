@@ -105,7 +105,14 @@ export const attendanceService = {
   updateAttendance: (records) =>
     api.put("/attendance/bulk-update/", { records }),
   deleteSession: (sessionId) =>
-    api.delete(`/attendance/sessions/?session_id=${sessionId}`), // NEW
+    api.delete(`/attendance/sessions/?session_id=${sessionId}`),
+  getReport: (allocationId, startDate, endDate, mergeShared = false) => {
+    let url = `/attendance/report/?allocation_id=${allocationId}`;
+    if (startDate) url += `&start_date=${startDate}`;
+    if (endDate) url += `&end_date=${endDate}`;
+    if (mergeShared) url += `&merge_shared=true`; // NEW
+    return api.get(url);
+  },
 };
 
 export default api;
