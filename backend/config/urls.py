@@ -86,8 +86,8 @@ urlpatterns = [
     path('api/faculty/my-classes/', MyClassesView.as_view(), name='my-classes'),
 
 
-
-    
+    # --- PHASE 4: ATTENDANCE ---
+    path('api/attendance/', include('attendance.urls')), 
     # --- DOCUSENSE ---
     path('api/docusense/', include('docusense.urls')),
 

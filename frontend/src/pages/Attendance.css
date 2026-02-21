@@ -1,0 +1,456 @@
+/* ========================================================
+   ATTENDANCE ENGINE EXCLUSIVE STYLES
+   Absolutely zero style leakage to other components.
+======================================================== */
+
+#attendance-engine-root {
+  padding: 2rem;
+  max-width: 1100px;
+  margin: 0 auto;
+  font-family: inherit;
+}
+
+/* Typography & Headers */
+#attendance-engine-root .att-header-section {
+  margin-bottom: 2rem;
+}
+#attendance-engine-root .att-header-section.with-back {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+}
+#attendance-engine-root .att-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 0.3rem 0;
+}
+#attendance-engine-root .att-subtitle {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  margin: 0;
+}
+
+/* Buttons */
+#attendance-engine-root .att-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0.7rem 1.4rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+  font-size: 0.95rem;
+}
+#attendance-engine-root .att-btn:active {
+  transform: scale(0.96);
+}
+#attendance-engine-root .att-btn-primary {
+  background: var(--primary-color);
+  color: white;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+}
+#attendance-engine-root .att-btn-primary:hover {
+  background: var(--primary-hover);
+  box-shadow: 0 6px 16px rgba(79, 70, 229, 0.35);
+}
+#attendance-engine-root .att-btn-secondary {
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+#attendance-engine-root .att-btn-secondary:hover {
+  background: var(--bg-hover);
+}
+#attendance-engine-root .att-back-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+#attendance-engine-root .att-back-btn:hover {
+  background: var(--bg-hover);
+  transform: translateX(-3px);
+}
+
+/* Dashboard Grid & Cards */
+#attendance-engine-root .att-grid-layout {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+#attendance-engine-root .att-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
+}
+#attendance-engine-root .att-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+}
+#attendance-engine-root .att-card-mine {
+  border: 2px solid var(--primary-color);
+  box-shadow: 0 8px 20px rgba(79, 70, 229, 0.12);
+}
+#attendance-engine-root .att-ribbon {
+  position: absolute;
+  top: 18px;
+  right: -30px;
+  background: var(--primary-color);
+  color: white;
+  padding: 4px 35px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  transform: rotate(45deg);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+#attendance-engine-root .att-card-icon {
+  background: rgba(79, 70, 229, 0.1);
+  color: var(--primary-color);
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#attendance-engine-root .att-card-details h3 {
+  margin: 0 0 6px 0;
+  font-size: 1.15rem;
+  color: var(--text-primary);
+}
+#attendance-engine-root .att-card-details p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+#attendance-engine-root .att-prof-badge {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 4px 8px;
+  background: var(--bg-input);
+  border-radius: 6px;
+  font-weight: 500;
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+/* History List Panel */
+#attendance-engine-root .att-panel-header {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  padding: 1.2rem 1.5rem;
+  border-radius: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+#attendance-engine-root .att-panel-header h3 {
+  margin: 0 0 4px 0;
+  color: var(--text-primary);
+}
+#attendance-engine-root .att-panel-header p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+#attendance-engine-root .att-session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+#attendance-engine-root .att-session-row {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-left: 5px solid var(--primary-color);
+  border-radius: 12px;
+  padding: 1.2rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+#attendance-engine-root .att-session-row:hover {
+  transform: translateX(5px);
+  background: var(--bg-hover);
+}
+#attendance-engine-root .att-session-info h4 {
+  margin: 0 0 6px 0;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.05rem;
+}
+#attendance-engine-root .att-session-info span {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+#attendance-engine-root .att-stat-pill {
+  background: rgba(79, 70, 229, 0.1);
+  color: var(--primary-color);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* The Tap-Grid */
+#attendance-engine-root .att-student-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+#attendance-engine-root .att-student-row {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.2s;
+}
+#attendance-engine-root .att-student-row:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border-color: var(--text-muted);
+}
+#attendance-engine-root .att-roll {
+  font-family: monospace;
+  color: var(--text-secondary);
+  font-weight: 700;
+  margin-right: 15px;
+  width: 80px;
+  display: inline-block;
+  font-size: 1.05rem;
+}
+#attendance-engine-root .att-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 1.05rem;
+}
+#attendance-engine-root .att-actions {
+  display: flex;
+  gap: 10px;
+}
+#attendance-engine-root .att-tap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-size: 0.9rem;
+}
+#attendance-engine-root .att-tap:active {
+  transform: scale(0.92);
+}
+#attendance-engine-root .att-tap select {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-weight: inherit;
+  outline: none;
+  cursor: pointer;
+}
+#attendance-engine-root .att-tap.present.active {
+  background: #10b981;
+  color: white;
+  border-color: #10b981;
+}
+#attendance-engine-root .att-tap.absent.active {
+  background: #ef4444;
+  color: white;
+  border-color: #ef4444;
+}
+#attendance-engine-root .att-tap.duty.active {
+  background: #8b5cf6;
+  color: white;
+  border-color: #8b5cf6;
+}
+
+#attendance-engine-root .att-status-present {
+  border-left: 5px solid #10b981;
+}
+#attendance-engine-root .att-status-absent {
+  border-left: 5px solid #ef4444;
+  background: rgba(239, 68, 68, 0.03);
+}
+#attendance-engine-root .att-status-late {
+  border-left: 5px solid #f59e0b;
+}
+#attendance-engine-root .att-status-duty_sports,
+#attendance-engine-root .att-status-duty_culture,
+#attendance-engine-root .att-status-duty_other {
+  border-left: 5px solid #8b5cf6;
+}
+
+/* Modal Forms */
+#attendance-engine-root .att-modal-overlay {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+#attendance-engine-root .att-modal-content {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+  padding: 2.5rem;
+  width: 90%;
+  max-width: 450px;
+  border-radius: 16px;
+}
+#attendance-engine-root .att-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 1.2rem;
+  margin-bottom: 1.5rem;
+}
+#attendance-engine-root .att-modal-header h3 {
+  margin: 0 0 6px 0;
+  color: var(--text-primary);
+  font-size: 1.4rem;
+}
+#attendance-engine-root .att-modal-header p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+#attendance-engine-root .att-close-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.8rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+#attendance-engine-root .att-close-btn:hover {
+  color: #ef4444;
+}
+#attendance-engine-root .att-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 1.2rem;
+}
+#attendance-engine-root .att-input-group label {
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+#attendance-engine-root .att-input-group input,
+#attendance-engine-root .att-input-group select {
+  padding: 0.85rem 1rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: all 0.2s;
+}
+#attendance-engine-root .att-input-group select option {
+  background: var(--bg-card);
+}
+#attendance-engine-root .att-input-group input:focus,
+#attendance-engine-root .att-input-group select:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+  outline: none;
+}
+
+/* Animations & Utilities */
+#attendance-engine-root .fade-in {
+  animation: attFadeIn 0.3s ease-out;
+}
+#attendance-engine-root .slide-up-fade {
+  animation: attSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+#attendance-engine-root .att-empty-state {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 3rem;
+  background: var(--bg-card);
+  border: 1px dashed var(--border-color);
+  border-radius: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+@keyframes attFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes attSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  #attendance-engine-root .att-student-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  #attendance-engine-root .att-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+  #attendance-engine-root .att-tap {
+    flex: 1;
+    justify-content: center;
+  }
+}

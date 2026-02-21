@@ -94,5 +94,12 @@ export const studentService = {
       action: action,
     }),
 };
+export const attendanceService = {
+  getSessions: (allocationId) =>
+    api.get(`/attendance/sessions/?allocation_id=${allocationId}`),
+  createSession: (data) => api.post("/attendance/sessions/", data),
+  updateAttendance: (records) =>
+    api.put("/attendance/bulk-update/", { records }),
+};
 
 export default api;

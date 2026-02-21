@@ -22,6 +22,8 @@ import AllocationMatrix from "./pages/AllocationMatrix";
 
 import AcademicSettings from "./pages/AcademicSettings";
 
+import Attendance from "./pages/Attendance";
+
 // Placeholder Component
 const Placeholder = ({ title }) => (
   <div style={{ padding: "2rem" }}>
@@ -74,6 +76,25 @@ const AppLayout = () => {
             <Route path="/students" element={<StudentDirectory />} />
             <Route path="/allocations" element={<AllocationMatrix />} />
             <Route path="/academic-settings" element={<AcademicSettings />} />
+            {/* Base Attendance Route (Class Selector) */}
+            <Route
+              path="/attendance"
+              element={
+                <ProtectedRoute>
+                  <Attendance />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Specific Class Attendance Route */}
+            <Route
+              path="/attendance/:allocationId"
+              element={
+                <ProtectedRoute>
+                  <Attendance />
+                </ProtectedRoute>
+              }
+            />
           </Routes>
         </div>
       </div>

@@ -6,7 +6,6 @@ import {
   UploadCloud,
   Users,
   Banknote,
-  BookOpenCheck,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -16,9 +15,10 @@ import {
   Library,
   Layers,
   Settings,
+  FileSearch,
+  ClipboardCheck, // 1. IMPORT THE ICON HERE
 } from "lucide-react";
 import "./Sidebar.css";
-import { FileSearch } from "lucide-react";
 
 const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
   const navigate = useNavigate();
@@ -28,6 +28,8 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
   // 3. Dynamic Menu Logic
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/" },
+    // 2. ADD THE ATTENDANCE NAV ITEM HERE
+    { icon: ClipboardCheck, label: "Attendance", path: "/attendance" },
     { icon: Library, label: "Subject Catalog", path: "/subjects" },
     { icon: Users, label: "Dir & Batches", path: "/students" },
     { icon: Banknote, label: "Fees", path: "/fees" },
@@ -46,13 +48,15 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
 
   // 4. Only add "Team" if user is an Admin
   if (user?.role_code === "ORG_ADMIN" || user?.role_code === "SUPER_ADMIN") {
-    navItems.splice(1, 0, {
+    navItems.splice(2, 0, {
+      // Shifted index to account for Attendance
       icon: Shield,
       label: "Team & Perms",
       path: "/staff",
     });
 
-    navItems.splice(3, 0, {
+    navItems.splice(4, 0, {
+      // Shifted index to account for Attendance
       icon: Layers,
       label: "Allocation Matrix",
       path: "/allocations",

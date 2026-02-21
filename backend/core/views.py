@@ -477,17 +477,16 @@ class FacultyManagementView(APIView):
     parser_classes = (MultiPartParser, FormParser)
 
     def get(self, request):
-        # List all FACULTY members for this organization
-        # Filter by the logged-in user's organization to ensure multi-tenancy safety
+        """ Fetch all Faculty AND Admins (so Admins can teach) """
         org = request.user.profile.organization
-        
-        faculty_profiles = UserProfile.objects.filter(
-            organization=org,
-            role='FACULTY'
+        # NEW: Fetch both Faculty and Admins
+        faculty = UserProfile.objects.filter(
+            organization=org, 
+            role__in=['FACULTY', 'ORG_ADMIN', 'SUPER_ADMIN']
         ).select_related('user', 'department')
         
-        serializer = FacultySerializer(faculty_profiles, many=True)
-        return Response(serializer.data)
+        from core.serializers import FacultySerializer
+        return Response(FacultySerializer(faculty, many=True).data)
 
     def post(self, request):
         """ Add a new Faculty member to the Registry """

@@ -172,7 +172,13 @@ class TeachingAllocation(models.Model):
     academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE)
     
     # Who?
-    faculty = models.ForeignKey(UserProfile, on_delete=models.CASCADE, limit_choices_to={'role': 'FACULTY'})
+    faculty = models.ForeignKey(
+        'UserProfile', 
+        on_delete=models.CASCADE, 
+        related_name='allocations',
+        # NEW: Allow Admins to be assigned to classes!
+        limit_choices_to={'role__in': ['FACULTY', 'ORG_ADMIN', 'SUPER_ADMIN']} 
+    )
     
     # What?
     subject = models.ForeignKey(Course, on_delete=models.CASCADE)
