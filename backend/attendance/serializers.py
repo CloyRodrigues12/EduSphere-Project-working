@@ -20,5 +20,5 @@ class ClassSessionSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'allocation', 'date', 'lecture_count', 
             'is_extra_class', 'topics_covered', 
-            'subject_name', 'group_name', 'records'
+            'subject_name', 'group_name', 'records','updated_at'
         ]

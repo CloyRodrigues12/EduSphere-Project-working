@@ -10,12 +10,20 @@ class ClassSessionView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        """ Fetch all sessions for a specific class allocation """
+        """ Fetch sessions for a specific class OR all classes for the global calendar """
         allocation_id = request.GET.get('allocation_id')
-        if not allocation_id:
-            return Response({"error": "Allocation ID required"}, status=400)
-            
-        sessions = ClassSession.objects.filter(allocation_id=allocation_id).order_by('-date', '-id')
+        user_profile = request.user.profile
+
+        if allocation_id:
+            # Fetch for a specific class
+            sessions = ClassSession.objects.filter(allocation_id=allocation_id).order_by('-date', '-updated_at')
+        else:
+            # Global Calendar Logic: Fetch ALL sessions
+            if user_profile.role in ['ORG_ADMIN', 'SUPER_ADMIN']:
+                sessions = ClassSession.objects.all().order_by('-date', '-updated_at')
+            else:
+                sessions = ClassSession.objects.filter(allocation__faculty=user_profile).order_by('-date', '-updated_at')
+                
         return Response(ClassSessionSerializer(sessions, many=True).data)
 
     def post(self, request):
@@ -56,6 +64,24 @@ class ClassSessionView(APIView):
 
         except TeachingAllocation.DoesNotExist:
             return Response({"error": "Class not found"}, status=404)
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
+        
+    def delete(self, request):
+        """ Delete a recorded session """
+        session_id = request.GET.get('session_id')
+        try:
+            session = ClassSession.objects.get(id=session_id)
+            
+            # Security Check
+            user_profile = request.user.profile
+            if user_profile.role not in ['ORG_ADMIN', 'SUPER_ADMIN'] and session.allocation.faculty != user_profile:
+                return Response({"error": "Unauthorized to delete this session."}, status=403)
+                
+            session.delete()
+            return Response({"message": "Session deleted successfully."}, status=200)
+        except ClassSession.DoesNotExist:
+            return Response({"error": "Session not found."}, status=404)
         except Exception as e:
             return Response({"error": str(e)}, status=500)
 

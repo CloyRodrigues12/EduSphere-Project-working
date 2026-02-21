@@ -94,12 +94,18 @@ export const studentService = {
       action: action,
     }),
 };
+
 export const attendanceService = {
-  getSessions: (allocationId) =>
-    api.get(`/attendance/sessions/?allocation_id=${allocationId}`),
+  // If no ID is passed, it fetches ALL sessions for the global calendar
+  getSessions: (allocationId = "") =>
+    api.get(
+      `/attendance/sessions/${allocationId ? `?allocation_id=${allocationId}` : ""}`,
+    ),
   createSession: (data) => api.post("/attendance/sessions/", data),
   updateAttendance: (records) =>
     api.put("/attendance/bulk-update/", { records }),
+  deleteSession: (sessionId) =>
+    api.delete(`/attendance/sessions/?session_id=${sessionId}`), // NEW
 };
 
 export default api;

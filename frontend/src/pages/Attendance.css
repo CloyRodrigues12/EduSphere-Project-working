@@ -193,7 +193,6 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  cursor: pointer;
   transition: all 0.2s;
 }
 #attendance-engine-root .att-session-row:hover {
@@ -453,4 +452,225 @@
     flex: 1;
     justify-content: center;
   }
+}
+
+/* ========================================================
+   TOOLBAR: SEARCH & VIEW TOGGLE
+======================================================== */
+#attendance-engine-root .att-panel-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.2rem 1.5rem;
+  margin-bottom: 1.5rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+#attendance-engine-root .att-search-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  flex: 1;
+  min-width: 250px;
+}
+
+#attendance-engine-root .att-search-wrapper input {
+  border: none;
+  background: transparent;
+  width: 100%;
+  color: var(--text-primary);
+  outline: none;
+  font-size: 0.95rem;
+}
+
+#attendance-engine-root .att-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+#attendance-engine-root .att-view-toggle {
+  display: flex;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+#attendance-engine-root .att-view-toggle button {
+  background: transparent;
+  border: none;
+  padding: 0.6rem 0.8rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#attendance-engine-root .att-view-toggle button:hover {
+  background: var(--bg-hover);
+}
+
+#attendance-engine-root .att-view-toggle button.active {
+  background: var(--primary-color);
+  color: white;
+}
+
+/* ========================================================
+   CUSTOM CALENDAR COMPONENT
+======================================================== */
+#attendance-engine-root .att-calendar-wrapper {
+  padding: 1.5rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+}
+
+#attendance-engine-root .att-cal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  color: var(--text-primary);
+}
+
+#attendance-engine-root .att-icon-btn {
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+#attendance-engine-root .att-icon-btn:hover {
+  background: var(--bg-hover);
+}
+
+#attendance-engine-root .att-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+}
+
+#attendance-engine-root .att-cal-day-label {
+  text-align: center;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  padding-bottom: 10px;
+}
+
+#attendance-engine-root .att-cal-cell {
+  aspect-ratio: 1 / 1;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: all 0.2s;
+}
+
+#attendance-engine-root .att-cal-cell.empty {
+  background: transparent;
+  border: none;
+}
+
+#attendance-engine-root .att-cal-date-num {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+#attendance-engine-root .att-cal-cell.has-data {
+  background: rgba(79, 70, 229, 0.05);
+  border-color: rgba(79, 70, 229, 0.3);
+  cursor: pointer;
+}
+
+#attendance-engine-root .att-cal-cell.has-data:hover,
+#attendance-engine-root .att-cal-cell.selected {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+}
+
+#attendance-engine-root .att-cal-cell.selected .att-cal-date-num {
+  color: white;
+}
+
+#attendance-engine-root .att-cal-dot-indicator {
+  font-size: 0.65rem;
+  font-weight: bold;
+  margin-top: 4px;
+  background: var(--bg-card);
+  color: var(--primary-color);
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+
+#attendance-engine-root .att-cal-cell.selected .att-cal-dot-indicator {
+  background: white;
+  color: var(--primary-color);
+}
+
+/* Fix Calendar Cell Size */
+#attendance-engine-root .att-cal-cell {
+  aspect-ratio: auto; /* Removed the 1/1 square constraint */
+  min-height: 70px; /* Made it a sleek rectangle instead */
+  padding: 8px 5px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  position: relative;
+  transition: all 0.2s;
+}
+
+#attendance-engine-root .att-cal-date-num {
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+#attendance-engine-root .att-cal-dot-indicator {
+  font-size: 0.7rem;
+  margin-top: 8px;
+  padding: 3px 8px;
+}
+
+/* Delete Button Styling */
+#attendance-engine-root .att-icon-btn.delete-btn {
+  color: var(--text-muted);
+  border: none;
+  background: transparent;
+}
+
+#attendance-engine-root .att-icon-btn.delete-btn:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  transform: scale(1.1);
+}
+
+#attendance-engine-root .att-session-row {
+  cursor: default; /* Remove default pointer since click area is specific now */
 }

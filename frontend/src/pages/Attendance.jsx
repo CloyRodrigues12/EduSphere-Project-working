@@ -5,7 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { useAcademic } from "../context/AcademicContext";
 import {
   ArrowLeft,
-  Calendar,
+  Calendar as CalendarIcon,
   Clock,
   Plus,
   Users,
@@ -14,6 +14,13 @@ import {
   Save,
   BookOpen,
   Star,
+  Search,
+  List,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import "./Attendance.css";
@@ -22,7 +29,6 @@ const Attendance = () => {
   const { allocationId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-
   const { user } = useAuth();
   const { activeAcademicYear } = useAcademic();
 
@@ -32,11 +38,19 @@ const Attendance = () => {
   };
 
   const [myClasses, setMyClasses] = useState([]);
-  const [sessions, setSessions] = useState([]);
+  const [sessions, setSessions] = useState([]); // Used for both global and specific classes
   const [activeSession, setActiveSession] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Search & View Modes
+  const [searchTerm, setSearchTerm] = useState("");
+  const [viewMode, setViewMode] = useState("list");
+  const [calendarDate, setCalendarDate] = useState(new Date());
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(null);
+
+  // Modals
   const [showNewModal, setShowNewModal] = useState(false);
+  const [sessionToDelete, setSessionToDelete] = useState(null);
   const [newSessionData, setNewSessionData] = useState({
     date: new Date().toISOString().split("T")[0],
     lecture_count: 1,
@@ -45,31 +59,29 @@ const Attendance = () => {
 
   useEffect(() => {
     if (!allocationId) {
-      if (activeAcademicYear) fetchClasses();
+      if (activeAcademicYear) {
+        fetchClasses();
+        fetchGlobalSessions();
+      }
     } else {
       fetchSessions();
     }
   }, [allocationId, activeAcademicYear]);
 
   const fetchClasses = async () => {
-    setLoading(true);
     try {
       if (
         user?.role_code === "ORG_ADMIN" ||
         user?.role_code === "SUPER_ADMIN"
       ) {
         const res = await academicService.getAllocations(activeAcademicYear.id);
-
-        // BULLETPROOF "MY CLASS" LOGIC (Matches by ID)
         const myUserId = user?.pk || user?.id;
-
         const sortedClasses = res.data
-          .map((alloc) => {
-            const isMine = alloc.faculty_user_id === myUserId;
-            return { ...alloc, isMine };
-          })
+          .map((alloc) => ({
+            ...alloc,
+            isMine: alloc.faculty_user_id === myUserId,
+          }))
           .sort((a, b) => (a.isMine === b.isMine ? 0 : a.isMine ? -1 : 1));
-
         setMyClasses(sortedClasses);
       } else {
         const res = await academicService.getMyClasses();
@@ -77,6 +89,16 @@ const Attendance = () => {
       }
     } catch (err) {
       console.error("Failed to load classes", err);
+    }
+  };
+
+  const fetchGlobalSessions = async () => {
+    setLoading(true);
+    try {
+      const res = await attendanceService.getSessions();
+      setSessions(res.data);
+    } catch (err) {
+      console.error("Failed to load global sessions", err);
     } finally {
       setLoading(false);
     }
@@ -109,6 +131,24 @@ const Attendance = () => {
     }
   };
 
+  const handleDeleteSession = async () => {
+    try {
+      await attendanceService.deleteSession(sessionToDelete);
+      setSessions(sessions.filter((s) => s.id !== sessionToDelete));
+      setSessionToDelete(null);
+    } catch (err) {
+      alert("Failed to delete session.");
+    }
+  };
+
+  const handleBulkStatusChange = (newStatus) => {
+    const updatedRecords = activeSession.records.map((r) => ({
+      ...r,
+      status: newStatus,
+    }));
+    setActiveSession({ ...activeSession, records: updatedRecords });
+  };
+
   const handleStatusChange = (recordId, newStatus) => {
     const updatedRecords = activeSession.records.map((r) =>
       r.id === recordId ? { ...r, status: newStatus } : r,
@@ -120,16 +160,197 @@ const Attendance = () => {
     try {
       await attendanceService.updateAttendance(activeSession.records);
       setActiveSession(null);
-      fetchSessions();
+      if (!allocationId) fetchGlobalSessions();
+      else fetchSessions();
     } catch (err) {
       alert("Failed to save attendance.");
     }
   };
 
+  const filteredSessions = sessions.filter((session) => {
+    const term = searchTerm.toLowerCase();
+    const dateStr = new Date(session.date)
+      .toLocaleDateString("en-GB")
+      .toLowerCase();
+    const topicStr = (session.topics_covered || "").toLowerCase();
+    const subStr = (session.subject_name || "").toLowerCase();
+    return (
+      dateStr.includes(term) || topicStr.includes(term) || subStr.includes(term)
+    );
+  });
+
+  const renderCalendar = (sessionsToUse) => {
+    const year = calendarDate.getFullYear();
+    const month = calendarDate.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const firstDay = new Date(year, month, 1).getDay();
+
+    const allCells = [
+      ...Array(firstDay).fill(null),
+      ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+    ];
+
+    return (
+      <div className="att-calendar-wrapper glass-panel fade-in">
+        <div className="att-cal-header">
+          <button
+            onClick={() => setCalendarDate(new Date(year, month - 1, 1))}
+            className="att-icon-btn"
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <h3 style={{ margin: 0 }}>
+            {calendarDate.toLocaleString("default", {
+              month: "long",
+              year: "numeric",
+            })}
+          </h3>
+          <button
+            onClick={() => setCalendarDate(new Date(year, month + 1, 1))}
+            className="att-icon-btn"
+          >
+            <ChevronRight size={20} />
+          </button>
+        </div>
+        <div className="att-cal-grid">
+          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+            <div key={d} className="att-cal-day-label">
+              {d}
+            </div>
+          ))}
+          {allCells.map((day, idx) => {
+            if (!day)
+              return (
+                <div key={`blank-${idx}`} className="att-cal-cell empty"></div>
+              );
+
+            const cellDateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+            const daySessions = sessionsToUse.filter(
+              (s) => s.date === cellDateStr,
+            );
+            const hasSessions = daySessions.length > 0;
+            const isSelected = selectedCalendarDate === cellDateStr;
+
+            return (
+              <div
+                key={`day-${day}`}
+                className={`att-cal-cell ${hasSessions ? "has-data" : ""} ${isSelected ? "selected" : ""}`}
+                onClick={() => {
+                  if (hasSessions)
+                    setSelectedCalendarDate(
+                      cellDateStr === selectedCalendarDate ? null : cellDateStr,
+                    );
+                }}
+              >
+                <span className="att-cal-date-num">{day}</span>
+                {hasSessions && (
+                  <div className="att-cal-dot-indicator">
+                    {daySessions.length} classes
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {selectedCalendarDate && (
+          <div className="att-cal-selected-sessions slide-up-fade">
+            <h4
+              style={{
+                marginTop: "1.5rem",
+                marginBottom: "1rem",
+                borderBottom: "1px solid var(--border-color)",
+                paddingBottom: "0.5rem",
+              }}
+            >
+              Sessions on{" "}
+              {new Date(selectedCalendarDate).toLocaleDateString("en-GB")}
+            </h4>
+            <div className="att-session-list">
+              {sessionsToUse
+                .filter((s) => s.date === selectedCalendarDate)
+                .map((session) => renderSessionCard(session, !allocationId))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderSessionCard = (session, showSubjectName = false) => {
+    const presentCount =
+      session.records?.filter((r) =>
+        [
+          "PRESENT",
+          "LATE",
+          "DUTY_SPORTS",
+          "DUTY_CULTURE",
+          "DUTY_OTHER",
+        ].includes(r.status),
+      ).length || 0;
+    const timeRecorded = session.updated_at
+      ? new Date(session.updated_at).toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+        })
+      : "N/A";
+
+    return (
+      <div key={session.id} className="att-session-row">
+        <div
+          className="att-session-info"
+          onClick={() => setActiveSession(session)}
+          style={{ cursor: "pointer", flex: 1 }}
+        >
+          <h4 style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <CalendarIcon size={16} className="text-primary" />
+            {showSubjectName
+              ? `${session.subject_name} (${session.group_name})`
+              : new Date(session.date).toLocaleDateString("en-GB")}
+          </h4>
+          <span style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+            {showSubjectName && (
+              <span>
+                <CalendarIcon size={12} />{" "}
+                {new Date(session.date).toLocaleDateString("en-GB")}
+              </span>
+            )}
+            <span>
+              <Clock size={12} /> {session.lecture_count} Hr
+            </span>
+            <span style={{ color: "var(--text-muted)" }}>
+              ⏱ Recorded at {timeRecorded}
+            </span>
+            {session.topics_covered && <span> • {session.topics_covered}</span>}
+          </span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
+          <div className="att-stat-pill">
+            <Users size={14} /> {presentCount} / {session.records?.length || 0}
+          </div>
+
+          {/* SAFEGUARD: Only show the delete button if we are inside a specific class (allocationId exists) */}
+          {allocationId && (
+            <button
+              className="att-icon-btn delete-btn"
+              title="Delete Session"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSessionToDelete(session.id);
+              }}
+            >
+              <Trash2 size={18} />
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   if (loading)
     return <div className="spinner" style={{ margin: "5rem auto" }}></div>;
 
-  // VIEW 1: LANDING PAGE
+  // VIEW 1: LANDING PAGE (With Global Calendar)
   if (!allocationId) {
     return (
       <div id="attendance-engine-root" className="fade-in">
@@ -142,58 +363,113 @@ const Attendance = () => {
           </p>
         </div>
 
-        <div className="att-grid-layout mt-4">
-          {myClasses.map((alloc) => (
-            <motion.div
-              key={alloc.id}
-              className={`att-card ${alloc.isMine ? "att-card-mine" : ""}`}
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
+        <div className="att-panel-toolbar glass-panel">
+          <div className="att-view-toggle">
+            <button
+              className={viewMode === "list" ? "active" : ""}
+              onClick={() => setViewMode("list")}
             >
-              {alloc.isMine && (
-                <div className="att-ribbon">
-                  <Star size={12} fill="currentColor" /> My Class
-                </div>
-              )}
-
-              <div className="att-card-icon">
-                <BookOpen size={24} />
-              </div>
-              <div className="att-card-details">
-                <h3>{alloc.subject_name}</h3>
-                <p>
-                  {alloc.group_name} • {alloc.subject_type?.replace("_", " ")}
-                  <br />
-                  {/* FIX: Removed !alloc.isMine so the badge ALWAYS shows for Admins */}
-                  {(user?.role_code === "ORG_ADMIN" ||
-                    user?.role_code === "SUPER_ADMIN") && (
-                    <span className="att-prof-badge">
-                      👨‍🏫 Prof. {alloc.faculty_name}
-                    </span>
-                  )}
-                </p>
-              </div>
-              <button
-                className={`att-btn ${alloc.isMine ? "att-btn-primary" : "att-btn-secondary"}`}
-                onClick={() =>
-                  navigate(`/attendance/${alloc.id}`, {
-                    state: {
-                      subjectName: alloc.subject_name,
-                      groupName: alloc.group_name,
-                    },
-                  })
-                }
-              >
-                {alloc.isMine ? "Take Attendance" : "Audit Attendance"}
-              </button>
-            </motion.div>
-          ))}
-          {myClasses.length === 0 && (
-            <div className="att-empty-state">
-              No classes found for this academic year.
-            </div>
-          )}
+              <BookOpen size={18} /> My Classes
+            </button>
+            <button
+              className={viewMode === "calendar" ? "active" : ""}
+              onClick={() => setViewMode("calendar")}
+            >
+              <CalendarDays size={18} /> Global Calendar
+            </button>
+          </div>
         </div>
+
+        {viewMode === "list" ? (
+          <div className="att-grid-layout mt-4">
+            {myClasses.map((alloc) => (
+              <motion.div
+                key={alloc.id}
+                className={`att-card ${alloc.isMine ? "att-card-mine" : ""}`}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                {alloc.isMine && (
+                  <div className="att-ribbon">
+                    <Star size={12} fill="currentColor" /> My Class
+                  </div>
+                )}
+                <div className="att-card-icon">
+                  <BookOpen size={24} />
+                </div>
+
+                {/* RESTORED FACULTY NAMES */}
+                <div className="att-card-details">
+                  <h3>{alloc.subject_name}</h3>
+                  <p>
+                    {alloc.group_name} • {alloc.subject_type?.replace("_", " ")}
+                    <br />
+                    {(user?.role_code === "ORG_ADMIN" ||
+                      user?.role_code === "SUPER_ADMIN") && (
+                      <span className="att-prof-badge">
+                        👨‍🏫 Prof. {alloc.faculty_name}
+                      </span>
+                    )}
+                  </p>
+                </div>
+
+                <button
+                  className={`att-btn ${alloc.isMine ? "att-btn-primary" : "att-btn-secondary"}`}
+                  onClick={() =>
+                    navigate(`/attendance/${alloc.id}`, {
+                      state: {
+                        subjectName: alloc.subject_name,
+                        groupName: alloc.group_name,
+                      },
+                    })
+                  }
+                >
+                  Select Class
+                </button>
+              </motion.div>
+            ))}
+            {myClasses.length === 0 && (
+              <div className="att-empty-state">
+                No classes found for this academic year.
+              </div>
+            )}
+          </div>
+        ) : (
+          renderCalendar(sessions)
+        )}
+
+        {activeSession && (
+          <div className="att-modal-overlay">
+            <div
+              className="att-modal-content"
+              style={{
+                width: "95%",
+                maxWidth: "800px",
+                maxHeight: "90vh",
+                overflowY: "auto",
+              }}
+            >
+              <div className="att-modal-header">
+                <div>
+                  <h3>{activeSession.subject_name}</h3>
+                  <p>{activeSession.group_name}</p>
+                </div>
+                <button
+                  onClick={() => setActiveSession(null)}
+                  className="att-close-btn"
+                >
+                  &times;
+                </button>
+              </div>
+              <RollCallGrid
+                session={activeSession}
+                onStatusChange={handleStatusChange}
+                onBulkStatusChange={handleBulkStatusChange}
+                onSave={handleSaveAttendance}
+              />
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -220,73 +496,108 @@ const Attendance = () => {
         <RollCallGrid
           session={activeSession}
           onStatusChange={handleStatusChange}
+          onBulkStatusChange={handleBulkStatusChange}
           onSave={handleSaveAttendance}
         />
       ) : (
         <div className="att-history-view slide-up-fade">
-          <div className="att-panel-header">
-            <div>
-              <h3>Attendance Log</h3>
-              <p>{sessions.length} sessions recorded</p>
+          <div className="att-panel-toolbar glass-panel">
+            <div className="att-search-wrapper">
+              <Search size={18} className="text-muted" />
+              <input
+                type="text"
+                placeholder="Search by date or topic..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
-            <button
-              className="att-btn att-btn-primary"
-              onClick={() => setShowNewModal(true)}
-            >
-              <Plus size={18} /> Record New Session
-            </button>
+            <div className="att-toolbar-actions">
+              <div className="att-view-toggle">
+                <button
+                  className={viewMode === "list" ? "active" : ""}
+                  onClick={() => setViewMode("list")}
+                >
+                  <List size={18} />
+                </button>
+                <button
+                  className={viewMode === "calendar" ? "active" : ""}
+                  onClick={() => setViewMode("calendar")}
+                >
+                  <CalendarDays size={18} />
+                </button>
+              </div>
+              <button
+                className="att-btn att-btn-primary"
+                onClick={() => setShowNewModal(true)}
+              >
+                <Plus size={18} /> Record New Session
+              </button>
+            </div>
           </div>
 
-          <div className="att-session-list">
-            {sessions.map((session) => {
-              const presentCount = session.records.filter((r) =>
-                [
-                  "PRESENT",
-                  "LATE",
-                  "DUTY_SPORTS",
-                  "DUTY_CULTURE",
-                  "DUTY_OTHER",
-                ].includes(r.status),
-              ).length;
-              return (
-                <div
-                  key={session.id}
-                  className="att-session-row"
-                  onClick={() => setActiveSession(session)}
-                >
-                  <div className="att-session-info">
-                    <h4>
-                      <Calendar size={16} />{" "}
-                      {new Date(session.date).toLocaleDateString("en-GB", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </h4>
-                    <span>
-                      <Clock size={14} /> {session.lecture_count} Hour
-                      {session.lecture_count > 1 ? "s" : ""}{" "}
-                      {session.topics_covered && ` • ${session.topics_covered}`}
-                    </span>
-                  </div>
-                  <div className="att-session-stats">
-                    <div className="att-stat-pill">
-                      <Users size={14} /> {presentCount} /{" "}
-                      {session.records.length} Present
-                    </div>
-                  </div>
+          {viewMode === "list" ? (
+            <div className="att-session-list">
+              {filteredSessions.map((session) => renderSessionCard(session))}
+              {filteredSessions.length === 0 && (
+                <div className="att-empty-state">
+                  No matching attendance records found.
                 </div>
-              );
-            })}
-            {sessions.length === 0 && (
-              <div className="att-empty-state">No attendance recorded yet.</div>
-            )}
-          </div>
+              )}
+            </div>
+          ) : (
+            renderCalendar(filteredSessions)
+          )}
         </div>
       )}
 
-      {/* NEW SESSION MODAL */}
+      {/* MODALS */}
       <AnimatePresence>
+        {sessionToDelete && (
+          <div className="att-modal-overlay">
+            <motion.div
+              className="att-modal-content"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+            >
+              <div style={{ textAlign: "center" }}>
+                <AlertTriangle
+                  size={48}
+                  color="#ef4444"
+                  style={{ marginBottom: "1rem" }}
+                />
+                <h3>Delete Session?</h3>
+                <p style={{ color: "var(--text-secondary)" }}>
+                  This will permanently remove the attendance record for this
+                  entire class. This action cannot be undone.
+                </p>
+                <div
+                  style={{ display: "flex", gap: "10px", marginTop: "2rem" }}
+                >
+                  <button
+                    className="att-btn att-btn-secondary"
+                    style={{ flex: 1 }}
+                    onClick={() => setSessionToDelete(null)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="att-btn"
+                    style={{
+                      flex: 1,
+                      background: "#ef4444",
+                      color: "white",
+                      border: "none",
+                    }}
+                    onClick={handleDeleteSession}
+                  >
+                    Yes, Delete
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
         {showNewModal && (
           <div className="att-modal-overlay">
             <motion.div
@@ -371,22 +682,60 @@ const Attendance = () => {
 };
 
 // ROLL CALL GRID
-const RollCallGrid = ({ session, onStatusChange, onSave }) => (
+const RollCallGrid = ({
+  session,
+  onStatusChange,
+  onBulkStatusChange,
+  onSave,
+}) => (
   <div className="att-roll-call slide-up-fade">
-    <div className="att-panel-header">
-      <div>
-        <h3 style={{ margin: "0 0 4px 0" }}>
-          Date: {new Date(session.date).toLocaleDateString("en-GB")}
-        </h3>
-        <p style={{ margin: 0, color: "var(--text-secondary)" }}>
-          Tap a student's status to change it.
-        </p>
+    <div
+      className="att-panel-header"
+      style={{ flexDirection: "column", alignItems: "stretch", gap: "1rem" }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <div>
+          <h3 style={{ margin: "0 0 4px 0" }}>
+            Date: {new Date(session.date).toLocaleDateString("en-GB")}
+          </h3>
+          <p style={{ margin: 0, color: "var(--text-secondary)" }}>
+            Tap a student's status to change it.
+          </p>
+        </div>
+        <button className="att-btn att-btn-primary" onClick={onSave}>
+          <Save size={18} /> Save Attendance
+        </button>
       </div>
-      <button className="att-btn att-btn-primary" onClick={onSave}>
-        <Save size={18} /> Save Attendance
-      </button>
+      <div
+        style={{
+          display: "flex",
+          gap: "10px",
+          borderTop: "1px dashed var(--border-color)",
+          paddingTop: "1rem",
+        }}
+      >
+        <button
+          className="att-btn att-btn-secondary"
+          style={{ flex: 1, color: "#10b981", borderColor: "#10b981" }}
+          onClick={() => onBulkStatusChange("PRESENT")}
+        >
+          <CheckCircle size={18} /> Mark All Present
+        </button>
+        <button
+          className="att-btn att-btn-secondary"
+          style={{ flex: 1, color: "#ef4444", borderColor: "#ef4444" }}
+          onClick={() => onBulkStatusChange("ABSENT")}
+        >
+          <XCircle size={18} /> Mark All Absent
+        </button>
+      </div>
     </div>
-
     <div className="att-student-list">
       {session.records.map((record) => (
         <div
