@@ -585,7 +585,7 @@ const AllocationModal = ({ faculty, ayId, onClose, onRefresh, showToast }) => {
           </div>
 
           {selectedSubject && (
-            <div className="input-group mt-4">
+            <div className="sinput-group mt-4">
               <label>Select Target Audience (Batches / Classes)</label>
               <div className="multi-select-box">
                 {groups.length > 0 ? (

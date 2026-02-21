@@ -21,6 +21,7 @@ from core.views import SubjectCatalogView
 from core.views import StudentDirectoryView, StudentGroupView
 from core.views import AllocationManagerView, MyClassesView
 from core.views import AcademicYearView
+from core.views import AcademicYearSummaryView
 
 def password_reset_redirect(request, uidb64, token):
     # This takes the tokens from the email link and sends the user to React (port 5173)
@@ -55,6 +56,7 @@ urlpatterns = [
     path('api/user/me/', CurrentUserView.as_view()),
 
     path('api/academic-years/', AcademicYearView.as_view(), name='academic-years'),
+    path('api/academic-summary/', AcademicYearSummaryView.as_view(), name='academic-summary'),
 
     # --- TEAM MANAGEMENT ---
     path('api/staff/', StaffManagementView.as_view()),  # For Viewers/Clerks

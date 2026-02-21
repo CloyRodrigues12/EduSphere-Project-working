@@ -44,6 +44,10 @@ export const academicService = {
   updateSubject: (data) => api.put("/subjects/", data),
   deleteSubject: (id) => api.delete(`/subjects/?id=${id}`),
 
+  //Fetch the analytics report
+  getAcademicYearSummary: (yearId) =>
+    api.get(`/academic-summary/?year_id=${yearId}`),
+
   // --- Allocation Matrix ---
   getAllocations: (academicYearId, facultyId) =>
     api.get(

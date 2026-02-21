@@ -39,7 +39,6 @@
   color: var(--text-primary);
   margin: 0 0 5px 0;
 }
-
 .academic-settings-container .year-dates {
   font-size: 0.9rem;
   color: var(--text-secondary);
@@ -162,4 +161,54 @@
   color: var(--text-primary);
   font-size: 0.9rem;
   cursor: pointer;
+}
+
+/* --- Year Summary Modal Styles --- */
+.academic-settings-container .summary-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  padding: 2rem;
+}
+
+.academic-settings-container .summary-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.2rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
+}
+
+.academic-settings-container .summary-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border-color: var(--primary-color);
+}
+
+.academic-settings-container .summary-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.academic-settings-container .summary-details h4 {
+  margin: 0 0 4px 0;
+  font-size: 1.05rem;
+  color: var(--text-primary);
+}
+
+.academic-settings-container .summary-details p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
 }

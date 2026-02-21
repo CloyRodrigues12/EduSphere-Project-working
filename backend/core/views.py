@@ -42,6 +42,10 @@ from core.models import AcademicYear
 from rest_framework import serializers
 
 
+from django.db.models import Count
+from core.models import StudentGroup, TeachingAllocation
+
+
 # 1. Google Login
 class GoogleLogin(SocialLoginView):
     adapter_class = GoogleOAuth2Adapter
@@ -1190,3 +1194,39 @@ class AcademicYearView(APIView):
             return Response(serializer.errors, status=400)
         except AcademicYear.DoesNotExist:
             return Response({"error": "Academic Year not found"}, status=404)
+
+
+
+class AcademicYearSummaryView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        """ Get structural analytics for a specific academic year """
+        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+            return Response({"error": "Permission denied"}, status=403)
+            
+        ay_id = request.GET.get('year_id')
+        if not ay_id:
+            return Response({"error": "Year ID is required"}, status=400)
+
+        # 1. Batches Breakdown by Semester
+        groups = StudentGroup.objects.filter(academic_year_id=ay_id)
+        sem_data = groups.values('semester').annotate(batch_count=Count('id')).order_by('semester')
+        
+        # 2. Count UNIQUE students enrolled in at least one batch this year
+        total_students = groups.aggregate(total=Count('students', distinct=True))['total'] or 0
+
+        # 3. Faculty Workload Breakdown
+        allocations = TeachingAllocation.objects.filter(academic_year_id=ay_id)
+        faculty_data = allocations.values(
+            'faculty__user__first_name', 
+            'faculty__user__last_name'
+        ).annotate(class_count=Count('id')).order_by('-class_count')
+
+        return Response({
+            "total_batches": groups.count(),
+            "semester_breakdown": list(sem_data),
+            "total_students": total_students,
+            "total_allocations": allocations.count(),
+            "faculty_workload": list(faculty_data)
+        })
