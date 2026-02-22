@@ -340,3 +340,112 @@ class CumulativeReportView(APIView):
 
         except Exception as e:
             return Response({"error": str(e)}, status=500)
+
+class AnalyticsRadarView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        academic_year_id = request.GET.get('academic_year_id')
+        semester = request.GET.get('semester')
+        subject_id = request.GET.get('subject_id')
+        allocation_id = request.GET.get('allocation_id')
+        start_date = request.GET.get('start_date') 
+        end_date = request.GET.get('end_date')     
+        
+        if not academic_year_id:
+            return Response({"error": "Academic Year ID is required"}, status=400)
+            
+        allocations = TeachingAllocation.objects.filter(academic_year_id=academic_year_id).select_related('subject', 'student_group')
+        
+        if allocation_id:
+            allocations = allocations.filter(id=allocation_id)
+        else:
+            if semester:
+                allocations = allocations.filter(subject__semester=semester)
+            if subject_id:
+                allocations = allocations.filter(subject_id=subject_id)
+                
+        user_profile = request.user.profile
+        if user_profile.role not in ['ORG_ADMIN', 'SUPER_ADMIN']:
+            allocations = allocations.filter(faculty=user_profile)
+
+        if not allocations.exists():
+            return Response({"safe": [], "atRisk": [], "defaulters": [], "chartData": [], "totalStudents": 0})
+
+        student_stats = {}
+        global_first_date = None
+        global_last_date = None
+
+        for alloc in allocations:
+            sessions = ClassSession.objects.filter(allocation=alloc)
+            
+            if start_date:
+                sessions = sessions.filter(date__gte=start_date)
+            if end_date:
+                sessions = sessions.filter(date__lte=end_date)
+
+            # --- NEW: TRACK OVERALL DATE RANGE ---
+            if sessions.exists():
+                ordered = sessions.order_by('date')
+                f_date = ordered.first().date
+                l_date = ordered.last().date
+                if not global_first_date or f_date < global_first_date:
+                    global_first_date = f_date
+                if not global_last_date or l_date > global_last_date:
+                    global_last_date = l_date
+                
+            tc = sum(s.lecture_count for s in sessions)
+            
+            for student in alloc.student_group.students.all():
+                if student.id not in student_stats:
+                    student_stats[student.id] = {
+                        "id": student.id,
+                        "name": student.full_name,
+                        "roll_number": student.roll_number,
+                        "semester": str(alloc.subject.semester) if hasattr(alloc.subject, 'semester') else "N/A", 
+                        "ta": 0,
+                        "tc": 0
+                    }
+                student_stats[student.id]["tc"] += tc
+                
+            records = AttendanceRecord.objects.filter(session__in=sessions).select_related('session')
+            for record in records:
+                sid = record.student_id
+                if sid in student_stats:
+                    if record.status in ['PRESENT', 'LATE'] or record.status.startswith('DUTY'):
+                        student_stats[sid]['ta'] += record.session.lecture_count
+
+        safe, at_risk, defaulters = [], [], []
+        for s in student_stats.values():
+            if s["tc"] > 0:
+                perc = round((s["ta"] / s["tc"]) * 100, 2)
+            else:
+                perc = 100.0 
+                
+            s["percentage"] = perc
+            if perc < 75:
+                defaulters.append(s)
+            elif perc < 80:
+                at_risk.append(s)
+            else:
+                safe.append(s)
+                    
+        defaulters.sort(key=lambda x: x['roll_number'])
+        at_risk.sort(key=lambda x: x['roll_number'])
+        safe.sort(key=lambda x: x['roll_number'])
+        
+        chart_data = [
+            {"name": "Safe", "value": len(safe), "fill": "#10b981"},         
+            {"name": "At Risk", "value": len(at_risk), "fill": "#f59e0b"},   
+            {"name": "Defaulters", "value": len(defaulters), "fill": "#ef4444"} 
+        ]
+
+        return Response({
+            "safe": safe,
+            "atRisk": at_risk,
+            "defaulters": defaulters,
+            "chartData": chart_data,
+            "totalStudents": len(student_stats),
+            "first_session_date": global_first_date,  # NEW
+            "last_session_date": global_last_date     # NEW
+        })

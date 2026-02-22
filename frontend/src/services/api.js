@@ -125,6 +125,23 @@ export const attendanceService = {
     if (endDate) url += `&end_date=${endDate}`;
     return api.get(url);
   },
+
+  getAnalytics: (
+    academicYearId,
+    allocationId = "",
+    semester = "",
+    subjectId = "",
+    startDate = "",
+    endDate = "",
+  ) => {
+    let url = `/attendance/analytics/?academic_year_id=${academicYearId}`;
+    if (allocationId) url += `&allocation_id=${allocationId}`;
+    if (semester) url += `&semester=${semester}`;
+    if (subjectId) url += `&subject_id=${subjectId}`;
+    if (startDate) url += `&start_date=${startDate}`;
+    if (endDate) url += `&end_date=${endDate}`;
+    return api.get(url);
+  },
 };
 
 export default api;

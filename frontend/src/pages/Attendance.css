@@ -674,3 +674,123 @@
 #attendance-engine-root .att-session-row {
   cursor: default; /* Remove default pointer since click area is specific now */
 }
+
+/* ========================================================
+   ANALYTICS RADAR STYLES
+======================================================== */
+.att-analytics-layout {
+  display: flex;
+  gap: 2rem;
+  margin-top: 1rem;
+}
+
+.att-chart-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.att-list-section {
+  flex: 1.2;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1.5rem;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* Custom Scrollbar for the list */
+.att-list-section::-webkit-scrollbar {
+  width: 6px;
+}
+.att-list-section::-webkit-scrollbar-track {
+  background: transparent;
+}
+.att-list-section::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 10px;
+}
+
+@media (max-width: 768px) {
+  .att-analytics-layout {
+    flex-direction: column;
+  }
+  .att-list-section {
+    max-height: 300px;
+  }
+}
+
+/* ========================================================
+   ANALYTICS MODAL EXCLUSIVE INPUT STYLES
+======================================================== */
+#attendance-engine-root .att-analytics-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1.2rem;
+  margin-bottom: 1rem;
+  background: var(--bg-card);
+  padding: 0.5rem;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+}
+
+#attendance-engine-root .att-analytics-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  display: block;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+#attendance-engine-root .att-analytics-input {
+  width: 80%;
+  padding: 0.7rem 1rem;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  outline: none;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  appearance: none; /* Cleans up default OS styling */
+}
+
+/* Hover and Focus States */
+#attendance-engine-root .att-analytics-input:hover:not(:disabled) {
+  border-color: rgba(79, 70, 229, 0.5); /* Faint primary color */
+}
+
+#attendance-engine-root .att-analytics-input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+  background-color: var(--bg-card);
+}
+
+/* Disabled State */
+#attendance-engine-root .att-analytics-input:disabled {
+  background-color: var(--bg-hover);
+  color: var(--text-muted);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* Customizing the Date Icon inside inputs for Webkit browsers */
+#attendance-engine-root
+  .att-analytics-input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: var(--icon-filter, invert(0.5)); /* Adapts to dark/light mode */
+  opacity: 0.6;
+  transition: 0.2s;
+}
+
+#attendance-engine-root
+  .att-analytics-input::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}

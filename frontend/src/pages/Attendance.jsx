@@ -24,7 +24,16 @@ import {
   Trash2,
   AlertTriangle,
   Download,
+  PieChart as PieChartIcon,
 } from "lucide-react";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  Legend,
+} from "recharts";
 import { motion, AnimatePresence } from "framer-motion";
 import "./Attendance.css";
 
@@ -65,6 +74,18 @@ const Attendance = () => {
     start: "",
     end: "",
   });
+
+  // ANALYTICS RADAR STATE
+  const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
+  const [analyticsData, setAnalyticsData] = useState(null);
+  const [analyticsFilter, setAnalyticsFilter] = useState({
+    semester: "",
+    subjectId: "",
+    start: "",
+    end: "",
+  });
+  const [analyticsSubjects, setAnalyticsSubjects] = useState([]);
+  const [selectedZone, setSelectedZone] = useState("Defaulters");
 
   // Modals
   const [showNewModal, setShowNewModal] = useState(false);
@@ -196,6 +217,114 @@ const Attendance = () => {
   };
 
   // --------------------------------------------------------------------
+  // ANALYTICS & DEFAULTER GENERATOR
+  // --------------------------------------------------------------------
+  const fetchAnalytics = async () => {
+    try {
+      const res = await attendanceService.getAnalytics(
+        activeAcademicYear.id,
+        allocationId || "",
+        analyticsFilter.semester,
+        analyticsFilter.subjectId,
+        analyticsFilter.start,
+        analyticsFilter.end,
+      );
+      setAnalyticsData(res.data);
+      if (res.data.defaulters.length > 0) setSelectedZone("Defaulters");
+      else if (res.data.atRisk.length > 0) setSelectedZone("At Risk");
+      else setSelectedZone("Safe");
+    } catch (err) {
+      console.error("Failed to fetch analytics", err);
+    }
+  };
+
+  useEffect(() => {
+    if (showAnalyticsModal) fetchAnalytics();
+  }, [
+    showAnalyticsModal,
+    analyticsFilter.semester,
+    analyticsFilter.subjectId,
+    analyticsFilter.start,
+    analyticsFilter.end,
+  ]);
+
+  const handleAnalyticsSemesterChange = async (e) => {
+    const sem = e.target.value;
+    setAnalyticsFilter({ ...analyticsFilter, semester: sem, subjectId: "" });
+    if (sem) {
+      const res = await academicService.getSubjects(sem);
+      setAnalyticsSubjects(res.data);
+    } else {
+      setAnalyticsSubjects([]);
+    }
+  };
+
+  const downloadDefaultersPDF = () => {
+    if (!analyticsData || analyticsData.defaulters.length === 0)
+      return alert("No defaulters found to download.");
+
+    const doc = new jsPDF("p", "pt", "a4");
+    doc.setFontSize(16);
+    doc.setTextColor(40);
+    doc.text("EduSphere - Defaulters List (< 75%)", 40, 40);
+
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+
+    // --- UPDATED DURATION LOGIC ---
+    let durationText = "No classes recorded";
+    if (analyticsData.first_session_date && analyticsData.last_session_date) {
+      const fDate = new Date(
+        analyticsData.first_session_date,
+      ).toLocaleDateString("en-GB");
+      const lDate = new Date(
+        analyticsData.last_session_date,
+      ).toLocaleDateString("en-GB");
+      durationText = fDate === lDate ? fDate : `From ${fDate} to ${lDate}`;
+    } else if (analyticsFilter.start && analyticsFilter.end) {
+      // Fallback to explicit filter if no sessions found within that range
+      durationText = `From ${new Date(analyticsFilter.start).toLocaleDateString("en-GB")} to ${new Date(analyticsFilter.end).toLocaleDateString("en-GB")}`;
+    }
+
+    doc.text(`Duration: ${durationText}`, 40, 60);
+    if (analyticsFilter.semester)
+      doc.text(`Semester: ${analyticsFilter.semester}`, 40, 75);
+    doc.text(`Generated on: ${new Date().toLocaleDateString("en-GB")}`, 40, 90);
+
+    const tableColumns = [
+      "Roll No.",
+      "Student Name",
+      "Semester",
+      "TA",
+      "TC",
+      "Percentage",
+    ];
+    const tableRows = analyticsData.defaulters.map((s) => [
+      s.roll_number,
+      s.name,
+      s.semester || "N/A",
+      s.ta,
+      s.tc,
+      `${s.percentage}%`,
+    ]);
+
+    autoTable(doc, {
+      startY: 110,
+      head: [tableColumns],
+      body: tableRows,
+      theme: "grid",
+      headStyles: {
+        fillColor: [239, 68, 68],
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+      },
+      alternateRowStyles: { fillColor: [255, 250, 250] },
+      columnStyles: { 5: { fontStyle: "bold", textColor: [239, 68, 68] } },
+    });
+    doc.save("Defaulters_List.pdf");
+  };
+
+  // --------------------------------------------------------------------
   // PDF 1: INDIVIDUAL SUBJECT REPORT
   // --------------------------------------------------------------------
   const generatePDFReport = async (e) => {
@@ -211,11 +340,9 @@ const Attendance = () => {
       const data = res.data;
 
       const doc = new jsPDF("p", "pt", "a4");
-
       doc.setFontSize(18);
       doc.setTextColor(40);
       doc.text("EduSphere - Subject Attendance Report", 40, 40);
-
       doc.setFontSize(11);
       doc.setTextColor(100);
       doc.text(
@@ -324,8 +451,9 @@ const Attendance = () => {
 
   const getInitials = (name) => {
     if (!name) return "";
-    const cleanName = name.replace(/\(.*\)/g, "").trim();
-    return cleanName
+    return name
+      .replace(/\(.*\)/g, "")
+      .trim()
       .split(/[\s-]+/)
       .filter((w) => w.length > 0)
       .map((w) => w[0])
@@ -353,7 +481,7 @@ const Attendance = () => {
       const pageWidth = doc.internal.pageSize.width;
 
       doc.setFontSize(16);
-      doc.setTextColor(0); // Pure black text
+      doc.setTextColor(0);
       doc.text(
         "Don Bosco College Of Engineering, Fatorda-Goa",
         pageWidth / 2,
@@ -387,7 +515,6 @@ const Attendance = () => {
         { align: "center" },
       );
 
-      // Build Nested Headers (Row 1: Names/Subjects | Row 2: TA/TC/Per)
       const topHeader = [
         {
           content: "Roll No.",
@@ -412,15 +539,13 @@ const Attendance = () => {
         bottomHeader.push("TA", "TC", "Per");
       });
 
-      // Add Final Total Column (Light gray instead of dark gray)
       topHeader.push({
         content: "Final Total\nCumulative",
         colSpan: 3,
-        styles: { halign: "center", fillColor: [240, 240, 240] }, // Light gray background
+        styles: { halign: "center", fillColor: [240, 240, 240] },
       });
       bottomHeader.push("TA", "TC", "Per");
 
-      // Build Body
       const tableRows = data.students.map((s) => {
         const row = [s.roll_number, s.name];
         data.subjects.forEach((sub) => {
@@ -438,34 +563,27 @@ const Attendance = () => {
         head: [topHeader, bottomHeader],
         body: tableRows,
         theme: "grid",
-        // STRICT GRID STYLING
+        styles: {
+          lineWidth: 0.5,
+          lineColor: [0, 0, 0],
+          textColor: [0, 0, 0],
+          valign: "middle",
+        },
         headStyles: {
-          fillColor: [255, 255, 255], // Clear/White background
-          textColor: [0, 0, 0], // Black text
+          fillColor: [255, 255, 255],
           fontStyle: "bold",
           fontSize: 9,
-          lineWidth: 0.5, // Explicit borders
-          lineColor: [0, 0, 0], // Black borders
           halign: "center",
         },
-        bodyStyles: {
-          fontSize: 8,
-          textColor: [0, 0, 0],
-          lineWidth: 0.5, // Explicit borders
-          lineColor: [0, 0, 0], // Black borders
-        },
-        alternateRowStyles: {
-          fillColor: [255, 255, 255], // Remove alternating colors for a clean print
-        },
+        bodyStyles: { fontSize: 8 },
+        alternateRowStyles: { fillColor: [255, 255, 255] },
         didParseCell: function (data) {
-          // Center align the numbers in the body
           if (data.section === "body" && data.column.index > 1) {
             data.cell.styles.halign = "center";
           }
-          // Highlight Per columns if below 75%
           if (data.section === "body" && String(data.cell.raw).includes("%")) {
             if (parseFloat(data.cell.raw) < 75) {
-              data.cell.styles.textColor = [239, 68, 68]; // Keep the red text for defaulters
+              data.cell.styles.textColor = [239, 68, 68];
               data.cell.styles.fontStyle = "bold";
             }
           }
@@ -609,7 +727,6 @@ const Attendance = () => {
           minute: "2-digit",
         })
       : "N/A";
-
     return (
       <div key={session.id} className="att-session-row">
         <div
@@ -694,16 +811,27 @@ const Attendance = () => {
             </button>
           </div>
 
-          {/* FIXED CUMULATIVE REPORT BUTTON */}
-          <button
-            className="att-btn att-btn-secondary"
-            onClick={() => setShowCumulModal(true)}
-          >
-            <Download size={18} /> Cumulative Master Report
-          </button>
+          <div className="att-toolbar-actions">
+            <button
+              className="att-btn att-btn-secondary"
+              style={{
+                color: "var(--primary-color)",
+                borderColor: "var(--primary-color)",
+              }}
+              onClick={() => setShowAnalyticsModal(true)}
+            >
+              <PieChartIcon size={18} /> Live Analytics
+            </button>
+            <button
+              className="att-btn att-btn-secondary"
+              onClick={() => setShowCumulModal(true)}
+            >
+              <Download size={18} /> Cumulative Master Report
+            </button>
+          </div>
         </div>
 
-        {viewMode === "list" ? (
+        {viewMode === "list" && (
           <div className="att-grid-layout mt-4">
             {myClasses.map((alloc) => (
               <motion.div
@@ -733,8 +861,6 @@ const Attendance = () => {
                     )}
                   </p>
                 </div>
-
-                {/* FIXED SELECT CLASS BUTTON */}
                 <button
                   className={`att-btn ${alloc.isMine ? "att-btn-primary" : "att-btn-secondary"}`}
                   onClick={() =>
@@ -750,18 +876,13 @@ const Attendance = () => {
                 </button>
               </motion.div>
             ))}
-            {myClasses.length === 0 && (
-              <div className="att-empty-state">
-                No classes found for this academic year.
-              </div>
-            )}
           </div>
-        ) : (
-          renderCalendar(sessions)
         )}
 
-        {/* CUMULATIVE MASTER REPORT MODAL */}
+        {viewMode === "calendar" && renderCalendar(sessions)}
+
         <AnimatePresence>
+          {/* CUMULATIVE MODAL */}
           {showCumulModal && (
             <div className="att-modal-overlay">
               <motion.div
@@ -955,6 +1076,305 @@ const Attendance = () => {
               </motion.div>
             </div>
           )}
+
+          {/* LIVE ANALYTICS MODAL */}
+          {showAnalyticsModal && (
+            <div className="att-modal-overlay">
+              <motion.div
+                className="att-modal-content"
+                style={{ maxWidth: "850px", width: "95%" }}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+              >
+                <div className="att-modal-header">
+                  <div>
+                    <h3>Defaulter Radar & Analytics</h3>
+                    <p>Real-time calculation of student safety zones.</p>
+                  </div>
+                  <button
+                    onClick={() => setShowAnalyticsModal(false)}
+                    className="att-close-btn"
+                  >
+                    &times;
+                  </button>
+                </div>
+
+                {/* DATE & SEMESTER FILTERS */}
+                <div className="att-analytics-filters">
+                  <div>
+                    <label className="att-analytics-label">Start Date</label>
+                    <input
+                      type="date"
+                      className="att-analytics-input"
+                      value={analyticsFilter.start}
+                      onChange={(e) =>
+                        setAnalyticsFilter({
+                          ...analyticsFilter,
+                          start: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="att-analytics-label">End Date</label>
+                    <input
+                      type="date"
+                      className="att-analytics-input"
+                      value={analyticsFilter.end}
+                      onChange={(e) =>
+                        setAnalyticsFilter({
+                          ...analyticsFilter,
+                          end: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  {!allocationId && (
+                    <>
+                      <div>
+                        <label className="att-analytics-label">
+                          Filter Semester
+                        </label>
+                        <select
+                          className="att-analytics-input"
+                          value={analyticsFilter.semester}
+                          onChange={handleAnalyticsSemesterChange}
+                        >
+                          <option value="">All Semesters</option>
+                          {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
+                            <option key={sem} value={sem}>
+                              Semester {sem}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="att-analytics-label">
+                          Filter Subject
+                        </label>
+                        <select
+                          className="att-analytics-input"
+                          disabled={!analyticsFilter.semester}
+                          value={analyticsFilter.subjectId}
+                          onChange={(e) =>
+                            setAnalyticsFilter({
+                              ...analyticsFilter,
+                              subjectId: e.target.value,
+                            })
+                          }
+                        >
+                          <option value="">All Subjects</option>
+                          {analyticsSubjects.map((sub) => (
+                            <option key={sub.id} value={sub.id}>
+                              {sub.code} - {sub.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {analyticsData ? (
+                  <div className="att-analytics-layout">
+                    {/* CHART */}
+                    <div className="att-chart-section">
+                      <h4
+                        style={{
+                          margin: "0 0 10px 0",
+                          color: "var(--text-primary)",
+                        }}
+                      >
+                        Total Students: {analyticsData.totalStudents}
+                      </h4>
+                      <div style={{ width: "100%", height: "280px" }}>
+                        <ResponsiveContainer>
+                          <PieChart>
+                            <Pie
+                              data={analyticsData.chartData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={65}
+                              outerRadius={100}
+                              paddingAngle={5}
+                              dataKey="value"
+                              onClick={(data, index) => {
+                                if (index === 0) setSelectedZone("Safe");
+                                if (index === 1) setSelectedZone("At Risk");
+                                if (index === 2) setSelectedZone("Defaulters");
+                              }}
+                              style={{ cursor: "pointer", outline: "none" }}
+                            >
+                              {analyticsData.chartData.map((entry, index) => (
+                                <Cell
+                                  key={`cell-${index}`}
+                                  fill={entry.fill}
+                                  stroke="rgba(0,0,0,0)"
+                                />
+                              ))}
+                            </Pie>
+                            <Tooltip
+                              contentStyle={{
+                                borderRadius: "8px",
+                                background: "var(--bg-card)",
+                                border: "none",
+                                boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                                color: "var(--text-primary)",
+                              }}
+                            />
+                            <Legend
+                              verticalAlign="bottom"
+                              height={36}
+                              wrapperStyle={{
+                                color: "var(--text-secondary)",
+                                fontSize: "0.9rem",
+                              }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+
+                      {/* NEW DEFAULTER PDF BUTTON */}
+                      <button
+                        onClick={downloadDefaultersPDF}
+                        className="att-btn"
+                        style={{
+                          background: "#ef4444",
+                          color: "white",
+                          border: "none",
+                          marginTop: "1rem",
+                          width: "100%",
+                        }}
+                      >
+                        <Download size={18} /> Download Defaulters List
+                      </button>
+                    </div>
+
+                    {/* DATA LIST */}
+                    <div className="att-list-section">
+                      <h4
+                        style={{
+                          margin: "0 0 15px 0",
+                          borderBottom: "2px solid",
+                          paddingBottom: "10px",
+                          borderColor:
+                            selectedZone === "Defaulters"
+                              ? "#ef4444"
+                              : selectedZone === "At Risk"
+                                ? "#f59e0b"
+                                : "#10b981",
+                          color:
+                            selectedZone === "Defaulters"
+                              ? "#ef4444"
+                              : selectedZone === "At Risk"
+                                ? "#f59e0b"
+                                : "#10b981",
+                        }}
+                      >
+                        {selectedZone} Zone
+                      </h4>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "8px",
+                        }}
+                      >
+                        {(selectedZone === "Defaulters"
+                          ? analyticsData.defaulters
+                          : selectedZone === "At Risk"
+                            ? analyticsData.atRisk
+                            : analyticsData.safe
+                        ).map((student) => (
+                          <div
+                            key={student.id}
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              background: "var(--bg-card)",
+                              padding: "10px 12px",
+                              borderRadius: "8px",
+                              border: "1px solid var(--border-color)",
+                            }}
+                          >
+                            <div>
+                              <span
+                                style={{
+                                  fontWeight: 600,
+                                  color: "var(--text-primary)",
+                                  display: "block",
+                                  fontSize: "0.95rem",
+                                }}
+                              >
+                                {student.name}
+                              </span>
+                              <span
+                                style={{
+                                  fontSize: "0.8rem",
+                                  color: "var(--text-secondary)",
+                                  fontFamily: "monospace",
+                                }}
+                              >
+                                {student.roll_number}
+                              </span>
+                            </div>
+                            <div style={{ textAlign: "right" }}>
+                              <span
+                                style={{
+                                  fontWeight: "bold",
+                                  fontSize: "1.1rem",
+                                  color:
+                                    selectedZone === "Defaulters"
+                                      ? "#ef4444"
+                                      : selectedZone === "At Risk"
+                                        ? "#f59e0b"
+                                        : "#10b981",
+                                }}
+                              >
+                                {student.percentage}%
+                              </span>
+                              <span
+                                style={{
+                                  display: "block",
+                                  fontSize: "0.75rem",
+                                  color: "var(--text-muted)",
+                                }}
+                              >
+                                {student.ta} / {student.tc}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                        {(selectedZone === "Defaulters"
+                          ? analyticsData.defaulters
+                          : selectedZone === "At Risk"
+                            ? analyticsData.atRisk
+                            : analyticsData.safe
+                        ).length === 0 && (
+                          <div
+                            style={{
+                              textAlign: "center",
+                              padding: "2rem",
+                              color: "var(--text-muted)",
+                            }}
+                          >
+                            No students in this zone! 🎉
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    className="spinner"
+                    style={{ margin: "3rem auto" }}
+                  ></div>
+                )}
+              </motion.div>
+            </div>
+          )}
         </AnimatePresence>
 
         {activeSession && (
@@ -1047,6 +1467,16 @@ const Attendance = () => {
                   <CalendarDays size={18} />
                 </button>
               </div>
+              <button
+                className="att-btn att-btn-secondary"
+                style={{
+                  color: "var(--primary-color)",
+                  borderColor: "var(--primary-color)",
+                }}
+                onClick={() => setShowAnalyticsModal(true)}
+              >
+                <PieChartIcon size={18} /> Live Analytics
+              </button>
               <button
                 className="att-btn att-btn-secondary"
                 onClick={() => setShowExportModal(true)}
@@ -1325,6 +1755,289 @@ const Attendance = () => {
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+
+        {/* LIVE ANALYTICS MODAL (Specific Class View) */}
+        {showAnalyticsModal && (
+          <div className="att-modal-overlay">
+            <motion.div
+              className="att-modal-content"
+              style={{ maxWidth: "850px", width: "95%" }}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+            >
+              <div className="att-modal-header">
+                <div>
+                  <h3>Defaulter Radar & Analytics</h3>
+                  <p>Real-time calculation of student safety zones.</p>
+                </div>
+                <button
+                  onClick={() => setShowAnalyticsModal(false)}
+                  className="att-close-btn"
+                >
+                  &times;
+                </button>
+              </div>
+
+              {/* DATE FILTERS ONLY (Since Semester/Subject are locked for this view) */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+                  gap: "15px",
+                  marginBottom: "1.5rem",
+                  background: "var(--bg-input)",
+                  padding: "1rem",
+                  borderRadius: "10px",
+                  border: "1px solid var(--border-color)",
+                }}
+              >
+                <div>
+                  <label
+                    style={{
+                      fontSize: "0.85rem",
+                      color: "var(--text-secondary)",
+                      display: "block",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    className="standard-input"
+                    value={analyticsFilter.start}
+                    onChange={(e) =>
+                      setAnalyticsFilter({
+                        ...analyticsFilter,
+                        start: e.target.value,
+                      })
+                    }
+                    style={{ width: "100%", padding: "8px" }}
+                  />
+                </div>
+                <div>
+                  <label
+                    style={{
+                      fontSize: "0.85rem",
+                      color: "var(--text-secondary)",
+                      display: "block",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    className="standard-input"
+                    value={analyticsFilter.end}
+                    onChange={(e) =>
+                      setAnalyticsFilter({
+                        ...analyticsFilter,
+                        end: e.target.value,
+                      })
+                    }
+                    style={{ width: "100%", padding: "8px" }}
+                  />
+                </div>
+              </div>
+
+              {analyticsData ? (
+                <div className="att-analytics-layout">
+                  {/* CHART */}
+                  <div className="att-chart-section">
+                    <h4
+                      style={{
+                        margin: "0 0 10px 0",
+                        color: "var(--text-primary)",
+                      }}
+                    >
+                      Total Students: {analyticsData.totalStudents}
+                    </h4>
+                    <div style={{ width: "100%", height: "280px" }}>
+                      <ResponsiveContainer>
+                        <PieChart>
+                          <Pie
+                            data={analyticsData.chartData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={65}
+                            outerRadius={100}
+                            paddingAngle={5}
+                            dataKey="value"
+                            onClick={(data, index) => {
+                              if (index === 0) setSelectedZone("Safe");
+                              if (index === 1) setSelectedZone("At Risk");
+                              if (index === 2) setSelectedZone("Defaulters");
+                            }}
+                            style={{ cursor: "pointer", outline: "none" }}
+                          >
+                            {analyticsData.chartData.map((entry, index) => (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={entry.fill}
+                                stroke="rgba(0,0,0,0)"
+                              />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            contentStyle={{
+                              borderRadius: "8px",
+                              background: "var(--bg-card)",
+                              border: "none",
+                              boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                              color: "var(--text-primary)",
+                            }}
+                          />
+                          <Legend
+                            verticalAlign="bottom"
+                            height={36}
+                            wrapperStyle={{
+                              color: "var(--text-secondary)",
+                              fontSize: "0.9rem",
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    {/* NEW DEFAULTER PDF BUTTON */}
+                    <button
+                      onClick={downloadDefaultersPDF}
+                      className="att-btn"
+                      style={{
+                        background: "#ef4444",
+                        color: "white",
+                        border: "none",
+                        marginTop: "1rem",
+                        width: "100%",
+                      }}
+                    >
+                      <Download size={18} /> Download Defaulters List
+                    </button>
+                  </div>
+
+                  {/* DATA LIST */}
+                  <div className="att-list-section">
+                    <h4
+                      style={{
+                        margin: "0 0 15px 0",
+                        borderBottom: "2px solid",
+                        paddingBottom: "10px",
+                        borderColor:
+                          selectedZone === "Defaulters"
+                            ? "#ef4444"
+                            : selectedZone === "At Risk"
+                              ? "#f59e0b"
+                              : "#10b981",
+                        color:
+                          selectedZone === "Defaulters"
+                            ? "#ef4444"
+                            : selectedZone === "At Risk"
+                              ? "#f59e0b"
+                              : "#10b981",
+                      }}
+                    >
+                      {selectedZone} Zone
+                    </h4>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "8px",
+                      }}
+                    >
+                      {(selectedZone === "Defaulters"
+                        ? analyticsData.defaulters
+                        : selectedZone === "At Risk"
+                          ? analyticsData.atRisk
+                          : analyticsData.safe
+                      ).map((student) => (
+                        <div
+                          key={student.id}
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            background: "var(--bg-card)",
+                            padding: "10px 12px",
+                            borderRadius: "8px",
+                            border: "1px solid var(--border-color)",
+                          }}
+                        >
+                          <div>
+                            <span
+                              style={{
+                                fontWeight: 600,
+                                color: "var(--text-primary)",
+                                display: "block",
+                                fontSize: "0.95rem",
+                              }}
+                            >
+                              {student.name}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: "0.8rem",
+                                color: "var(--text-secondary)",
+                                fontFamily: "monospace",
+                              }}
+                            >
+                              {student.roll_number}
+                            </span>
+                          </div>
+                          <div style={{ textAlign: "right" }}>
+                            <span
+                              style={{
+                                fontWeight: "bold",
+                                fontSize: "1.1rem",
+                                color:
+                                  selectedZone === "Defaulters"
+                                    ? "#ef4444"
+                                    : selectedZone === "At Risk"
+                                      ? "#f59e0b"
+                                      : "#10b981",
+                              }}
+                            >
+                              {student.percentage}%
+                            </span>
+                            <span
+                              style={{
+                                display: "block",
+                                fontSize: "0.75rem",
+                                color: "var(--text-muted)",
+                              }}
+                            >
+                              {student.ta} / {student.tc}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                      {(selectedZone === "Defaulters"
+                        ? analyticsData.defaulters
+                        : selectedZone === "At Risk"
+                          ? analyticsData.atRisk
+                          : analyticsData.safe
+                      ).length === 0 && (
+                        <div
+                          style={{
+                            textAlign: "center",
+                            padding: "2rem",
+                            color: "var(--text-muted)",
+                          }}
+                        >
+                          No students in this zone! 🎉
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="spinner" style={{ margin: "3rem auto" }}></div>
+              )}
             </motion.div>
           </div>
         )}
