@@ -17,10 +17,13 @@ import {
   Check,
   Edit2,
   Send,
+  Info,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { staffService } from "../services/api";
+
 import "./StaffManagement.css";
+import { staffService, academicService } from "../services/api";
+import { useAcademic } from "../context/AcademicContext";
 
 // FIX: Look for both full_name and name safely
 const getInitials = (name) => {
@@ -55,6 +58,27 @@ const StaffManagement = () => {
   const [members, setMembers] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const { activeAcademicYear } = useAcademic();
+  const [showWorkloadModal, setShowWorkloadModal] = useState(false);
+  const [selectedWorkload, setSelectedWorkload] = useState([]);
+  const [workloadFacultyName, setWorkloadFacultyName] = useState("");
+
+  const handleViewWorkload = async (faculty) => {
+    if (!activeAcademicYear)
+      return showToast("Select an Academic Year first.", "error");
+    try {
+      const res = await academicService.getAllocations(
+        activeAcademicYear.id,
+        faculty.id,
+      );
+      setSelectedWorkload(res.data);
+      setWorkloadFacultyName(faculty.full_name || faculty.name);
+      setShowWorkloadModal(true);
+    } catch (err) {
+      showToast("Failed to load workload data.", "error");
+    }
+  };
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
@@ -296,6 +320,16 @@ const StaffManagement = () => {
                             {activeTab === "faculty" && (
                               <button
                                 className="btn-icon action-edit"
+                                onClick={() => handleViewWorkload(member)}
+                                title="View Workload"
+                                style={{ color: "#3b82f6" }}
+                              >
+                                <Info size={16} />
+                              </button>
+                            )}
+                            {activeTab === "faculty" && (
+                              <button
+                                className="btn-icon action-edit"
                                 onClick={() => setEditTarget(member)}
                                 title="Edit Faculty"
                               >
@@ -413,6 +447,102 @@ const StaffManagement = () => {
                 <button className="btn-danger" onClick={confirmDelete}>
                   Yes, Remove
                 </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+        {/* WORKLOAD MODAL */}
+        {showWorkloadModal && (
+          <div className="modal-overlay">
+            <motion.div
+              className="modal-content premium-modal"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+            >
+              <div className="modal-header">
+                <div>
+                  <h3>Faculty Workload</h3>
+                  <p>Current assignments for Prof. {workloadFacultyName}</p>
+                </div>
+                <button
+                  onClick={() => setShowWorkloadModal(false)}
+                  className="close-btn"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div
+                style={{
+                  marginTop: "1.5rem",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                  maxHeight: "400px",
+                  overflowY: "auto",
+                }}
+              >
+                {selectedWorkload.length === 0 ? (
+                  <div
+                    style={{
+                      textAlign: "center",
+                      padding: "2rem",
+                      color: "var(--text-muted)",
+                    }}
+                  >
+                    No subjects assigned for this academic year.
+                  </div>
+                ) : (
+                  selectedWorkload.map((alloc) => (
+                    <div
+                      key={alloc.id}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        padding: "1rem",
+                        background: "var(--bg-input)",
+                        border: "1px solid var(--border-color)",
+                        borderRadius: "8px",
+                      }}
+                    >
+                      <div>
+                        <strong
+                          style={{
+                            display: "block",
+                            color: "var(--text-primary)",
+                          }}
+                        >
+                          {alloc.subject_name} ({alloc.subject_code})
+                        </strong>
+                        <span
+                          style={{
+                            fontSize: "0.85rem",
+                            color: "var(--text-secondary)",
+                          }}
+                        >
+                          Semester {alloc.semester} •{" "}
+                          {alloc.subject_type.replace("_", " ")}
+                        </span>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <span
+                          style={{
+                            background: "var(--bg-card)",
+                            padding: "4px 10px",
+                            borderRadius: "20px",
+                            fontSize: "0.85rem",
+                            fontWeight: "bold",
+                            border: "1px solid var(--border-color)",
+                            color: "var(--text-primary)",
+                          }}
+                        >
+                          Batch: {alloc.group_name}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </motion.div>
           </div>

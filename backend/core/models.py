@@ -217,7 +217,7 @@ class Student(models.Model):
     full_name = models.CharField(max_length=255) 
     email = models.EmailField(blank=True, null=True) 
     
-    # --- RESTORED FIELDS FROM YOUR INGESTION SCRIPT ---
+    # Restored Fields
     dob = models.DateField(null=True, blank=True)
     gender = models.CharField(max_length=20, null=True, blank=True)
     mobile_number = models.CharField(max_length=15, null=True, blank=True)
@@ -228,6 +228,9 @@ class Student(models.Model):
     # Context
     academic_year = models.ForeignKey('AcademicYear', on_delete=models.SET_NULL, null=True, blank=True)
     current_semester = models.IntegerField(default=1) 
+    
+    # ---> DEACTIVATE FEATURE <---
+    is_active = models.BooleanField(default=True)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

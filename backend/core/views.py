@@ -902,21 +902,40 @@ class SubjectCatalogView(APIView):
 # ==========================================
 # 1. THE STUDENT DIRECTORY (Master List & Bulk Promote)
 # ==========================================
+
+from django.db.models import Q
+from core.models import AcademicYear, Student
+
 class StudentDirectoryView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        """ Fetch students with advanced filtering """
+        """ Fetch students with Smart Flow Logic for cross-year promotion """
         dept = request.user.profile.department
         if not dept:
             return Response({"error": "You are not assigned to a department"}, status=400)
         
-        # Filters
         semester = request.GET.get('semester')
         search = request.GET.get('search', '')
+        ay_id = request.GET.get('academic_year') 
         
         students = Student.objects.filter(department=dept)
         
+        if ay_id:
+            try:
+                current_ay = AcademicYear.objects.get(id=ay_id)
+                # SMART FLOW LOGIC:
+                # 1. Students currently officially in this year
+                # 2. Students who were in groups this year (Historical viewing)
+                # 3. Active students from previous years who haven't graduated (Sem < 8)
+                students = students.filter(
+                    Q(academic_year_id=ay_id) | 
+                    Q(studentgroup__academic_year_id=ay_id) |
+                    (Q(academic_year__start_date__lt=current_ay.start_date) & Q(is_active=True) & Q(current_semester__lt=8))
+                ).distinct()
+            except AcademicYear.DoesNotExist:
+                pass
+            
         if semester:
             students = students.filter(current_semester=semester)
             
@@ -929,24 +948,27 @@ class StudentDirectoryView(APIView):
         return Response(StudentSerializer(students, many=True).data)
 
     def patch(self, request):
-        """ Bulk Semester Update (Promotion/Demotion) """
+        """ Bulk update semester AND migrate them to the active academic year """
         if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
             return Response({"error": "Permission denied"}, status=403)
-            
-        student_ids = request.data.get('student_ids', [])
-        new_semester = request.data.get('new_semester')
-        
-        if not student_ids or not new_semester:
-            return Response({"error": "Missing data: Please provide student IDs and the target semester."}, status=400)
-            
-        # Security: Ensure they only update students in their department
-        updated_count = Student.objects.filter(
-            id__in=student_ids, 
-            department=request.user.profile.department
-        ).update(current_semester=new_semester)
-        
-        return Response({"message": f"Successfully updated {updated_count} students to Semester {new_semester}"})
 
+        student_ids = request.data.get('student_ids', [])
+        new_sem = request.data.get('new_semester')
+        target_ay_id = request.data.get('academic_year_id') # Catch the new year
+        
+        if not student_ids or not new_sem:
+            return Response({"error": "Missing student IDs or target semester"}, status=400)
+            
+        students = Student.objects.filter(id__in=student_ids, department=request.user.profile.department)
+        
+        # Update Semester AND assign them to the new Academic Year
+        update_data = {'current_semester': new_sem}
+        if target_ay_id:
+            update_data['academic_year_id'] = target_ay_id
+            
+        students.update(**update_data)
+        
+        return Response({"message": f"Successfully promoted/demoted {len(student_ids)} students."})
 
 # ==========================================
 # 2. STUDENT BATCH MANAGEMENT (The Buckets)
@@ -1229,3 +1251,20 @@ class AcademicYearSummaryView(APIView):
             "total_allocations": allocations.count(),
             "faculty_workload": list(faculty_data)
         })
+
+
+class StudentToggleStatusView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+            return Response({"error": "Permission denied"}, status=403)
+            
+        try:
+            student = Student.objects.get(id=pk, department=request.user.profile.department)
+            student.is_active = not student.is_active
+            student.save()
+            status_text = "Activated" if student.is_active else "Deactivated"
+            return Response({'message': f'Student successfully {status_text}', 'is_active': student.is_active})
+        except Student.DoesNotExist:
+            return Response({"error": "Student not found"}, status=404)

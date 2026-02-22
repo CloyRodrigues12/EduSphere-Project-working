@@ -14,6 +14,8 @@ import {
   AlertTriangle,
   X,
   Edit2,
+  UserX,
+  UserCheck,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { studentService } from "../services/api";
@@ -56,7 +58,11 @@ const StudentDirectory = () => {
     setLoading(true);
     try {
       const [studentsRes, groupsRes] = await Promise.all([
-        studentService.getStudents(activeSem, searchTerm),
+        studentService.getStudents(
+          activeAcademicYear.id,
+          activeSem,
+          searchTerm,
+        ),
         studentService.getGroups(activeAcademicYear.id, activeSem),
       ]);
       setStudents(studentsRes.data);
@@ -87,11 +93,13 @@ const StudentDirectory = () => {
       await studentService.bulkUpdateSemester(
         Array.from(selectedStudents),
         targetSem,
+        activeAcademicYear.id, // <-- NEW: Locks them into the current active year
       );
       showToast(
         `Successfully moved ${selectedStudents.size} students to Sem ${targetSem}`,
       );
       setShowPromoteModal(false);
+      setSelectedStudents(new Set()); // <-- Clears the checkboxes after promoting
       fetchData();
     } catch (err) {
       showToast("Failed to promote students.", "error");
@@ -123,6 +131,24 @@ const StudentDirectory = () => {
       showToast("Failed to delete group.", "error");
     }
   };
+
+  const handleToggleStatus = async (student) => {
+    const actionText = student.is_active ? "deactivate" : "activate";
+    if (
+      !window.confirm(
+        `Are you sure you want to ${actionText} ${student.full_name}?`,
+      )
+    )
+      return;
+    try {
+      await studentService.toggleStatus(student.id);
+      showToast(`Student ${actionText}d successfully.`);
+      fetchData();
+    } catch (err) {
+      showToast("Failed to change student status.", "error");
+    }
+  };
+
   // loading guard
   if (!activeAcademicYear) {
     return <div className="spinner" style={{ margin: "5rem auto" }}></div>;
@@ -253,6 +279,9 @@ const StudentDirectory = () => {
                         className={
                           selectedStudents.has(student.id) ? "selected-row" : ""
                         }
+                        style={{
+                          opacity: student.is_active === false ? 0.5 : 1,
+                        }}
                       >
                         <td>
                           <button
@@ -269,9 +298,39 @@ const StudentDirectory = () => {
                         <td className="font-mono text-sm">
                           {student.enrollment_number}
                         </td>
-                        <td className="font-medium">{student.full_name}</td>
-                        <td className="text-muted">
+                        <td className="font-medium">
+                          {student.full_name}{" "}
+                          {student.is_active === false && (
+                            <span style={{ color: "red", fontSize: "0.7rem" }}>
+                              (Deactivated)
+                            </span>
+                          )}
+                        </td>
+                        <td
+                          className="text-muted"
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                          }}
+                        >
                           {student.roll_number || "-"}
+                          {/* NEW: Deactivate Button */}
+                          <button
+                            className="btn-icon"
+                            onClick={() => handleToggleStatus(student)}
+                            title={
+                              student.is_active
+                                ? "Deactivate Student"
+                                : "Activate Student"
+                            }
+                          >
+                            {student.is_active ? (
+                              <UserX size={16} color="#ef4444" />
+                            ) : (
+                              <UserCheck size={16} color="#10b981" />
+                            )}
+                          </button>
                         </td>
                       </tr>
                     ))

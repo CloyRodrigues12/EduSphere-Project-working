@@ -67,15 +67,19 @@ export const academicService = {
 
 export const studentService = {
   // Master Directory
-  getStudents: (semester, search) =>
+  getStudents: (yearId, semester, search) =>
     api.get(
-      `/students/directory/?semester=${semester || ""}&search=${search || ""}`,
+      `/students/directory/?academic_year=${yearId}&semester=${semester || ""}&search=${search || ""}`,
     ),
-  bulkUpdateSemester: (studentIds, newSemester) =>
+  bulkUpdateSemester: (studentIds, newSemester, academicYearId) =>
     api.patch("/students/directory/", {
       student_ids: studentIds,
       new_semester: newSemester,
+      academic_year_id: academicYearId,
     }),
+
+  // Toggle Active Status
+  toggleStatus: (id) => api.post(`/students/toggle-status/${id}/`),
 
   // Batch Management
   getGroups: (academicYearId, semester) =>
@@ -85,8 +89,6 @@ export const studentService = {
   createGroup: (data) => api.post("/student-groups/", data),
   updateGroup: (data) => api.put("/student-groups/", data),
   deleteGroup: (id) => api.delete(`/student-groups/?id=${id}`),
-
-  // The "Bucket Filler" Action
   updateGroupStudents: (groupId, studentIds, action) =>
     api.patch("/student-groups/", {
       group_id: groupId,
@@ -94,7 +96,6 @@ export const studentService = {
       action: action,
     }),
 };
-
 export const attendanceService = {
   // If no ID is passed, it fetches ALL sessions for the global calendar
   getSessions: (allocationId = "") =>

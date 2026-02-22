@@ -201,16 +201,16 @@ class TeachingAllocationSerializer(serializers.ModelSerializer):
     subject_name = serializers.CharField(source='subject.name', read_only=True)
     subject_code = serializers.CharField(source='subject.code', read_only=True)
     subject_type = serializers.CharField(source='subject.subject_type', read_only=True)
+    semester = serializers.IntegerField(source='subject.semester', read_only=True) # <-- NEW
     
     group_name = serializers.CharField(source='student_group.name', read_only=True)
     group_type = serializers.CharField(source='student_group.type', read_only=True)
     student_count = serializers.IntegerField(source='student_group.students.count', read_only=True)
     
     faculty_name = serializers.CharField(source='faculty.user.first_name', read_only=True)
-    
-    # NEW: Send the actual User ID so the frontend can match it perfectly
     faculty_user_id = serializers.IntegerField(source='faculty.user.id', read_only=True)
 
     class Meta:
         model = TeachingAllocation
-        fields = '__all__'
+        # Added 'semester' to the fields list below:
+        fields = ['id', 'subject', 'subject_name', 'subject_code', 'subject_type', 'semester', 'student_group', 'group_name', 'group_type', 'student_count', 'faculty', 'faculty_name', 'faculty_user_id']

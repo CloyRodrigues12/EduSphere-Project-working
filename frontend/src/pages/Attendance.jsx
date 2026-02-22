@@ -851,6 +851,22 @@ const Attendance = () => {
                 <div className="att-card-details">
                   <h3>{alloc.subject_name}</h3>
                   <p>
+                    {/* NEW: Semester Badge */}
+                    <span
+                      style={{
+                        display: "inline-block",
+                        background: "rgba(79, 70, 229, 0.1)",
+                        color: "var(--primary-color)",
+                        padding: "2px 8px",
+                        borderRadius: "4px",
+                        fontSize: "0.75rem",
+                        fontWeight: "bold",
+                        marginRight: "8px",
+                        verticalAlign: "middle",
+                      }}
+                    >
+                      Sem {alloc.semester}
+                    </span>
                     {alloc.group_name} • {alloc.subject_type?.replace("_", " ")}
                     <br />
                     {(user?.role_code === "ORG_ADMIN" ||
