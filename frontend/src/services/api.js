@@ -113,6 +113,18 @@ export const attendanceService = {
     if (mergeShared) url += `&merge_shared=true`; // NEW
     return api.get(url);
   },
+  getCumulativeReport: (
+    academicYearId,
+    semester,
+    subjectIds,
+    startDate,
+    endDate,
+  ) => {
+    let url = `/attendance/cumulative-report/?academic_year_id=${academicYearId}&semester=${semester}&subject_ids=${subjectIds}`;
+    if (startDate) url += `&start_date=${startDate}`;
+    if (endDate) url += `&end_date=${endDate}`;
+    return api.get(url);
+  },
 };
 
 export default api;

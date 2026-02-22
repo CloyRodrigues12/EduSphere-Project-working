@@ -215,3 +215,128 @@ class AttendanceReportView(APIView):
             return Response({"error": "Class not found."}, status=404)
         except Exception as e:
             return Response({"error": str(e)}, status=500)
+
+class CumulativeReportView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        academic_year_id = request.GET.get('academic_year_id')
+        semester = request.GET.get('semester')
+        subject_ids = request.GET.get('subject_ids')
+        start_date = request.GET.get('start_date') # NEW
+        end_date = request.GET.get('end_date')     # NEW
+
+        if not academic_year_id or not semester or not subject_ids:
+            return Response({"error": "Missing parameters"}, status=400)
+
+        try:
+            subject_id_list = [int(sid) for sid in subject_ids.split(',') if sid.strip()]
+            
+            # Fetch all allocations for these subjects
+            allocations = TeachingAllocation.objects.filter(
+                academic_year_id=academic_year_id,
+                subject_id__in=subject_id_list
+            ).select_related('subject', 'subject__department', 'student_group')
+
+            if not allocations.exists():
+                return Response({"error": "No recorded classes found for these subjects."}, status=404)
+
+            # Extract Department Name
+            department_name = allocations.first().subject.department.name
+            
+            # Extract unique subjects for the PDF columns
+            subjects_info = {}
+            for alloc in allocations:
+                if alloc.subject.id not in subjects_info:
+                    subjects_info[alloc.subject.id] = {
+                        "id": alloc.subject.id,
+                        "code": alloc.subject.code,
+                        "name": alloc.subject.name
+                    }
+
+            student_stats = {}
+            alloc_tc_cache = {}
+            
+            global_first_date = None
+            global_last_date = None
+
+            # Calculate Total Conducted (TC) & find the Date Range
+            for alloc in allocations:
+                sessions = ClassSession.objects.filter(allocation=alloc)
+                
+                # Apply Date Filters
+                if start_date:
+                    sessions = sessions.filter(date__gte=start_date)
+                if end_date:
+                    sessions = sessions.filter(date__lte=end_date)
+                
+                # Find absolute first and last dates
+                if sessions.exists():
+                    ordered = sessions.order_by('date')
+                    f_date = ordered.first().date
+                    l_date = ordered.last().date
+                    if not global_first_date or f_date < global_first_date:
+                        global_first_date = f_date
+                    if not global_last_date or l_date > global_last_date:
+                        global_last_date = l_date
+
+                tc = sum(s.lecture_count for s in sessions)
+                alloc_tc_cache[alloc.id] = {"tc": tc, "sessions": sessions, "subject_id": str(alloc.subject.id)}
+
+                # Initialize students who are officially in this allocation's batch
+                for student in alloc.student_group.students.all():
+                    if student.id not in student_stats:
+                        student_stats[student.id] = {
+                            "roll_number": student.roll_number,
+                            "name": student.full_name,
+                            "subjects": {},
+                            "total_ta": 0,
+                            "total_tc": 0
+                        }
+                    
+                    sub_id = str(alloc.subject.id)
+                    if sub_id not in student_stats[student.id]["subjects"]:
+                        student_stats[student.id]["subjects"][sub_id] = {"ta": 0, "tc": 0}
+                    
+                    # Add this allocation's TC to the student's expected total
+                    student_stats[student.id]["subjects"][sub_id]["tc"] += tc
+                    student_stats[student.id]["total_tc"] += tc
+
+            # Process Attendance Records (TA)
+            for alloc in allocations:
+                sessions = alloc_tc_cache[alloc.id]["sessions"]
+                sub_id = alloc_tc_cache[alloc.id]["subject_id"]
+                
+                records = AttendanceRecord.objects.filter(session__in=sessions).select_related('session')
+                for record in records:
+                    sid = record.student_id
+                    if sid not in student_stats:
+                        continue
+                    
+                    multiplier = record.session.lecture_count
+                    if record.status in ['PRESENT', 'LATE'] or record.status.startswith('DUTY'):
+                        student_stats[sid]["subjects"][sub_id]["ta"] += multiplier
+                        student_stats[sid]["total_ta"] += multiplier
+
+            # Calculate Percentages and Format
+            results = []
+            for stats in student_stats.values():
+                for sub_id, sub_stats in stats["subjects"].items():
+                    sub_stats["percentage"] = round((sub_stats["ta"] / sub_stats["tc"] * 100), 1) if sub_stats["tc"] > 0 else 0
+                
+                stats["cumulative_percentage"] = round((stats["total_ta"] / stats["total_tc"] * 100), 2) if stats["total_tc"] > 0 else 0
+                results.append(stats)
+
+            results.sort(key=lambda x: x['roll_number'])
+
+            return Response({
+                "department_name": department_name,
+                "semester": semester,
+                "first_session_date": global_first_date,
+                "last_session_date": global_last_date,
+                "subjects": list(subjects_info.values()),
+                "students": results
+            })
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)

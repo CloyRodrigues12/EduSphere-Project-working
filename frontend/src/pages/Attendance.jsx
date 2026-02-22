@@ -41,7 +41,7 @@ const Attendance = () => {
   };
 
   const [myClasses, setMyClasses] = useState([]);
-  const [sessions, setSessions] = useState([]); // Used for both global and specific classes
+  const [sessions, setSessions] = useState([]);
   const [activeSession, setActiveSession] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -51,23 +51,20 @@ const Attendance = () => {
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(null);
 
-  // PDF Export State
+  // INDIVIDUAL PDF Export State
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportRange, setExportRange] = useState({ start: "", end: "" });
   const [mergeShared, setMergeShared] = useState(true);
 
-  // 1. Bulletproof Local Timezone Date Generator
-  const setMonthRange = () => {
-    const today = new Date();
-    const y = today.getFullYear();
-    const m = String(today.getMonth() + 1).padStart(2, "0");
-
-    const firstDay = `${y}-${m}-01`;
-    const lastDayNum = new Date(y, today.getMonth() + 1, 0).getDate();
-    const lastDay = `${y}-${m}-${lastDayNum}`;
-
-    setExportRange({ start: firstDay, end: lastDay });
-  };
+  // CUMULATIVE PDF Export State
+  const [showCumulModal, setShowCumulModal] = useState(false);
+  const [cumulSemester, setCumulSemester] = useState("");
+  const [availableSubjects, setAvailableSubjects] = useState([]);
+  const [selectedSubjects, setSelectedSubjects] = useState([]);
+  const [cumulExportRange, setCumulExportRange] = useState({
+    start: "",
+    end: "",
+  });
 
   // Modals
   const [showNewModal, setShowNewModal] = useState(false);
@@ -77,6 +74,16 @@ const Attendance = () => {
     lecture_count: 1,
     topics_covered: "",
   });
+
+  const getMonthDates = () => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, "0");
+    const firstDay = `${y}-${m}-01`;
+    const lastDayNum = new Date(y, today.getMonth() + 1, 0).getDate();
+    const lastDay = `${y}-${m}-${lastDayNum}`;
+    return { firstDay, lastDay };
+  };
 
   useEffect(() => {
     if (!allocationId) {
@@ -188,6 +195,296 @@ const Attendance = () => {
     }
   };
 
+  // --------------------------------------------------------------------
+  // PDF 1: INDIVIDUAL SUBJECT REPORT
+  // --------------------------------------------------------------------
+  const generatePDFReport = async (e) => {
+    e.preventDefault();
+    try {
+      const { start, end } = exportRange;
+      const res = await attendanceService.getReport(
+        allocationId,
+        start,
+        end,
+        mergeShared,
+      );
+      const data = res.data;
+
+      const doc = new jsPDF("p", "pt", "a4");
+
+      doc.setFontSize(18);
+      doc.setTextColor(40);
+      doc.text("EduSphere - Subject Attendance Report", 40, 40);
+
+      doc.setFontSize(11);
+      doc.setTextColor(100);
+      doc.text(
+        `Subject: ${data.subject_name || "N/A"} (${data.subject_code || "N/A"})`,
+        40,
+        60,
+      );
+      doc.text(`Semester: ${data.semester || "N/A"}`, 40, 75);
+      doc.text(`Batch: ${data.batch_name || "N/A"}`, 250, 75);
+      doc.text(`Faculty: Prof. ${data.faculty_name || "N/A"}`, 40, 90);
+
+      let durationText = "No classes recorded in this period";
+      if (data.first_session_date && data.last_session_date) {
+        const firstD = new Date(data.first_session_date).toLocaleDateString(
+          "en-GB",
+        );
+        const lastD = new Date(data.last_session_date).toLocaleDateString(
+          "en-GB",
+        );
+        durationText = firstD === lastD ? firstD : `${firstD} to ${lastD}`;
+      }
+
+      doc.text(`Duration: ${durationText}`, 40, 105);
+      doc.text(`Theory Conducted (TC): ${data.total_conducted} Hours`, 40, 120);
+      doc.text(
+        `Generated on: ${new Date().toLocaleDateString("en-GB")}`,
+        40,
+        135,
+      );
+
+      const tableColumns = [
+        "Roll No.",
+        "Student Name",
+        "Attended (TA)",
+        "Absent",
+        "Duty Leaves",
+        "Percentage",
+      ];
+      const tableRows = (data.students || []).map((s) => [
+        s.roll_number,
+        s.name,
+        s.ta,
+        s.absent,
+        s.duty,
+        `${s.percentage}%`,
+      ]);
+
+      autoTable(doc, {
+        startY: 150,
+        head: [tableColumns],
+        body: tableRows,
+        theme: "grid",
+        headStyles: {
+          fillColor: [79, 70, 229],
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+        },
+        alternateRowStyles: { fillColor: [245, 247, 250] },
+        columnStyles: {
+          0: { cellWidth: 70 },
+          5: { fontStyle: "bold", textColor: [0, 0, 0] },
+        },
+        didParseCell: function (data) {
+          if (data.section === "body" && data.column.index === 5) {
+            if (parseFloat(data.cell.raw) < 75) {
+              data.cell.styles.textColor = [239, 68, 68];
+              data.cell.styles.fontStyle = "bold";
+            }
+          }
+        },
+      });
+
+      const cleanSubjectCode = (data.subject_code || "SUB").replace(
+        /[^a-zA-Z0-9]/g,
+        "",
+      );
+      doc.save(
+        `${data.batch_name || "Batch"}_${cleanSubjectCode}_Attendance.pdf`,
+      );
+      setShowExportModal(false);
+    } catch (err) {
+      console.error("PDF Error:", err);
+      alert("Failed to generate report. Check the console for details.");
+    }
+  };
+
+  // --------------------------------------------------------------------
+  // PDF 2: CUMULATIVE MASTER REPORT (Replica of Don Bosco PDF)
+  // --------------------------------------------------------------------
+  const handleCumulSemesterChange = async (e) => {
+    const sem = e.target.value;
+    setCumulSemester(sem);
+    if (sem) {
+      try {
+        const res = await academicService.getSubjects(sem);
+        setAvailableSubjects(res.data);
+        setSelectedSubjects(res.data.map((s) => s.id));
+      } catch (err) {
+        console.error("Failed to fetch subjects", err);
+      }
+    } else {
+      setAvailableSubjects([]);
+      setSelectedSubjects([]);
+    }
+  };
+
+  const getInitials = (name) => {
+    if (!name) return "";
+    const cleanName = name.replace(/\(.*\)/g, "").trim();
+    return cleanName
+      .split(/[\s-]+/)
+      .filter((w) => w.length > 0)
+      .map((w) => w[0])
+      .join("")
+      .toUpperCase();
+  };
+
+  const generateCumulativePDF = async (e) => {
+    e.preventDefault();
+    if (selectedSubjects.length === 0)
+      return alert("Please select at least one subject.");
+
+    try {
+      const { start, end } = cumulExportRange;
+      const res = await attendanceService.getCumulativeReport(
+        activeAcademicYear.id,
+        cumulSemester,
+        selectedSubjects.join(","),
+        start,
+        end,
+      );
+      const data = res.data;
+
+      const doc = new jsPDF("l", "pt", "a4"); // Landscape layout
+      const pageWidth = doc.internal.pageSize.width;
+
+      doc.setFontSize(16);
+      doc.setTextColor(0); // Pure black text
+      doc.text(
+        "Don Bosco College Of Engineering, Fatorda-Goa",
+        pageWidth / 2,
+        40,
+        { align: "center" },
+      );
+
+      let durationText = "For Entire Semester";
+      if (data.first_session_date && data.last_session_date) {
+        const fDate = new Date(data.first_session_date).toLocaleDateString(
+          "en-GB",
+        );
+        const lDate = new Date(data.last_session_date).toLocaleDateString(
+          "en-GB",
+        );
+        durationText = `From ${fDate} to ${lDate}`;
+      }
+
+      doc.setFontSize(11);
+      doc.setTextColor(0);
+      doc.text(
+        `Cumulative Attendance Report of Department: ${data.department_name || "Engineering"}`,
+        pageWidth / 2,
+        60,
+        { align: "center" },
+      );
+      doc.text(
+        `Semester: ${data.semester}  |  Academic Year: ${activeAcademicYear?.name || ""}  |  ${durationText}`,
+        pageWidth / 2,
+        75,
+        { align: "center" },
+      );
+
+      // Build Nested Headers (Row 1: Names/Subjects | Row 2: TA/TC/Per)
+      const topHeader = [
+        {
+          content: "Roll No.",
+          rowSpan: 2,
+          styles: { halign: "center", valign: "middle", cellWidth: 55 },
+        },
+        {
+          content: "Student Name",
+          rowSpan: 2,
+          styles: { halign: "center", valign: "middle", cellWidth: 120 },
+        },
+      ];
+      const bottomHeader = [];
+
+      data.subjects.forEach((sub) => {
+        const abbr = getInitials(sub.name);
+        topHeader.push({
+          content: `${abbr}\n${sub.code}`,
+          colSpan: 3,
+          styles: { halign: "center" },
+        });
+        bottomHeader.push("TA", "TC", "Per");
+      });
+
+      // Add Final Total Column (Light gray instead of dark gray)
+      topHeader.push({
+        content: "Final Total\nCumulative",
+        colSpan: 3,
+        styles: { halign: "center", fillColor: [240, 240, 240] }, // Light gray background
+      });
+      bottomHeader.push("TA", "TC", "Per");
+
+      // Build Body
+      const tableRows = data.students.map((s) => {
+        const row = [s.roll_number, s.name];
+        data.subjects.forEach((sub) => {
+          const subStat = s.subjects[String(sub.id)];
+          if (subStat && subStat.tc > 0)
+            row.push(subStat.ta, subStat.tc, `${subStat.percentage}%`);
+          else row.push("-", "-", "-");
+        });
+        row.push(s.total_ta, s.total_tc, `${s.cumulative_percentage}%`);
+        return row;
+      });
+
+      autoTable(doc, {
+        startY: 95,
+        head: [topHeader, bottomHeader],
+        body: tableRows,
+        theme: "grid",
+        // STRICT GRID STYLING
+        headStyles: {
+          fillColor: [255, 255, 255], // Clear/White background
+          textColor: [0, 0, 0], // Black text
+          fontStyle: "bold",
+          fontSize: 9,
+          lineWidth: 0.5, // Explicit borders
+          lineColor: [0, 0, 0], // Black borders
+          halign: "center",
+        },
+        bodyStyles: {
+          fontSize: 8,
+          textColor: [0, 0, 0],
+          lineWidth: 0.5, // Explicit borders
+          lineColor: [0, 0, 0], // Black borders
+        },
+        alternateRowStyles: {
+          fillColor: [255, 255, 255], // Remove alternating colors for a clean print
+        },
+        didParseCell: function (data) {
+          // Center align the numbers in the body
+          if (data.section === "body" && data.column.index > 1) {
+            data.cell.styles.halign = "center";
+          }
+          // Highlight Per columns if below 75%
+          if (data.section === "body" && String(data.cell.raw).includes("%")) {
+            if (parseFloat(data.cell.raw) < 75) {
+              data.cell.styles.textColor = [239, 68, 68]; // Keep the red text for defaulters
+              data.cell.styles.fontStyle = "bold";
+            }
+          }
+        },
+      });
+
+      doc.save(`Sem_${data.semester}_Cumulative_Report.pdf`);
+      setShowCumulModal(false);
+    } catch (err) {
+      console.error(err);
+      alert(
+        "Failed to generate report. Ensure there are recorded sessions for these dates.",
+      );
+    }
+  };
+
+  // --------------------------------------------------------------------
+  // RENDER HELPERS
+  // --------------------------------------------------------------------
   const filteredSessions = sessions.filter((session) => {
     const term = searchTerm.toLowerCase();
     const dateStr = new Date(session.date)
@@ -205,7 +502,6 @@ const Attendance = () => {
     const month = calendarDate.getMonth();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const firstDay = new Date(year, month, 1).getDay();
-
     const allCells = [
       ...Array(firstDay).fill(null),
       ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
@@ -244,14 +540,12 @@ const Attendance = () => {
               return (
                 <div key={`blank-${idx}`} className="att-cal-cell empty"></div>
               );
-
             const cellDateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
             const daySessions = sessionsToUse.filter(
               (s) => s.date === cellDateStr,
             );
             const hasSessions = daySessions.length > 0;
             const isSelected = selectedCalendarDate === cellDateStr;
-
             return (
               <div
                 key={`day-${day}`}
@@ -349,8 +643,6 @@ const Attendance = () => {
           <div className="att-stat-pill">
             <Users size={14} /> {presentCount} / {session.records?.length || 0}
           </div>
-
-          {/* SAFEGUARD: Only show the delete button if we are inside a specific class (allocationId exists) */}
           {allocationId && (
             <button
               className="att-icon-btn delete-btn"
@@ -367,118 +659,13 @@ const Attendance = () => {
       </div>
     );
   };
-  const generatePDFReport = async (e) => {
-    e.preventDefault();
 
-    try {
-      const { start, end } = exportRange;
-      const res = await attendanceService.getReport(
-        allocationId,
-        start,
-        end,
-        mergeShared,
-      );
-      const data = res.data;
-
-      const doc = new jsPDF("p", "pt", "a4");
-
-      doc.setFontSize(18);
-      doc.setTextColor(40);
-      doc.text("EduSphere - Subject Attendance Report", 40, 40);
-
-      doc.setFontSize(11);
-      doc.setTextColor(100);
-      doc.text(
-        `Subject: ${data.subject_name || "N/A"} (${data.subject_code || "N/A"})`,
-        40,
-        60,
-      );
-
-      // Directly prints the exact semester linked in the database
-      doc.text(`Semester: ${data.semester || "N/A"}`, 40, 75);
-      doc.text(`Batch: ${data.batch_name || "N/A"}`, 250, 75);
-
-      doc.text(`Faculty: Prof. ${data.faculty_name || "N/A"}`, 40, 90);
-
-      let durationText = "No classes recorded in this period";
-      if (data.first_session_date && data.last_session_date) {
-        const firstD = new Date(data.first_session_date).toLocaleDateString(
-          "en-GB",
-        );
-        const lastD = new Date(data.last_session_date).toLocaleDateString(
-          "en-GB",
-        );
-        durationText = firstD === lastD ? firstD : `${firstD} to ${lastD}`;
-      }
-
-      doc.text(`Duration: ${durationText}`, 40, 105);
-      doc.text(`Theory Conducted (TC): ${data.total_conducted} Hours`, 40, 120);
-      doc.text(
-        `Generated on: ${new Date().toLocaleDateString("en-GB")}`,
-        40,
-        135,
-      );
-
-      const tableColumns = [
-        "Roll No.",
-        "Student Name",
-        "Attended (TA)",
-        "Absent",
-        "Duty Leaves",
-        "Percentage",
-      ];
-      const tableRows = (data.students || []).map((s) => [
-        s.roll_number,
-        s.name,
-        s.ta,
-        s.absent,
-        s.duty,
-        `${s.percentage}%`,
-      ]);
-
-      autoTable(doc, {
-        startY: 150,
-        head: [tableColumns],
-        body: tableRows,
-        theme: "grid",
-        headStyles: {
-          fillColor: [79, 70, 229],
-          textColor: [255, 255, 255],
-          fontStyle: "bold",
-        },
-        alternateRowStyles: { fillColor: [245, 247, 250] },
-        columnStyles: {
-          0: { cellWidth: 70 },
-          5: { fontStyle: "bold", textColor: [0, 0, 0] },
-        },
-        didParseCell: function (data) {
-          if (data.section === "body" && data.column.index === 5) {
-            const percentage = parseFloat(data.cell.raw);
-            if (percentage < 75) {
-              data.cell.styles.textColor = [239, 68, 68];
-              data.cell.styles.fontStyle = "bold";
-            }
-          }
-        },
-      });
-
-      const cleanSubjectCode = (data.subject_code || "SUB").replace(
-        /[^a-zA-Z0-9]/g,
-        "",
-      );
-      doc.save(
-        `${data.batch_name || "Batch"}_${cleanSubjectCode}_Attendance.pdf`,
-      );
-      setShowExportModal(false);
-    } catch (err) {
-      console.error("PDF Error:", err);
-      alert("Failed to generate report. Check the console for details.");
-    }
-  };
   if (loading)
     return <div className="spinner" style={{ margin: "5rem auto" }}></div>;
 
-  // VIEW 1: LANDING PAGE (With Global Calendar)
+  // --------------------------------------------------------------------
+  // VIEW 1: LANDING PAGE
+  // --------------------------------------------------------------------
   if (!allocationId) {
     return (
       <div id="attendance-engine-root" className="fade-in">
@@ -506,6 +693,14 @@ const Attendance = () => {
               <CalendarDays size={18} /> Global Calendar
             </button>
           </div>
+
+          {/* FIXED CUMULATIVE REPORT BUTTON */}
+          <button
+            className="att-btn att-btn-secondary"
+            onClick={() => setShowCumulModal(true)}
+          >
+            <Download size={18} /> Cumulative Master Report
+          </button>
         </div>
 
         {viewMode === "list" ? (
@@ -525,8 +720,6 @@ const Attendance = () => {
                 <div className="att-card-icon">
                   <BookOpen size={24} />
                 </div>
-
-                {/* RESTORED FACULTY NAMES */}
                 <div className="att-card-details">
                   <h3>{alloc.subject_name}</h3>
                   <p>
@@ -541,6 +734,7 @@ const Attendance = () => {
                   </p>
                 </div>
 
+                {/* FIXED SELECT CLASS BUTTON */}
                 <button
                   className={`att-btn ${alloc.isMine ? "att-btn-primary" : "att-btn-secondary"}`}
                   onClick={() =>
@@ -565,6 +759,203 @@ const Attendance = () => {
         ) : (
           renderCalendar(sessions)
         )}
+
+        {/* CUMULATIVE MASTER REPORT MODAL */}
+        <AnimatePresence>
+          {showCumulModal && (
+            <div className="att-modal-overlay">
+              <motion.div
+                className="att-modal-content"
+                style={{ maxWidth: "550px" }}
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              >
+                <div className="att-modal-header">
+                  <div>
+                    <h3>Cumulative Report</h3>
+                    <p>Combine multiple subjects into a master sheet.</p>
+                  </div>
+                  <button
+                    onClick={() => setShowCumulModal(false)}
+                    className="att-close-btn"
+                  >
+                    &times;
+                  </button>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "10px",
+                    marginBottom: "1.5rem",
+                  }}
+                >
+                  <button
+                    type="button"
+                    className="att-btn att-btn-secondary"
+                    style={{ flex: 1, fontSize: "0.85rem" }}
+                    onClick={() => setCumulExportRange({ start: "", end: "" })}
+                  >
+                    All Time
+                  </button>
+                  <button
+                    type="button"
+                    className="att-btn att-btn-secondary"
+                    style={{ flex: 1, fontSize: "0.85rem" }}
+                    onClick={() => {
+                      const d = getMonthDates();
+                      setCumulExportRange({
+                        start: d.firstDay,
+                        end: d.lastDay,
+                      });
+                    }}
+                  >
+                    Current Month
+                  </button>
+                </div>
+
+                <form onSubmit={generateCumulativePDF} className="att-form">
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "15px",
+                      marginBottom: "1.5rem",
+                    }}
+                  >
+                    <div
+                      className="att-input-group"
+                      style={{ flex: 1, marginBottom: 0 }}
+                    >
+                      <label>Start Date</label>
+                      <input
+                        type="date"
+                        value={cumulExportRange.start}
+                        onChange={(e) =>
+                          setCumulExportRange({
+                            ...cumulExportRange,
+                            start: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div
+                      className="att-input-group"
+                      style={{ flex: 1, marginBottom: 0 }}
+                    >
+                      <label>End Date</label>
+                      <input
+                        type="date"
+                        value={cumulExportRange.end}
+                        onChange={(e) =>
+                          setCumulExportRange({
+                            ...cumulExportRange,
+                            end: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="att-input-group">
+                    <label>Select Semester</label>
+                    <select
+                      required
+                      value={cumulSemester}
+                      onChange={handleCumulSemesterChange}
+                    >
+                      <option value="" disabled>
+                        Choose Semester...
+                      </option>
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
+                        <option key={sem} value={sem}>
+                          Semester {sem}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {availableSubjects.length > 0 && (
+                    <div style={{ marginTop: "1.5rem" }}>
+                      <label
+                        style={{
+                          fontSize: "0.9rem",
+                          fontWeight: 600,
+                          color: "var(--text-secondary)",
+                        }}
+                      >
+                        Include Subjects:
+                      </label>
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr",
+                          gap: "10px",
+                          marginTop: "10px",
+                          maxHeight: "150px",
+                          overflowY: "auto",
+                          padding: "10px",
+                          background: "var(--bg-input)",
+                          borderRadius: "8px",
+                          border: "1px solid var(--border-color)",
+                        }}
+                      >
+                        {availableSubjects.map((sub) => (
+                          <label
+                            key={sub.id}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "8px",
+                              cursor: "pointer",
+                              color: "var(--text-primary)",
+                              fontSize: "0.85rem",
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedSubjects.includes(sub.id)}
+                              onChange={(e) => {
+                                if (e.target.checked)
+                                  setSelectedSubjects([
+                                    ...selectedSubjects,
+                                    sub.id,
+                                  ]);
+                                else
+                                  setSelectedSubjects(
+                                    selectedSubjects.filter(
+                                      (id) => id !== sub.id,
+                                    ),
+                                  );
+                              }}
+                              style={{
+                                width: "16px",
+                                height: "16px",
+                                accentColor: "var(--primary-color)",
+                              }}
+                            />
+                            <strong>{sub.code}</strong> - {sub.name}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ marginTop: "2.5rem" }}>
+                    <button
+                      type="submit"
+                      className="att-btn att-btn-primary"
+                      style={{ width: "100%" }}
+                      disabled={selectedSubjects.length === 0}
+                    >
+                      <Download size={18} /> Generate Master PDF
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
 
         {activeSession && (
           <div className="att-modal-overlay">
@@ -602,7 +993,9 @@ const Attendance = () => {
     );
   }
 
+  // --------------------------------------------------------------------
   // VIEW 2: SPECIFIC CLASS VIEW
+  // --------------------------------------------------------------------
   return (
     <div id="attendance-engine-root" className="fade-in">
       <div className="att-header-section with-back">
@@ -684,7 +1077,7 @@ const Attendance = () => {
         </div>
       )}
 
-      {/* MODALS */}
+      {/* MODALS FOR SPECIFIC CLASS */}
       <AnimatePresence>
         {sessionToDelete && (
           <div className="att-modal-overlay">
@@ -702,7 +1095,7 @@ const Attendance = () => {
                 <h3>Delete Session?</h3>
                 <p style={{ color: "var(--text-secondary)" }}>
                   This will permanently remove the attendance record for this
-                  entire class. This action cannot be undone.
+                  entire class.
                 </p>
                 <div
                   style={{ display: "flex", gap: "10px", marginTop: "2rem" }}
@@ -810,7 +1203,8 @@ const Attendance = () => {
             </motion.div>
           </div>
         )}
-        {/* EXPORT PDF MODAL */}
+
+        {/* INDIVIDUAL SUBJECT EXPORT PDF MODAL */}
         {showExportModal && (
           <div className="att-modal-overlay">
             <motion.div
@@ -831,7 +1225,6 @@ const Attendance = () => {
                   &times;
                 </button>
               </div>
-
               <div
                 style={{ display: "flex", gap: "10px", marginBottom: "1.5rem" }}
               >
@@ -847,12 +1240,14 @@ const Attendance = () => {
                   type="button"
                   className="att-btn att-btn-secondary"
                   style={{ flex: 1, fontSize: "0.85rem" }}
-                  onClick={setMonthRange}
+                  onClick={() => {
+                    const d = getMonthDates();
+                    setExportRange({ start: d.firstDay, end: d.lastDay });
+                  }}
                 >
                   Current Month
                 </button>
               </div>
-
               <form onSubmit={generatePDFReport} className="att-form">
                 <div style={{ display: "flex", gap: "15px" }}>
                   <div className="att-input-group" style={{ flex: 1 }}>
