@@ -18,11 +18,20 @@ class ClassSessionView(APIView):
             # Fetch for a specific class
             sessions = ClassSession.objects.filter(allocation_id=allocation_id).order_by('-date', '-updated_at')
         else:
-            # Global Calendar Logic: Fetch ALL sessions
-            if user_profile.role in ['ORG_ADMIN', 'SUPER_ADMIN']:
-                sessions = ClassSession.objects.all().order_by('-date', '-updated_at')
-            else:
-                sessions = ClassSession.objects.filter(allocation__faculty=user_profile).order_by('-date', '-updated_at')
+            # Global Calendar Logic: Fetch ALL sessions based on Department Filter
+            is_admin = user_profile.role in ['ORG_ADMIN', 'SUPER_ADMIN']
+            target_dept_id = request.headers.get('X-Department-Id')
+
+            # Start by restricting to the user's Organization
+            sessions = ClassSession.objects.filter(allocation__subject__department__organization=user_profile.organization)
+
+            # Apply Security / Sandbox Filter
+            if not is_admin:
+                sessions = sessions.filter(allocation__faculty=user_profile)
+            elif target_dept_id and target_dept_id != 'ALL':
+                sessions = sessions.filter(allocation__subject__department_id=target_dept_id)
+
+            sessions = sessions.order_by('-date', '-updated_at')
                 
         return Response(ClassSessionSerializer(sessions, many=True).data)
 
@@ -355,8 +364,25 @@ class AnalyticsRadarView(APIView):
         if not academic_year_id:
             return Response({"error": "Academic Year ID is required"}, status=400)
             
-        allocations = TeachingAllocation.objects.filter(academic_year_id=academic_year_id).select_related('subject', 'student_group')
+        user_profile = request.user.profile
+        is_admin = user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']
+        target_dept_id = request.headers.get('X-Department-Id')
         
+        # Base query restricted to organization
+        allocations = TeachingAllocation.objects.filter(
+            academic_year_id=academic_year_id,
+            subject__department__organization=user_profile.organization
+        ).select_related('subject', 'student_group')
+        
+        # Apply Security / Sandbox Filter
+        if not is_admin:
+            if not user_profile.department:
+                return Response({"safe": [], "atRisk": [], "defaulters": [], "chartData": [], "totalStudents": 0})
+            allocations = allocations.filter(subject__department=user_profile.department, faculty=user_profile)
+        elif target_dept_id and target_dept_id != 'ALL':
+            allocations = allocations.filter(subject__department_id=target_dept_id)
+
+        # Apply Explicit Filters (from UI dropdowns)
         if allocation_id:
             allocations = allocations.filter(id=allocation_id)
         else:
@@ -364,10 +390,6 @@ class AnalyticsRadarView(APIView):
                 allocations = allocations.filter(subject__semester=semester)
             if subject_id:
                 allocations = allocations.filter(subject_id=subject_id)
-                
-        user_profile = request.user.profile
-        if user_profile.role not in ['ORG_ADMIN', 'SUPER_ADMIN']:
-            allocations = allocations.filter(faculty=user_profile)
 
         if not allocations.exists():
             return Response({"safe": [], "atRisk": [], "defaulters": [], "chartData": [], "totalStudents": 0})
@@ -384,7 +406,6 @@ class AnalyticsRadarView(APIView):
             if end_date:
                 sessions = sessions.filter(date__lte=end_date)
 
-            # --- NEW: TRACK OVERALL DATE RANGE ---
             if sessions.exists():
                 ordered = sessions.order_by('date')
                 f_date = ordered.first().date
@@ -446,6 +467,6 @@ class AnalyticsRadarView(APIView):
             "defaulters": defaulters,
             "chartData": chart_data,
             "totalStudents": len(student_stats),
-            "first_session_date": global_first_date,  # NEW
-            "last_session_date": global_last_date     # NEW
+            "first_session_date": global_first_date,
+            "last_session_date": global_last_date
         })

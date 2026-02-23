@@ -195,13 +195,13 @@ class StudentGroupSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-
 class TeachingAllocationSerializer(serializers.ModelSerializer):
     # Flatten the data for the frontend cards
     subject_name = serializers.CharField(source='subject.name', read_only=True)
     subject_code = serializers.CharField(source='subject.code', read_only=True)
     subject_type = serializers.CharField(source='subject.subject_type', read_only=True)
-    semester = serializers.IntegerField(source='subject.semester', read_only=True) # <-- NEW
+    semester = serializers.IntegerField(source='subject.semester', read_only=True)
+    department_code = serializers.CharField(source='subject.department.code', read_only=True) # <-- NEW
     
     group_name = serializers.CharField(source='student_group.name', read_only=True)
     group_type = serializers.CharField(source='student_group.type', read_only=True)
@@ -212,5 +212,5 @@ class TeachingAllocationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TeachingAllocation
-        # Added 'semester' to the fields list below:
-        fields = ['id', 'subject', 'subject_name', 'subject_code', 'subject_type', 'semester', 'student_group', 'group_name', 'group_type', 'student_count', 'faculty', 'faculty_name', 'faculty_user_id']
+        # Added 'department_code' to the fields list below:
+        fields = ['id', 'subject', 'subject_name', 'subject_code', 'subject_type', 'semester', 'department_code', 'student_group', 'group_name', 'group_type', 'student_count', 'faculty', 'faculty_name', 'faculty_user_id']

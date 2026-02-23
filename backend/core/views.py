@@ -498,16 +498,27 @@ class FacultyManagementView(APIView):
     parser_classes = (MultiPartParser, FormParser)
 
     def get(self, request):
-        """ Fetch all Faculty AND Admins (so Admins can teach) """
-        org = request.user.profile.organization
-        # NEW: Fetch both Faculty and Admins
-        faculty = UserProfile.objects.filter(
-            organization=org, 
+        user_profile = request.user.profile
+        is_admin = user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']
+        target_dept_id = request.headers.get('X-Department-Id')
+        
+        # FIX: Use UserProfile instead of FacultyProfile
+        faculties = UserProfile.objects.filter(
+            organization=user_profile.organization,
             role__in=['FACULTY', 'ORG_ADMIN', 'SUPER_ADMIN']
         ).select_related('user', 'department')
         
+        # Apply Security / Sandbox Filter
+        if not is_admin:
+            if not user_profile.department:
+                return Response([])
+            faculties = faculties.filter(department=user_profile.department)
+        elif target_dept_id and target_dept_id != 'ALL':
+            faculties = faculties.filter(department_id=target_dept_id)
+
         from core.serializers import FacultySerializer
-        return Response(FacultySerializer(faculty, many=True).data)
+        serializer = FacultySerializer(faculties, many=True)
+        return Response(serializer.data)
 
     def post(self, request):
         """ Add a new Faculty member to the Registry """
@@ -831,7 +842,7 @@ class StudentUploadView(APIView):
 
 
 # ==========================================
-# NEW: Department Dropdown Fetcher
+# DEPARTMENT MANAGEMENT
 # ==========================================
 class DepartmentListView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -840,6 +851,49 @@ class DepartmentListView(APIView):
         org = request.user.profile.organization
         departments = Department.objects.filter(organization=org)
         return Response(DepartmentSerializer(departments, many=True).data)
+
+    def post(self, request):
+        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+            return Response({"error": "Permission denied"}, status=403)
+            
+        serializer = DepartmentSerializer(data=request.data)
+        if serializer.is_valid():
+            # Explicitly pass the organization directly to the database save method
+            serializer.save(organization=request.user.profile.organization)
+            return Response(serializer.data, status=201)
+            
+        return Response(serializer.errors, status=400)
+
+    def put(self, request):
+        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+            return Response({"error": "Permission denied"}, status=403)
+            
+        dept_id = request.data.get('id')
+        try:
+            dept = Department.objects.get(id=dept_id, organization=request.user.profile.organization)
+            serializer = DepartmentSerializer(dept, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data)
+            return Response(serializer.errors, status=400)
+        except Department.DoesNotExist:
+            return Response({"error": "Department not found"}, status=404)
+
+    def delete(self, request):
+        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+            return Response({"error": "Permission denied"}, status=403)
+            
+        dept_id = request.GET.get('id')
+        try:
+            dept = Department.objects.get(id=dept_id, organization=request.user.profile.organization)
+            # Security: Prevent deleting a department if it has users or subjects
+            if dept.userprofile_set.exists() or dept.course_set.exists():
+                return Response({"error": "Cannot delete a department that contains staff or subjects."}, status=400)
+                
+            dept.delete()
+            return Response({"message": "Department deleted successfully"})
+        except Department.DoesNotExist:
+            return Response({"error": "Department not found"}, status=404)
 
 
 #------------------------------------------------------------------------------------------------------------------
@@ -852,17 +906,25 @@ class SubjectCatalogView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        """ Fetch subjects for the user's department, optionally filtered by semester """
-        dept = request.user.profile.department
-        if not dept:
-            return Response({"error": "You are not assigned to a department"}, status=400)
+        user_profile = request.user.profile
+        is_admin = user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']
+        target_dept_id = request.headers.get('X-Department-Id')
+        
+        # FIX: Course is linked to department, so we check department__organization
+        courses = Course.objects.filter(department__organization=user_profile.organization)
+        
+        # Apply Security / Sandbox Filter
+        if not is_admin:
+            if not user_profile.department:
+                return Response([])
+            courses = courses.filter(department=user_profile.department)
+        elif target_dept_id and target_dept_id != 'ALL':
+            courses = courses.filter(department_id=target_dept_id)
 
         semester = request.GET.get('semester')
-        courses = Course.objects.filter(department=dept)
-        
         if semester:
             courses = courses.filter(semester=semester)
-            
+
         return Response(CourseSerializer(courses, many=True).data)
 
     def post(self, request):
@@ -931,24 +993,26 @@ class StudentDirectoryView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        """ Fetch students with Smart Flow Logic for cross-year promotion """
-        dept = request.user.profile.department
-        if not dept:
-            return Response({"error": "You are not assigned to a department"}, status=400)
+        user_profile = request.user.profile
+        is_admin = user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']
+        target_dept_id = request.headers.get('X-Department-Id')
         
-        semester = request.GET.get('semester')
-        search = request.GET.get('search', '')
+        # Start with the whole organization
+        students = Student.objects.filter(organization=user_profile.organization)
+        
+        # Apply Security / Sandbox Filter
+        if not is_admin:
+            if not user_profile.department:
+                return Response({"error": "You are not assigned to a department"}, status=400)
+            students = students.filter(department=user_profile.department)
+        elif target_dept_id and target_dept_id != 'ALL':
+            students = students.filter(department_id=target_dept_id)
+
+        # Smart Flow Logic (Academic Year)
         ay_id = request.GET.get('academic_year') 
-        
-        students = Student.objects.filter(department=dept)
-        
         if ay_id:
             try:
                 current_ay = AcademicYear.objects.get(id=ay_id)
-                # SMART FLOW LOGIC:
-                # 1. Students currently officially in this year
-                # 2. Students who were in groups this year (Historical viewing)
-                # 3. Active students from previous years who haven't graduated (Sem < 8)
                 students = students.filter(
                     Q(academic_year_id=ay_id) | 
                     Q(studentgroup__academic_year_id=ay_id) |
@@ -957,14 +1021,13 @@ class StudentDirectoryView(APIView):
             except AcademicYear.DoesNotExist:
                 pass
             
+        semester = request.GET.get('semester')
         if semester:
             students = students.filter(current_semester=semester)
             
+        search = request.GET.get('search', '')
         if search:
-            students = students.filter(
-                Q(full_name__icontains=search) | 
-                Q(enrollment_number__icontains=search)
-            )
+            students = students.filter(Q(full_name__icontains=search) | Q(enrollment_number__icontains=search))
             
         return Response(StudentSerializer(students, many=True).data)
 
@@ -998,19 +1061,30 @@ class StudentGroupView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        """ Get all groups for the current Academic Year """
-        dept = request.user.profile.department
-        ay_id = request.GET.get('academic_year')
-        semester = request.GET.get('semester')
+        user_profile = request.user.profile
+        is_admin = user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']
+        target_dept_id = request.headers.get('X-Department-Id')
         
-        if not dept or not ay_id:
-            return Response({"error": "Department and Academic Year are required"}, status=400)
+        # FIX: StudentGroup is linked to department, so we check department__organization
+        groups = StudentGroup.objects.filter(department__organization=user_profile.organization)
+
+        # Apply Security / Sandbox Filter
+        if not is_admin:
+            if not user_profile.department:
+                return Response([])
+            groups = groups.filter(department=user_profile.department)
+        elif target_dept_id and target_dept_id != 'ALL':
+            groups = groups.filter(department_id=target_dept_id)
+
+        # Academic Year Filter
+        ay_id = request.query_params.get('academic_year') or request.GET.get('academic_year')
+        if ay_id:
+            groups = groups.filter(academic_year_id=ay_id)
             
-        groups = StudentGroup.objects.filter(department=dept, academic_year_id=ay_id)
-        
+        semester = request.query_params.get('semester') or request.GET.get('semester')
         if semester:
             groups = groups.filter(semester=semester)
-            
+
         return Response(StudentGroupSerializer(groups, many=True).data)
 
     def post(self, request):
@@ -1090,17 +1164,27 @@ class AllocationManagerView(APIView):
 
     def get(self, request):
         """ Fetch all allocations for the department (Admin View) """
-        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
-            return Response({"error": "Permission denied"}, status=403)
-            
-        ay_id = request.GET.get('academic_year')
-        faculty_id = request.GET.get('faculty_id') # Optional filter
+        user_profile = request.user.profile
+        is_admin = user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']
+        target_dept_id = request.headers.get('X-Department-Id')
         
+        ay_id = request.GET.get('academic_year')
+        faculty_id = request.GET.get('faculty_id') 
+        
+        # Base query: all allocations in the org for the year
         allocations = TeachingAllocation.objects.filter(
-            subject__department=request.user.profile.department,
+            subject__department__organization=user_profile.organization,
             academic_year_id=ay_id
         )
         
+        # Apply Security / Sandbox Filter
+        if not is_admin:
+            if not user_profile.department:
+                return Response([])
+            allocations = allocations.filter(subject__department=user_profile.department)
+        elif target_dept_id and target_dept_id != 'ALL':
+            allocations = allocations.filter(subject__department_id=target_dept_id)
+            
         if faculty_id:
             allocations = allocations.filter(faculty_id=faculty_id)
             

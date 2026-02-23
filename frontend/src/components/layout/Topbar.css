@@ -45,7 +45,7 @@
   padding: 8px 12px;
   display: flex;
   align-items: center;
-  width: 240px;
+  width: 200px;
   border: 1px solid transparent;
   transition: all 0.2s ease;
 }
@@ -55,7 +55,7 @@
 }
 
 .search-container:focus-within {
-  width: 280px;
+  width: 240px;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--primary-glow);
 }

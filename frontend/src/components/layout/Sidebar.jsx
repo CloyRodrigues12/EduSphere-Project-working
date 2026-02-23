@@ -41,7 +41,7 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
     // ... existing admin links
     navItems.push({
       icon: Settings,
-      label: "Academic Settings",
+      label: "Admin Actions",
       path: "/academic-settings",
     });
   }

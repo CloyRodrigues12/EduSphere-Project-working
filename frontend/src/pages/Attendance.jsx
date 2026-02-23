@@ -42,7 +42,7 @@ const Attendance = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  const { activeAcademicYear } = useAcademic();
+  const { activeAcademicYear, activeDepartment } = useAcademic();
 
   const { subjectName, groupName } = location.state || {
     subjectName: "Class Details",
@@ -115,7 +115,7 @@ const Attendance = () => {
     } else {
       fetchSessions();
     }
-  }, [allocationId, activeAcademicYear]);
+  }, [allocationId, activeAcademicYear, activeDepartment]);
 
   const fetchClasses = async () => {
     try {
@@ -867,6 +867,25 @@ const Attendance = () => {
                 <div className="att-card-details">
                   <h3>{alloc.subject_name}</h3>
                   <p>
+                    {/* NEW: Department Badge */}
+                    {alloc.department_code && (
+                      <span
+                        style={{
+                          display: "inline-block",
+                          background: "var(--bg-card)",
+                          border: "1px solid var(--border-color)",
+                          color: "var(--text-secondary)",
+                          padding: "2px 8px",
+                          borderRadius: "4px",
+                          fontSize: "0.75rem",
+                          fontWeight: "bold",
+                          marginRight: "6px",
+                          verticalAlign: "middle",
+                        }}
+                      >
+                        {alloc.department_code}
+                      </span>
+                    )}
                     {/* NEW: Semester Badge */}
                     <span
                       style={{
@@ -883,6 +902,7 @@ const Attendance = () => {
                     >
                       Sem {alloc.semester}
                     </span>
+                    <br />
                     {alloc.group_name} • {alloc.subject_type?.replace("_", " ")}
                     <br />
                     {(user?.role_code === "ORG_ADMIN" ||

@@ -9,17 +9,28 @@ const api = axios.create({
   },
 });
 
-// Add Token to every request
+// Add Token and Context Headers to every request
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("access_token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  // NEW: Automatically attach the target department to the request
+  const savedDeptId = localStorage.getItem("edusphere_saved_dept");
+  if (savedDeptId) {
+    config.headers["X-Department-ID"] = savedDeptId;
+  }
+
   return config;
 });
 
 export const staffService = {
-  getDepartments: () => api.get("/departments/"), // NEW
+  // --- Departments ---
+  getDepartments: () => api.get("/departments/"),
+  createDepartment: (data) => api.post("/departments/", data),
+  updateDepartment: (data) => api.put("/departments/", data),
+  deleteDepartment: (id) => api.delete(`/departments/?id=${id}`),
 
   getStaff: () => api.get("/staff/"),
   inviteStaff: (data) => api.post("/staff/", data),

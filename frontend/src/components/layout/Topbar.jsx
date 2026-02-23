@@ -22,12 +22,45 @@ import "./Topbar.css";
 import { useAuth } from "../../context/AuthContext";
 import { useAcademic } from "../../context/AcademicContext";
 
+// --- SMART ABBREVIATION HELPER ---
+const getSmartAbbreviation = (name) => {
+  if (!name) return "";
+  const cleanName = name.trim();
+
+  // If it's already very short or entirely uppercase without spaces (e.g. "DBCE", "MIT")
+  if (
+    cleanName.length <= 5 ||
+    (cleanName === cleanName.toUpperCase() && !cleanName.includes(" "))
+  ) {
+    return cleanName;
+  }
+
+  // Words to skip
+  const stopWords = new Set(["of", "and", "the", "in", "on", "at", "for", "&"]);
+
+  // Split by spaces or hyphens, filter out stop words, get first letters
+  const initials = cleanName
+    .split(/[\s-]+/)
+    .filter((word) => word.length > 0 && !stopWords.has(word.toLowerCase()))
+    .map((word) => word.charAt(0).toUpperCase())
+    .join("");
+
+  // Fallback to original name if the abbreviation is weirdly short (just 1 letter)
+  return initials.length > 1 ? initials : cleanName;
+};
+
 const Topbar = ({ title, onMenuClick }) => {
   const { logout } = useAuth();
 
-  // Bring in the global academic state!
-  const { activeAcademicYear, academicYears, setActiveAcademicYear } =
-    useAcademic();
+  // Bring in the global academic AND department state!
+  const {
+    activeAcademicYear,
+    academicYears,
+    setActiveAcademicYear,
+    departments,
+    activeDepartment,
+    setActiveDepartment,
+  } = useAcademic();
 
   const [theme, setTheme] = useState("light");
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -104,7 +137,7 @@ const Topbar = ({ title, onMenuClick }) => {
     setShowLogoutConfirm(false);
   };
 
-  // --- NEW: Handle Year Dropdown Change ---
+  // --- Handle Year Dropdown Change ---
   const handleYearSelect = (e) => {
     const selectedId = parseInt(e.target.value);
     const selected = academicYears.find((ay) => ay.id === selectedId);
@@ -118,6 +151,23 @@ const Topbar = ({ title, onMenuClick }) => {
     setPendingYear(null);
   };
 
+  // --- Handle Department Dropdown Change ---
+  const handleDeptChange = (e) => {
+    const val = e.target.value;
+    if (val === "ALL") {
+      setActiveDepartment({ id: "ALL", name: "All Departments" });
+    } else {
+      const selected = departments.find((d) => d.id === parseInt(val));
+      if (selected) setActiveDepartment(selected);
+    }
+  };
+
+  const isAdmin =
+    user?.role === "ORG_ADMIN" ||
+    user?.role === "SUPER_ADMIN" ||
+    user?.role === "Principal/HOD" ||
+    user?.role === "Super Admin";
+
   return (
     <header className="topbar glass-panel">
       {/* Left */}
@@ -125,11 +175,100 @@ const Topbar = ({ title, onMenuClick }) => {
         <button className="icon-btn menu-trigger" onClick={onMenuClick}>
           <Menu size={24} />
         </button>
-        <h1 className="page-title">{title}</h1>
+        {/* --- Global Department Selector/Badge --- */}
+        <div
+          className="academic-year-badge"
+          style={{
+            background: "rgba(79, 70, 229, 0.05)",
+            borderColor: "rgba(79, 70, 229, 0.2)",
+          }}
+        >
+          <Building2 size={16} className="text-primary" />
+
+          {isAdmin ? (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                marginLeft: "6px",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "0.85rem",
+                  fontWeight: 700,
+                  color: "var(--primary-color)",
+                  marginRight: "6px",
+                  whiteSpace: "nowrap",
+                }}
+                title={user.organization} // Hover to see full name
+              >
+                {getSmartAbbreviation(user.organization) || "Loading..."}
+              </span>
+              <span style={{ color: "var(--text-muted)", marginRight: "6px" }}>
+                /
+              </span>
+              <select
+                className="year-selector"
+                style={{ fontWeight: 600, paddingLeft: "4px" }}
+                value={activeDepartment?.id || "ALL"}
+                onChange={handleDeptChange}
+                disabled={!activeDepartment}
+                title="Change Active Department"
+              >
+                {/* NEW: Organization-Wide Option */}
+                <option value="ALL">All Departments (Org View)</option>
+
+                {departments.map((dept) => (
+                  <option key={dept.id} value={dept.id}>
+                    {dept.name}
+                  </option>
+                ))}
+                {departments.length === 0 && <option value="">No Depts</option>}
+              </select>
+            </div>
+          ) : (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                marginLeft: "6px",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "0.85rem",
+                  fontWeight: 700,
+                  color: "var(--primary-color)",
+                  marginRight: "6px",
+                  whiteSpace: "nowrap",
+                }}
+                title={user.organization} // Hover to see full name
+              >
+                {getSmartAbbreviation(user.organization) || "Organization"}
+              </span>
+              <span style={{ color: "var(--text-muted)", marginRight: "6px" }}>
+                /
+              </span>
+              <span
+                style={{
+                  fontSize: "0.85rem",
+                  fontWeight: 600,
+                  color: "var(--text-primary)",
+                }}
+              >
+                {activeDepartment?.name || "No Department"}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Right */}
-      <div className="topbar-right">
+      <div
+        className="topbar-right"
+        style={{ display: "flex", alignItems: "center", gap: "15px" }}
+      >
         <div className="search-container">
           <Search size={18} className="search-icon" />
           <input type="text" placeholder="Search..." />
@@ -142,7 +281,7 @@ const Topbar = ({ title, onMenuClick }) => {
             <select
               className="year-selector"
               value={activeAcademicYear.id}
-              onChange={handleYearSelect} // <-- Hooked up to the new handler
+              onChange={handleYearSelect}
               title="Change Viewing Context"
             >
               {academicYears.map((ay) => (
@@ -151,21 +290,6 @@ const Topbar = ({ title, onMenuClick }) => {
                 </option>
               ))}
             </select>
-            {/* Show Settings link only for Admins */}
-            {(user.role === "ORG_ADMIN" || user.role === "SUPER_ADMIN") && (
-              <Link
-                to="/academic-settings"
-                className="settings-link text-muted"
-                title="Manage Academic Years"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  marginLeft: "4px",
-                }}
-              >
-                <Settings size={16} />
-              </Link>
-            )}
           </div>
         )}
 
@@ -291,7 +415,7 @@ const Topbar = ({ title, onMenuClick }) => {
           document.body,
         )}
 
-      {/* 2. NEW: Switch Year Context Modal */}
+      {/* 2. Switch Year Context Modal */}
       {pendingYear &&
         createPortal(
           <div className="modal-overlay" onClick={() => setPendingYear(null)}>

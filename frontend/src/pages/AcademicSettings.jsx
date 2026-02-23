@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAcademic } from "../context/AcademicContext";
-import { academicService } from "../services/api";
+import { academicService, staffService } from "../services/api";
 import {
   CalendarDays,
   Plus,
@@ -16,17 +16,33 @@ import {
   Briefcase,
   BookOpen,
   X,
+  Building2,
+  ShieldAlert,
+  Trash2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import "./AcademicSettings.css";
 
 const AcademicSettings = () => {
-  const { academicYears, refreshAcademicData, loading } = useAcademic();
+  // Use refreshContext from the newly updated AcademicContext
+  const { refreshContext } = useAcademic();
 
+  const [activeTab, setActiveTab] = useState("years"); // 'years' or 'departments'
+
+  // Data States
+  const [academicYears, setAcademicYears] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Modals (Years)
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
-  const [summaryTarget, setSummaryTarget] = useState(null); // NEW: State for Info Modal
+  const [summaryTarget, setSummaryTarget] = useState(null);
   const [pendingActiveYear, setPendingActiveYear] = useState(null);
+
+  // Modals (Departments)
+  const [showDeptModal, setShowDeptModal] = useState(false);
+  const [editDeptTarget, setEditDeptTarget] = useState(null);
 
   const [toast, setToast] = useState({
     show: false,
@@ -39,6 +55,27 @@ const AcademicSettings = () => {
     setTimeout(() => setToast({ show: false, message: "", type: "" }), 3000);
   };
 
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      if (activeTab === "years") {
+        const res = await academicService.getAcademicYears();
+        setAcademicYears(res.data);
+      } else {
+        const res = await staffService.getDepartments();
+        setDepartments(res.data);
+      }
+    } catch (err) {
+      showToast("Failed to fetch data", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [activeTab]);
+
   const confirmSetActive = async () => {
     if (!pendingActiveYear) return;
     try {
@@ -47,11 +84,28 @@ const AcademicSettings = () => {
         is_active: true,
       });
       showToast(`${pendingActiveYear.name} is now the active system year!`);
-      refreshAcademicData();
+      fetchData();
+      if (refreshContext) refreshContext(); // Update Global Topbar
     } catch (err) {
       showToast("Failed to update active year.", "error");
     } finally {
       setPendingActiveYear(null);
+    }
+  };
+
+  const handleDeleteDept = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this department?"))
+      return;
+    try {
+      await staffService.deleteDepartment(id);
+      showToast("Department deleted successfully.");
+      fetchData();
+      if (refreshContext) refreshContext(); // Update Global Topbar
+    } catch (err) {
+      showToast(
+        err.response?.data?.error || "Failed to delete department.",
+        "error",
+      );
     }
   };
 
@@ -70,16 +124,91 @@ const AcademicSettings = () => {
 
       <div className="page-header">
         <div>
-          <h1 className="page-title">Academic Settings</h1>
+          <h1 className="page-title">
+            <ShieldAlert
+              size={28}
+              className="text-primary"
+              style={{
+                display: "inline",
+                verticalAlign: "bottom",
+                marginRight: "8px",
+              }}
+            />
+            Admin Actions
+          </h1>
           <p className="page-subtitle">
-            Manage terms, semesters, and system-wide dates.
+            Master configurations and structure for your institution.
           </p>
         </div>
         <button
           className="btn-primary"
-          onClick={() => setShowCreateModal(true)}
+          onClick={() =>
+            activeTab === "years"
+              ? setShowCreateModal(true)
+              : setShowDeptModal(true)
+          }
         >
-          <Plus size={18} /> New Academic Year
+          <Plus size={18} />{" "}
+          {activeTab === "years" ? "New Academic Year" : "New Department"}
+        </button>
+      </div>
+
+      {/* --- TABS NAVIGATION --- */}
+      <div
+        style={{
+          display: "flex",
+          gap: "1rem",
+          borderBottom: "2px solid var(--border-color)",
+          marginBottom: "2rem",
+        }}
+      >
+        <button
+          onClick={() => setActiveTab("years")}
+          style={{
+            padding: "10px 20px",
+            background: "none",
+            border: "none",
+            borderBottom:
+              activeTab === "years"
+                ? "3px solid var(--primary-color)"
+                : "3px solid transparent",
+            color:
+              activeTab === "years"
+                ? "var(--primary-color)"
+                : "var(--text-muted)",
+            fontWeight: 600,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            transition: "all 0.2s",
+          }}
+        >
+          <CalendarDays size={18} /> Academic Years
+        </button>
+        <button
+          onClick={() => setActiveTab("departments")}
+          style={{
+            padding: "10px 20px",
+            background: "none",
+            border: "none",
+            borderBottom:
+              activeTab === "departments"
+                ? "3px solid var(--primary-color)"
+                : "3px solid transparent",
+            color:
+              activeTab === "departments"
+                ? "var(--primary-color)"
+                : "var(--text-muted)",
+            fontWeight: 600,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            transition: "all 0.2s",
+          }}
+        >
+          <Building2 size={18} /> Departments
         </button>
       </div>
 
@@ -89,67 +218,154 @@ const AcademicSettings = () => {
             className="mb-4 text-primary"
             style={{ display: "flex", alignItems: "center", gap: "8px" }}
           >
-            <CalendarDays size={20} /> Registered Academic Years
+            {activeTab === "years" ? (
+              <>
+                <CalendarDays size={20} /> Registered Academic Years
+              </>
+            ) : (
+              <>
+                <Building2 size={20} /> Registered Departments
+              </>
+            )}
           </h3>
 
           {loading ? (
             <div className="spinner" style={{ margin: "2rem auto" }}></div>
           ) : (
             <div className="year-list">
-              {academicYears.map((ay) => (
-                <div
-                  key={ay.id}
-                  className={`year-card ${ay.is_active ? "active-year" : ""}`}
-                >
-                  <div className="year-info">
+              {/* ACADEMIC YEARS LIST */}
+              {activeTab === "years" &&
+                academicYears.map((ay) => (
+                  <div
+                    key={ay.id}
+                    className={`year-card ${ay.is_active ? "active-year" : ""}`}
+                  >
+                    <div className="year-info">
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "10px",
+                        }}
+                      >
+                        <h4 className="year-name">{ay.name}</h4>
+                        <button
+                          className="btn-icon text-muted"
+                          onClick={() => setSummaryTarget(ay)}
+                          title="View Year Data Structure"
+                        >
+                          <Info size={16} />
+                        </button>
+                        <button
+                          className="btn-icon text-muted"
+                          onClick={() => setEditTarget(ay)}
+                          title="Edit Term Dates"
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                      </div>
+                      <span className="year-dates">
+                        {new Date(ay.start_date).toLocaleDateString()} —{" "}
+                        {new Date(ay.end_date).toLocaleDateString()}
+                      </span>
+                    </div>
+
+                    <div className="year-actions">
+                      {ay.is_active ? (
+                        <span className="active-badge">
+                          <Check size={16} /> Current System Year
+                        </span>
+                      ) : (
+                        <button
+                          className="btn-secondary btn-sm"
+                          onClick={() => setPendingActiveYear(ay)}
+                        >
+                          Set as Active
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+              {/* DEPARTMENTS LIST */}
+              {activeTab === "departments" &&
+                departments.map((dept) => (
+                  <div
+                    key={dept.id}
+                    className="year-card"
+                    style={{
+                      padding: "1rem 1.5rem",
+                      borderLeft: "4px solid var(--primary-color)",
+                    }}
+                  >
+                    <div className="year-info">
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "10px",
+                          marginBottom: "4px",
+                        }}
+                      >
+                        <h4 className="year-name">{dept.name}</h4>
+                      </div>
+                      <span
+                        className="year-dates text-muted"
+                        style={{
+                          display: "inline-block",
+                          background: "var(--bg-input)",
+                          padding: "2px 8px",
+                          borderRadius: "4px",
+                          border: "1px solid var(--border-color)",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        Code: {dept.code}
+                      </span>
+                    </div>
+
                     <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "10px",
-                      }}
+                      className="year-actions"
+                      style={{ display: "flex", gap: "8px" }}
                     >
-                      <h4 className="year-name">{ay.name}</h4>
-
-                      {/* NEW: Info Button */}
                       <button
-                        className="btn-icon text-muted"
-                        onClick={() => setSummaryTarget(ay)}
-                        title="View Year Data Structure"
+                        className="btn-icon edit"
+                        onClick={() => {
+                          setEditDeptTarget(dept);
+                          setShowDeptModal(true);
+                        }}
+                        title="Edit Department"
                       >
-                        <Info size={16} />
+                        <Edit2 size={18} />
                       </button>
-
                       <button
-                        className="btn-icon text-muted"
-                        onClick={() => setEditTarget(ay)}
-                        title="Edit Term Dates"
+                        className="btn-icon delete text-danger"
+                        onClick={() => handleDeleteDept(dept.id)}
+                        title="Delete Department"
                       >
-                        <Edit2 size={14} />
+                        <Trash2 size={18} />
                       </button>
                     </div>
-                    <span className="year-dates">
-                      {new Date(ay.start_date).toLocaleDateString()} —{" "}
-                      {new Date(ay.end_date).toLocaleDateString()}
-                    </span>
                   </div>
+                ))}
 
-                  <div className="year-actions">
-                    {ay.is_active ? (
-                      <span className="active-badge">
-                        <Check size={16} /> Current System Year
-                      </span>
-                    ) : (
-                      <button
-                        className="btn-secondary btn-sm"
-                        onClick={() => setPendingActiveYear(ay)}
-                      >
-                        Set as Active
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
+              {/* EMPTY STATES */}
+              {activeTab === "years" && academicYears.length === 0 && (
+                <p
+                  className="text-muted"
+                  style={{ textAlign: "center", padding: "2rem" }}
+                >
+                  No academic years found.
+                </p>
+              )}
+              {activeTab === "departments" && departments.length === 0 && (
+                <p
+                  className="text-muted"
+                  style={{ textAlign: "center", padding: "2rem" }}
+                >
+                  No departments found.
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -157,11 +373,14 @@ const AcademicSettings = () => {
 
       {/* --- MODALS --- */}
       <AnimatePresence>
-        {/* 1. CREATE MODAL */}
+        {/* 1. CREATE NEW YEAR MODAL */}
         {showCreateModal && (
           <NewYearModal
             onClose={() => setShowCreateModal(false)}
-            onRefresh={refreshAcademicData}
+            onRefresh={() => {
+              fetchData();
+              if (refreshContext) refreshContext();
+            }}
             showToast={showToast}
           />
         )}
@@ -171,12 +390,12 @@ const AcademicSettings = () => {
           <EditYearModal
             year={editTarget}
             onClose={() => setEditTarget(null)}
-            onRefresh={refreshAcademicData}
+            onRefresh={fetchData}
             showToast={showToast}
           />
         )}
 
-        {/* 3. NEW: YEAR SUMMARY INFO MODAL */}
+        {/* 3. YEAR SUMMARY INFO MODAL */}
         {summaryTarget && (
           <YearSummaryModal
             year={summaryTarget}
@@ -232,12 +451,119 @@ const AcademicSettings = () => {
             </motion.div>
           </div>
         )}
+
+        {/* 5. DEPARTMENT CREATE/EDIT MODAL */}
+        {(showDeptModal || editDeptTarget) && (
+          <DeptFormModal
+            dept={editDeptTarget}
+            onClose={() => {
+              setShowDeptModal(false);
+              setEditDeptTarget(null);
+            }}
+            onRefresh={() => {
+              fetchData();
+              if (refreshContext) refreshContext();
+            }}
+            showToast={showToast}
+          />
+        )}
       </AnimatePresence>
     </div>
   );
 };
 
-// --- NEW DYNAMIC: YEAR SUMMARY INFO MODAL ---
+// --- DEPARTMENT FORM MODAL ---
+const DeptFormModal = ({ dept, onClose, onRefresh, showToast }) => {
+  const [name, setName] = useState(dept?.name || "");
+  const [code, setCode] = useState(dept?.code || "");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      if (dept) {
+        await staffService.updateDepartment({ id: dept.id, name, code });
+        showToast("Department updated successfully!");
+      } else {
+        await staffService.createDepartment({ name, code });
+        showToast("Department created successfully!");
+      }
+      onRefresh();
+      onClose();
+    } catch (err) {
+      showToast(
+        err.response?.data?.error || "Failed to save department.",
+        "error",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay">
+      <motion.div
+        className="modal-content premium-modal small-modal"
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+      >
+        <div className="modal-header">
+          <div>
+            <h3>{dept ? "Edit Department" : "Create Department"}</h3>
+            <p className="modal-subtitle">Manage organizational units.</p>
+          </div>
+          <button onClick={onClose} className="close-btn">
+            <X size={20} />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="premium-form">
+          <div className="sinput-group">
+            <label>Department Name</label>
+            <input
+              type="text"
+              className="standard-input"
+              required
+              placeholder="e.g. Computer Science"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+          <div className="sinput-group" style={{ marginTop: "1rem" }}>
+            <label>Department Code</label>
+            <input
+              type="text"
+              className="standard-input"
+              required
+              placeholder="e.g. COMP"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+            />
+            <p
+              style={{
+                fontSize: "0.8rem",
+                color: "var(--text-muted)",
+                marginTop: "4px",
+              }}
+            >
+              Keep it short, e.g. IT, MECH, ECS.
+            </p>
+          </div>
+          <div className="modal-actions" style={{ marginTop: "2rem" }}>
+            <button type="button" onClick={onClose} className="btn-secondary">
+              Cancel
+            </button>
+            <button type="submit" disabled={loading} className="btn-primary">
+              {loading ? "Saving..." : "Save Department"}
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+};
+
+// --- YEAR SUMMARY INFO MODAL ---
 const YearSummaryModal = ({ year, onClose }) => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -290,7 +616,6 @@ const YearSummaryModal = ({ year, onClose }) => {
               marginTop: "1rem",
             }}
           >
-            {/* Top Level Stats */}
             <div
               style={{
                 display: "grid",
@@ -335,7 +660,6 @@ const YearSummaryModal = ({ year, onClose }) => {
               </div>
             </div>
 
-            {/* Batch Breakdown */}
             <h4
               className="text-primary mb-2"
               style={{ display: "flex", alignItems: "center", gap: "8px" }}
@@ -375,7 +699,6 @@ const YearSummaryModal = ({ year, onClose }) => {
               )}
             </div>
 
-            {/* Faculty Workload Breakdown */}
             <h4
               className="text-primary mb-2"
               style={{ display: "flex", alignItems: "center", gap: "8px" }}
