@@ -151,7 +151,23 @@ const StudentDirectory = () => {
 
   // loading guard
   if (!activeAcademicYear) {
-    return <div className="spinner" style={{ margin: "5rem auto" }}></div>;
+    return (
+      <div
+        className="fade-in"
+        style={{ padding: "2rem", textAlign: "center", marginTop: "5rem" }}
+      >
+        <AlertTriangle
+          size={48}
+          color="#f59e0b"
+          style={{ margin: "0 auto 1rem auto" }}
+        />
+        <h2 style={{ color: "var(--text-primary)" }}>No Academic Year Found</h2>
+        <p style={{ color: "var(--text-muted)" }}>
+          Please go to Settings and create an Academic Year to start using this
+          module.
+        </p>
+      </div>
+    );
   }
   return (
     <div className="directory-container fade-in">

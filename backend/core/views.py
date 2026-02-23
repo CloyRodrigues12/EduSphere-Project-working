@@ -53,46 +53,67 @@ class GoogleLogin(SocialLoginView):
     client_class = OAuth2Client
 
 # 2. Setup Organization
+from django.db import transaction
+from core.models import Organization, Department, AcademicYear
+
+from django.db import transaction
+from core.models import Organization, Department, AcademicYear
+
 class SetupOrganizationView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        user = request.user
-        data = request.data
-        
-        # 1. Prevent duplicate setup
-        if hasattr(user, 'profile') and user.profile.organization:
-            return Response({"error": "Organization already exists."}, status=400)
+        user_profile = request.user.profile
 
-        org_name = data.get('name')
-        org_type = data.get('type', 'School')
-        designation = data.get('designation', '')
+        if user_profile.is_setup_complete:
+            return Response({"error": "Setup is already complete."}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not org_name:
-            return Response({"error": "Organization name is required"}, status=400)
+        org_name = request.data.get('organization_name')
+        org_type = request.data.get('type')
+        dept_name = request.data.get('department_name') # NEW
+        academic_year_name = request.data.get('academic_year_name') # NEW
 
-        # 2. Create Organization with Type
-        org = Organization.objects.create(
-            name=org_name,
-            type=org_type, 
-            address=data.get('address', '')
-        )
+        if not all([org_name, org_type, dept_name, academic_year_name]):
+            return Response({"error": "Organization, Department, and Academic Year are all required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # 3. Update User Profile with Designation
-        profile = user.profile
-        profile.organization = org
-        profile.role = 'ORG_ADMIN'
-        profile.designation = designation 
-        profile.is_setup_complete = True
-        profile.save()
+        try:
+            # Enforce multi-tenant baseline initialization
+            with transaction.atomic():
+                # 1. Create the Organization
+                org = Organization.objects.create(name=org_name, type=org_type)
+                
+                # 2. Create the first Department
+                dept = Department.objects.create(
+                    organization=org, 
+                    name=dept_name, 
+                    code=dept_name[:4].upper() 
+                )
+                
+                # 3. Create the first Academic Year
+                ay = AcademicYear.objects.create(
+                    organization=org,
+                    name=academic_year_name,
+                    start_date="2025-06-01", 
+                    end_date="2026-05-31",
+                    is_active=True
+                )
 
-        return Response({
-            "message": "Setup Complete", 
-            "org_id": org.id,
-            "redirect": "/"
-        })
+                # 4. Link everything to the Super Admin (User)
+                user_profile.organization = org
+                user_profile.department = dept
+                user_profile.role = 'SUPER_ADMIN'
+                user_profile.is_setup_complete = True
+                user_profile.save()
 
-# 3. Staff Management 
+            return Response({
+                "message": "Setup complete. Welcome to EduSphere!",
+                "organization": org.name,
+                "department": dept.name,
+                "academic_year": ay.name
+            }, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # ==========================================
 # 2. STAFF MANAGEMENT (The Office Clerks / Admins)

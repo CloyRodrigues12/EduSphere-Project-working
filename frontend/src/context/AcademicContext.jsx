@@ -14,10 +14,15 @@ export const AcademicProvider = ({ children }) => {
     if (!user) return;
     try {
       const res = await academicService.getAcademicYears();
-      setAcademicYears(res.data);
-      // Find the one marked "is_active = true" in the database
-      const active = res.data.find((ay) => ay.is_active) || res.data[0];
-      setActiveAcademicYear(active);
+      if (res.data && res.data.length > 0) {
+        setAcademicYears(res.data);
+        const active = res.data.find((ay) => ay.is_active) || res.data[0];
+        setActiveAcademicYear(active);
+      } else {
+        // BUG FIX: Gracefully handle empty databases
+        setAcademicYears([]);
+        setActiveAcademicYear(null);
+      }
     } catch (error) {
       console.error("Failed to load academic years", error);
     } finally {
@@ -34,7 +39,7 @@ export const AcademicProvider = ({ children }) => {
       value={{
         academicYears,
         activeAcademicYear,
-        setActiveAcademicYear, // Allows Topbar to temporarily switch years to view history
+        setActiveAcademicYear,
         refreshAcademicData: fetchAcademicYears,
         loading,
       }}
