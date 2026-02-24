@@ -550,75 +550,71 @@ class FacultyManagementView(APIView):
     def patch(self, request):
         if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
             return Response({"error": "Permission denied"}, status=403)
-            
-        faculty_id = request.query_params.get('id')
+
+        profile_id = request.GET.get('id')
         try:
             # FIX: Removed role='FACULTY' so HODs can be edited too
-            profile = UserProfile.objects.get(id=faculty_id, organization=request.user.profile.organization)
+            profile = UserProfile.objects.get(
+                id=profile_id, 
+                organization=request.user.profile.organization
+            )
             
-            # Security: HODs can only edit faculty in their own department
-            if request.user.profile.role == 'HOD' and profile.department != request.user.profile.department:
-                return Response({"error": "You can only edit faculty within your department."}, status=403)
-
-            # Security: HODs cannot promote someone to HOD or Admin
-            requested_role = request.data.get('role')
-            if requested_role and requested_role != profile.role:
-                if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
-                    return Response({"error": "Only Admins can change roles."}, status=403)
-                profile.role = requested_role
-
+            # Update User Base Name
+            full_name = request.data.get('full_name')
+            if full_name:
+                profile.user.first_name = full_name
+                profile.user.save()
+            
+            # Update Profile Details
+            if 'role' in request.data and request.user.profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']:
+                profile.role = request.data['role']
             if 'designation' in request.data:
                 profile.designation = request.data['designation']
             if 'phone_number' in request.data:
                 profile.phone_number = request.data['phone_number']
             if 'department_id' in request.data:
-                try:
-                    if request.user.profile.role == 'HOD' and str(request.data['department_id']) != str(request.user.profile.department.id):
-                         return Response({"error": "HODs cannot move faculty to other departments."}, status=403)
-                         
-                    dept = Department.objects.get(id=request.data['department_id'], organization=request.user.profile.organization)
-                    profile.department = dept
-                except Department.DoesNotExist:
-                    return Response({"error": "Invalid Department"}, status=400)
-            
+                dept = Department.objects.get(id=request.data['department_id'], organization=profile.organization)
+                profile.department = dept
+                
+            # Update Profile Picture
             if 'profile_picture' in request.FILES:
                 profile.profile_picture = request.FILES['profile_picture']
-            elif request.data.get('remove_picture') == 'true':
+            elif 'remove_picture' in request.data and request.data['remove_picture'] == 'true':
                 profile.profile_picture = None
-                
-            if 'full_name' in request.data:
-                profile.user.first_name = request.data['full_name']
-                profile.user.save()
 
             profile.save()
             from core.serializers import FacultySerializer
             return Response(FacultySerializer(profile).data)
-            
+
         except UserProfile.DoesNotExist:
             return Response({"error": "Faculty not found"}, status=404)
-
+        except Department.DoesNotExist:
+            return Response({"error": "Invalid Department ID"}, status=400)
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
+            
     def delete(self, request):
         if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
             return Response({"error": "Permission denied"}, status=403)
-            
-        faculty_id = request.query_params.get('id')
+
+        profile_id = request.GET.get('id')
         try:
-            profile = UserProfile.objects.get(id=faculty_id, organization=request.user.profile.organization)
+            # FIX: Removed role='FACULTY'
+            target_profile = UserProfile.objects.get(
+                id=profile_id, 
+                organization=request.user.profile.organization
+            )
             
-            # Security: HODs can only delete faculty in their own department
-            if request.user.profile.role == 'HOD' and profile.department != request.user.profile.department:
-                return Response({"error": "You can only remove faculty within your department."}, status=403)
-                
-            user = profile.user
-            user.delete() # This cascades and deletes the profile
-            return Response({"message": "Faculty deleted successfully"})
+            if target_profile.user.id == request.user.id:
+                return Response({"error": "You cannot delete your own account!"}, status=400)
             
+            target_profile.user.delete()
+            return Response({"message": "Faculty removed successfully"})
+
         except UserProfile.DoesNotExist:
             return Response({"error": "Faculty not found"}, status=404)
-
-
-
-
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
 
 # ==========================================
 # 3. Check Duplicate (Year-Aware)
@@ -900,11 +896,22 @@ class SubjectCatalogView(APIView):
 
     def post(self, request):
         """ Create a new subject """
-        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
             return Response({"error": "Permission denied"}, status=403)
 
+        target_dept_id = request.headers.get('X-Department-Id')
+        
+        # FAILSAFE: Prevent creating subjects while viewing "All Departments"
+        if target_dept_id == 'ALL':
+            return Response({"error": "Please select a specific department from the Topbar to create a subject."}, status=400)
+
         data = request.data.copy()
-        data['department'] = request.user.profile.department.id
+        
+        # SMART ROUTING: Use Topbar department if Admin, else use personal department (for HODs)
+        if request.user.profile.role in ['SUPER_ADMIN', 'ORG_ADMIN'] and target_dept_id:
+            data['department'] = target_dept_id
+        else:
+            data['department'] = request.user.profile.department.id
 
         serializer = CourseSerializer(data=data)
         if serializer.is_valid():
@@ -1060,11 +1067,22 @@ class StudentGroupView(APIView):
 
     def post(self, request):
         """ Create a new Batch / Group """
-        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
             return Response({"error": "Permission denied"}, status=403)
             
+        target_dept_id = request.headers.get('X-Department-Id')
+        
+        # FAILSAFE: Prevent creating batches while viewing "All Departments"
+        if target_dept_id == 'ALL':
+            return Response({"error": "Please select a specific department from the Topbar to create a batch."}, status=400)
+
         data = request.data.copy()
-        data['department'] = request.user.profile.department.id
+        
+        # SMART ROUTING
+        if request.user.profile.role in ['SUPER_ADMIN', 'ORG_ADMIN'] and target_dept_id:
+            data['department'] = target_dept_id
+        else:
+            data['department'] = request.user.profile.department.id
         
         serializer = StudentGroupSerializer(data=data)
         if serializer.is_valid():

@@ -13,7 +13,17 @@ export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  //AXIOS INTERCEPTOR
+  // Define logout early so the interceptor can use it safely
+  const logout = () => {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    localStorage.removeItem("edusphere_saved_dept"); // Wipe memory state
+    localStorage.removeItem("edusphere_saved_year"); // Wipe memory state
+    setUser(null);
+    navigate("/login");
+  };
+
+  // AXIOS INTERCEPTOR
   useEffect(() => {
     // 1. Request Interceptor: Attach Token
     const reqInterceptor = axios.interceptors.request.use(
@@ -33,11 +43,12 @@ export const AuthProvider = ({ children }) => {
       async (error) => {
         const originalRequest = error.config;
 
-        // If error is 401 (Unauthorized)
+        // FIX: Ensure we do NOT intercept 401s coming from the refresh endpoint itself!
         if (
           error.response?.status === 401 &&
           !originalRequest._retry &&
-          localStorage.getItem("refresh_token")
+          localStorage.getItem("refresh_token") &&
+          !originalRequest.url.includes("token/refresh") // <--- PREVENTS INFINITE LOOP
         ) {
           originalRequest._retry = true;
 
@@ -58,9 +69,16 @@ export const AuthProvider = ({ children }) => {
             return axios(originalRequest);
           } catch (refreshError) {
             console.error("Session expired completely.", refreshError);
-            logout(); // If refresh fails, force logout
+            logout(); // Force logout
+            return Promise.reject(refreshError); // FIX: Break the promise chain!
           }
         }
+
+        // FIX: If the refresh token was dead, or it's an unrecoverable 401, aggressively logout.
+        if (error.response?.status === 401) {
+          logout();
+        }
+
         return Promise.reject(error);
       },
     );
@@ -86,7 +104,7 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const checkLoggedIn = async () => {
-      //authentication check
+      // authentication check
       const performAuthCheck = async () => {
         const token = localStorage.getItem("access_token");
         if (token) {
@@ -97,21 +115,21 @@ export const AuthProvider = ({ children }) => {
             setUser(res.data);
             handleRedirect(res.data);
           } catch (error) {
-            // Only logout if token is missing/invalid, otherwise keep silent
-            if (!localStorage.getItem("access_token")) logout();
+            // The interceptor will usually handle the 401, but as a fallback, we wipe.
+            logout();
           }
         }
       };
 
-      //Delay Logic
+      // Delay Logic for UX
       if (loading) {
-        //INITIAL LOAD (Spinner Active)
+        // INITIAL LOAD (Spinner Active)
         await Promise.all([
           performAuthCheck(),
-          new Promise((resolve) => setTimeout(resolve, 1000)), //1 Sec Delay
+          new Promise((resolve) => setTimeout(resolve, 1000)), // 1 Sec Delay
         ]);
 
-        // Only hide spinner after 1 seconds have passed
+        // Only hide spinner after 1 second has passed
         setLoading(false);
       } else {
         await performAuthCheck();
@@ -215,13 +233,6 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       return { success: false, error: getErrorMessage(error) };
     }
-  };
-
-  const logout = () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    setUser(null);
-    navigate("/login");
   };
 
   return (
