@@ -21,6 +21,7 @@ from core.views import SubjectCatalogView
 from core.views import AllocationManagerView, MyClassesView
 from core.views import AcademicYearView
 from core.views import AcademicYearSummaryView
+from core.views import ToggleTeachingRoleView
 
 from core.views import StudentDirectoryView, StudentGroupView, StudentToggleStatusView
 
@@ -56,6 +57,8 @@ urlpatterns = [
     # --- ORGANIZATION & USER ---
     path('api/setup-organization/', SetupOrganizationView.as_view()),
     path('api/user/me/', CurrentUserView.as_view()),
+
+    path('api/user/toggle-teaching/', ToggleTeachingRoleView.as_view(), name='toggle-teaching'),
 
     path('api/academic-years/', AcademicYearView.as_view(), name='academic-years'),
     path('api/academic-summary/', AcademicYearSummaryView.as_view(), name='academic-summary'),

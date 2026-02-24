@@ -68,15 +68,17 @@ class UserProfile(models.Model):
     The Single Source of Truth for Staff.
     Includes both 'System Viewers' and 'Faculty'.
     """
-    ROLE_CHOICES = [
-        ('SUPER_ADMIN', 'Super Admin'),   # IT Head
-        ('ORG_ADMIN', 'Principal/HOD'),   # Can Setup Academic Year
-        ('FACULTY', 'Faculty'),           # Teaching Staff (Has Workload)
-        ('STAFF', 'Non-Teaching Staff'),  # Clerks (View Only)
-        ('STUDENT', 'Student'), 
-    ]
+    ROLE_CHOICES = (
+        ('SUPER_ADMIN', 'Principal / Director'),
+        ('ORG_ADMIN', 'Organization Admin'),
+        ('HOD', 'Head of Department'),      
+        ('STAFF', 'Office Staff'),
+        ('FACULTY', 'Teaching Faculty'),
+        ('STUDENT', 'Student'),
+    )
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    
     
     # Context
     organization = models.ForeignKey(Organization, on_delete=models.SET_NULL, null=True, blank=True)
@@ -91,6 +93,7 @@ class UserProfile(models.Model):
     
     # Feature Flags
     is_setup_complete = models.BooleanField(default=False)
+    is_teaching_faculty = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.user.email} - {self.role}"
@@ -280,3 +283,4 @@ class DataImportLog(models.Model):
 
     def __str__(self):
         return f"{self.import_type} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
+

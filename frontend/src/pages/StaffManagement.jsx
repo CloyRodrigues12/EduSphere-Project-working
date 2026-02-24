@@ -282,13 +282,25 @@ const StaffManagement = () => {
                           </div>
                         </td>
                         <td>
-                          {activeTab === "faculty" ? (
+                          {member.role_code === "HOD" ? (
+                            <span
+                              className="badge"
+                              style={{
+                                background: "#f59e0b",
+                                color: "#fff",
+                                fontWeight: "bold",
+                              }}
+                            >
+                              Head of Department
+                            </span>
+                          ) : activeTab === "faculty" ? (
                             <span className="badge badge-designation">
                               {member.designation || "Faculty"}
                             </span>
                           ) : (
                             <span className="badge badge-role">
-                              {member.role_code === "ORG_ADMIN"
+                              {member.role_code === "ORG_ADMIN" ||
+                              member.role_code === "SUPER_ADMIN"
                                 ? "Admin"
                                 : "Staff"}
                             </span>
@@ -561,12 +573,12 @@ const FacultyFormModal = ({
 }) => {
   const isEdit = !!facultyData;
 
-  // FIX: Correctly look for full_name OR name during initialization
   const resolvedName = facultyData?.full_name || facultyData?.name || "";
 
   const [formData, setFormData] = useState({
     full_name: resolvedName,
     email: facultyData?.email || "",
+    role: facultyData?.role_code === "HOD" ? "HOD" : "FACULTY",
     designation: facultyData?.designation || "Assistant Professor",
     phone_number: facultyData?.phone_number || "",
     department_id:
@@ -604,8 +616,14 @@ const FacultyFormModal = ({
     e.preventDefault();
     setLoading(true);
     const payload = new FormData();
+
+    // Automatically set designation to Head of Department if they are HOD
     Object.keys(formData).forEach((key) => {
-      if (formData[key] !== null) payload.append(key, formData[key]);
+      if (key === "designation" && formData.role === "HOD") {
+        payload.append("designation", "Head of Department");
+      } else if (formData[key] !== null) {
+        payload.append(key, formData[key]);
+      }
     });
 
     try {
@@ -751,24 +769,55 @@ const FacultyFormModal = ({
               </div>
             </div>
 
-            <div className="input-row">
+            {/* Smart Flex Grid to prevent cropping */}
+            <div
+              className="input-row"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                gap: "1rem",
+              }}
+            >
               <div className="sinput-group">
-                <label>Designation</label>
+                <label>System Role</label>
                 <div className="input-wrapper">
                   <Briefcase size={18} className="input-icon" />
                   <select
-                    value={formData.designation}
+                    value={formData.role}
                     onChange={(e) =>
-                      setFormData({ ...formData, designation: e.target.value })
+                      setFormData({ ...formData, role: e.target.value })
                     }
                   >
-                    <option>Assistant Professor</option>
-                    <option>Associate Professor</option>
-                    <option>Professor</option>
-                    <option>Visiting Faculty</option>
+                    <option value="FACULTY">Teaching Faculty</option>
+                    <option value="HOD">Head of Department (HOD)</option>
                   </select>
                 </div>
               </div>
+
+              {/* Designation is hidden dynamically when HOD is selected */}
+              {formData.role !== "HOD" && (
+                <div className="sinput-group">
+                  <label>Designation</label>
+                  <div className="input-wrapper">
+                    <Briefcase size={18} className="input-icon" />
+                    <select
+                      value={formData.designation}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          designation: e.target.value,
+                        })
+                      }
+                    >
+                      <option>Assistant Professor</option>
+                      <option>Associate Professor</option>
+                      <option>Professor</option>
+                      <option>Visiting Faculty</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
               <div className="sinput-group">
                 <label>Phone Number</label>
                 <div className="input-wrapper">

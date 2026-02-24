@@ -19,7 +19,7 @@ class ClassSessionView(APIView):
             sessions = ClassSession.objects.filter(allocation_id=allocation_id).order_by('-date', '-updated_at')
         else:
             # Global Calendar Logic: Fetch ALL sessions based on Department Filter
-            is_admin = user_profile.role in ['ORG_ADMIN', 'SUPER_ADMIN']
+            is_admin = user_profile.role in ['ORG_ADMIN', 'SUPER_ADMIN', 'HOD']
             target_dept_id = request.headers.get('X-Department-Id')
 
             # Start by restricting to the user's Organization
@@ -48,7 +48,7 @@ class ClassSessionView(APIView):
             
             # 2. SECURITY CHECK: Ensure it's the assigned teacher OR an Admin
             user_profile = request.user.profile
-            if user_profile.role not in ['ORG_ADMIN', 'SUPER_ADMIN'] and allocation.faculty != user_profile:
+            if user_profile.role not in ['ORG_ADMIN', 'SUPER_ADMIN', 'HOD'] and allocation.faculty != user_profile:
                 return Response({"error": "Unauthorized: You are not assigned to this class."}, status=403)
             
             with transaction.atomic():
@@ -84,7 +84,7 @@ class ClassSessionView(APIView):
             
             # Security Check
             user_profile = request.user.profile
-            if user_profile.role not in ['ORG_ADMIN', 'SUPER_ADMIN'] and session.allocation.faculty != user_profile:
+            if user_profile.role not in ['ORG_ADMIN', 'SUPER_ADMIN', 'HOD'] and session.allocation.faculty != user_profile:
                 return Response({"error": "Unauthorized to delete this session."}, status=403)
                 
             session.delete()
@@ -130,7 +130,7 @@ class AttendanceReportView(APIView):
             base_alloc = TeachingAllocation.objects.select_related('subject', 'student_group', 'faculty__user').get(id=allocation_id)
             
             user_profile = request.user.profile
-            if user_profile.role not in ['ORG_ADMIN', 'SUPER_ADMIN'] and base_alloc.faculty != user_profile:
+            if user_profile.role not in ['ORG_ADMIN', 'SUPER_ADMIN', 'HOD'] and base_alloc.faculty != user_profile:
                 return Response({"error": "Unauthorized to view this report."}, status=403)
 
             # --- NEW: ALLOCATION MERGING LOGIC ---
@@ -365,7 +365,7 @@ class AnalyticsRadarView(APIView):
             return Response({"error": "Academic Year ID is required"}, status=400)
             
         user_profile = request.user.profile
-        is_admin = user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']
+        is_admin = user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']
         target_dept_id = request.headers.get('X-Department-Id')
         
         # Base query restricted to organization

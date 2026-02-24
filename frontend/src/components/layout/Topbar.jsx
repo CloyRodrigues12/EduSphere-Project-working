@@ -17,6 +17,7 @@ import {
   AlertTriangle,
   Calendar,
   Info,
+  GraduationCap,
 } from "lucide-react";
 import "./Topbar.css";
 import { useAuth } from "../../context/AuthContext";
@@ -75,6 +76,8 @@ const Topbar = ({ title, onMenuClick }) => {
     name: "Loading...",
     email: "",
     role: "",
+    role_code: "",
+    is_teaching_faculty: false,
     organization: "",
     location: "",
     designation: "",
@@ -116,6 +119,8 @@ const Topbar = ({ title, onMenuClick }) => {
           name: userData.name,
           email: userData.email,
           role: userData.role,
+          role_code: userData.role_code, // FIXED: Extract accurate internal code
+          is_teaching_faculty: !!userData.is_teaching_faculty, // FIXED: Grab toggle state
           organization: userData.organization,
           location: userData.location,
           designation: userData.designation,
@@ -135,6 +140,31 @@ const Topbar = ({ title, onMenuClick }) => {
   const handleLogout = () => {
     logout();
     setShowLogoutConfirm(false);
+  };
+
+  const handleToggleTeaching = async (e) => {
+    // Prevent default label click behavior
+    e.preventDefault();
+
+    // Optimistic Update
+    const newState = !user.is_teaching_faculty;
+    setUser({ ...user, is_teaching_faculty: newState });
+
+    try {
+      const token = localStorage.getItem("access_token");
+      await axios.post(
+        `${import.meta.env.VITE_API_URL}/api/user/toggle-teaching/`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      // FORCE REFRESH: Reload the entire application so Sidebar & Contexts update!
+      window.location.reload();
+    } catch (error) {
+      console.error("Failed to toggle teaching role", error);
+      setUser((prev) => ({ ...prev, is_teaching_faculty: !newState }));
+      alert("Failed to update status. Ensure you added the URL to urls.py!");
+    }
   };
 
   // --- Handle Year Dropdown Change ---
@@ -160,13 +190,14 @@ const Topbar = ({ title, onMenuClick }) => {
       const selected = departments.find((d) => d.id === parseInt(val));
       if (selected) setActiveDepartment(selected);
     }
+    window.location.reload();
   };
 
+  // FIXED: Now checks role_code properly instead of display string
   const isAdmin =
-    user?.role === "ORG_ADMIN" ||
-    user?.role === "SUPER_ADMIN" ||
-    user?.role === "Principal/HOD" ||
-    user?.role === "Super Admin";
+    user?.role_code === "ORG_ADMIN" ||
+    user?.role_code === "SUPER_ADMIN" ||
+    user?.role_code === "HOD";
 
   return (
     <header className="topbar glass-panel">
@@ -317,7 +348,7 @@ const Topbar = ({ title, onMenuClick }) => {
             />
             <div className="profile-info">
               <span className="name">{user.name}</span>
-              <span className="role">{user.role?.replace("_", " ")}</span>
+              <span className="role">{user.designation}</span>
             </div>
             <ChevronDown
               size={16}
@@ -334,7 +365,7 @@ const Topbar = ({ title, onMenuClick }) => {
                   <p>{user.email}</p>
                   <div className="org-info">
                     <span className="org-badge">
-                      {user.organization}{" "}
+                      {getSmartAbbreviation(user.organization)}{" "}
                       <BadgeCheck size={12} style={{ marginLeft: 4 }} />
                     </span>
                     {user.location && (
@@ -347,6 +378,79 @@ const Topbar = ({ title, onMenuClick }) => {
               <div className="dropdown-divider"></div>
 
               <ul className="dropdown-menu">
+                {/* --- NEW: ADMIN TEACHING TOGGLE --- */}
+                {isAdmin && (
+                  <li
+                    className="info-item"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "8px 12px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "10px",
+                      }}
+                    >
+                      <GraduationCap size={18} className="text-primary" />
+                      <span
+                        className="label"
+                        style={{ margin: 0, fontWeight: 500 }}
+                      >
+                        Join Faculty Registry
+                      </span>
+                    </div>
+
+                    {/* Proper Clickable Label Wrapper */}
+                    <label
+                      style={{
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        margin: 0,
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={user.is_teaching_faculty}
+                        onChange={handleToggleTeaching}
+                        style={{ display: "none" }}
+                      />
+                      {/* iOS Style Toggle Switch */}
+                      <div
+                        style={{
+                          width: "36px",
+                          height: "20px",
+                          borderRadius: "10px",
+                          background: user.is_teaching_faculty
+                            ? "var(--primary-color)"
+                            : "var(--border-color)",
+                          position: "relative",
+                          transition: "all 0.3s ease",
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: "16px",
+                            height: "16px",
+                            background: "white",
+                            borderRadius: "50%",
+                            position: "absolute",
+                            top: "2px",
+                            left: user.is_teaching_faculty ? "18px" : "2px",
+                            transition: "all 0.3s ease",
+                            boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                          }}
+                        />
+                      </div>
+                    </label>
+                  </li>
+                )}
+
                 <li className="info-item">
                   <Briefcase size={18} className="text-primary" />
                   <div className="item-text">
