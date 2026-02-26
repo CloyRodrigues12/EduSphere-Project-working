@@ -2,9 +2,26 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/png" href="/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
+    <title>EduSphere</title>
+
+    <script>
+      (function () {
+        try {
+          var savedTheme = localStorage.getItem("edusphere_theme");
+          if (savedTheme === "dark") {
+            document.documentElement.setAttribute("data-theme", "dark");
+            // Force dark background instantly
+            document.documentElement.style.backgroundColor = "#0f172a";
+          } else {
+            document.documentElement.setAttribute("data-theme", "light");
+            // Force light background instantly
+            document.documentElement.style.backgroundColor = "#f8fafc";
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

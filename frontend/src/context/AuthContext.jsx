@@ -92,14 +92,33 @@ export const AuthProvider = ({ children }) => {
 
   const handleRedirect = (userData) => {
     if (!userData) return;
+
+    // 1. If organization setup is not complete, force them to setup
     if (!userData.is_setup_complete) {
       if (location.pathname !== "/setup") navigate("/setup");
-    } else if (
-      location.pathname === "/login" ||
-      location.pathname === "/setup"
-    ) {
+      return; // Stop execution here
+    }
+
+    // 2. Setup is complete. Check if they have seen the welcome guide.
+    const hasSeenWelcome = localStorage.getItem(
+      `has_seen_welcome_${userData.id}`,
+    );
+
+    if (!hasSeenWelcome) {
+      // Never seen it before! Mark as seen and force redirect to Welcome Guide
+      localStorage.setItem(`has_seen_welcome_${userData.id}`, "true");
+
+      // Prevent infinite redirect if they are already on /welcome
+      if (location.pathname !== "/welcome") {
+        navigate("/welcome");
+      }
+    }
+    // 3. They HAVE seen the welcome guide.
+    // If they just logged in or finished setup, send them to the Dashboard.
+    else if (location.pathname === "/login" || location.pathname === "/setup") {
       navigate("/");
     }
+    // If they are navigating anywhere else (like /staff or /attendance), just let them proceed normally!
   };
 
   useEffect(() => {

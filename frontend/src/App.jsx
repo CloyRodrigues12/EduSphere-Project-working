@@ -9,6 +9,7 @@ import Topbar from "./components/layout/Topbar";
 import ProtectedRoute from "./components/layout/ProtectedRoute";
 
 // Pages
+import WelcomeGuide from "./pages/WelcomeGuide";
 import DashboardHome from "./pages/DashboardHome";
 import Login from "./pages/Login";
 import SetupWizard from "./pages/SetupWizard";
@@ -64,7 +65,8 @@ const AppLayout = () => {
         <div style={{ flex: 1, paddingBottom: "2rem" }}>
           <Routes>
             <Route path="/" element={<DashboardHome />} />
-
+            <Route path="/welcome" element={<WelcomeGuide />} />{" "}
+            {/* <--- ADD THIS */}
             <Route
               path="/fees"
               element={<Placeholder title="Fees Collection" />}
@@ -85,7 +87,6 @@ const AppLayout = () => {
                 </ProtectedRoute>
               }
             />
-
             {/* Specific Class Attendance Route */}
             <Route
               path="/attendance/:allocationId"

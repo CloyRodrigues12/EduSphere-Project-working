@@ -34,7 +34,9 @@ body {
   font-family: "Inter", sans-serif;
   min-height: 100vh;
 
-  transition: background-color 0.4s ease, color 0.4s ease;
+  transition:
+    background-color 0.4s ease,
+    color 0.4s ease;
 }
 
 /* The Glass Effect Utility Class */
@@ -44,4 +46,156 @@ body {
   -webkit-backdrop-filter: blur(16px) saturate(180%);
   border: var(--glass-border);
   box-shadow: var(--shadow-lg);
+}
+
+/* ==========================================================================
+   1. SLEEK SYSTEM-WIDE SCROLLBARS
+   ========================================================================== */
+
+/* Works on Chrome, Edge, and Safari */
+::-webkit-scrollbar {
+  width: 6px; /* Very thin and sleek vertical scrollbar */
+  height: 6px; /* Very thin horizontal scrollbar */
+}
+
+::-webkit-scrollbar-track {
+  background: transparent; /* Invisible track */
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(140, 140, 160, 0.3); /* Subtle grey */
+  border-radius: 10px;
+  transition: background 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(
+    --primary-color
+  ); /* Pops with your theme color when hovered */
+}
+
+/* Firefox Support */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(140, 140, 160, 0.3) transparent;
+}
+
+/* ==========================================================================
+   2. CUSTOM GLASSMORPHISM TOOLTIPS
+   ========================================================================== */
+
+/* Apply to any element by using data-tooltip="Your Text" instead of title="Your Text" */
+[data-tooltip] {
+  position: relative;
+  cursor: pointer;
+}
+
+/* The Tooltip Box */
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 10px); /* Position above the element */
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 9999;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+
+  /* Dark Mode Default (Glassmorphism) */
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #ffffff;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* The Little Triangle Pointer */
+[data-tooltip]::before {
+  content: "";
+  position: absolute;
+  bottom: calc(100% + 5px);
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  border: 5px solid transparent;
+  border-top-color: rgba(15, 23, 42, 0.75); /* Matches Dark Box */
+  pointer-events: none;
+  opacity: 0;
+  z-index: 9999;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Hover State - Show Tooltip */
+[data-tooltip]:hover::after,
+[data-tooltip]:hover::before {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* --- LIGHT MODE OPTIMIZATION --- */
+[data-theme="light"] [data-tooltip]::after {
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--text-primary);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] [data-tooltip]::before {
+  border-top-color: rgba(255, 255, 255, 0.85);
+}
+/* ==========================================================================
+   SCROLLBARS (SOLID & TACTILE)
+   ========================================================================== */
+
+/* The overall width and height of the scrollbar */
+::-webkit-scrollbar {
+  width: 12px; /* Slightly wider to accommodate the padding trick */
+  height: 12px;
+}
+
+/* The track (background) */
+::-webkit-scrollbar-track {
+  background: var(--bg-main); /* Blends perfectly with your system background */
+}
+
+/* The draggable thumb */
+::-webkit-scrollbar-thumb {
+  background-color: #94a3b8; /* A clean, solid slate gray */
+  border-radius: 10px;
+
+  /* The Magic Trick: Creates transparent padding around the thumb */
+  border: 3px solid var(--bg-main);
+  background-clip: padding-box;
+}
+
+/* Hover state: Simulates an "expanding" animation */
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--primary-color); /* Pops to your solid theme color */
+
+  /* Reducing the border makes the scrollbar physically grow on hover */
+  border: 2px solid var(--bg-main);
+}
+
+/* Active/Dragging state */
+::-webkit-scrollbar-thumb:active {
+  background-color: var(--primary-color);
+
+  /* Expands even further while being dragged */
+  border: 1px solid var(--bg-main);
+}
+
+/* Firefox Support (Firefox has limited scrollbar styling but respects solid colors) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 var(--bg-main);
 }

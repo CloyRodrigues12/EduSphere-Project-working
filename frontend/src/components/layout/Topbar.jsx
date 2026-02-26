@@ -63,7 +63,10 @@ const Topbar = ({ title, onMenuClick }) => {
     setActiveDepartment,
   } = useAcademic();
 
-  const [theme, setTheme] = useState("light");
+  // Check local storage first. If nothing is saved, default to "light"
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem("edusphere_theme") || "light";
+  });
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
@@ -87,6 +90,8 @@ const Topbar = ({ title, onMenuClick }) => {
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
+    // Save the new theme to local storage every time it changes
+    localStorage.setItem("edusphere_theme", theme);
   }, [theme]);
 
   const toggleTheme = () => {

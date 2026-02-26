@@ -16,7 +16,8 @@ import {
   Layers,
   Settings,
   FileSearch,
-  ClipboardCheck, // 1. IMPORT THE ICON HERE
+  ClipboardCheck,
+  Info,
 } from "lucide-react";
 import "./Sidebar.css";
 
@@ -88,9 +89,44 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
         }`}
       >
         <div className="sidebar-header">
-          <div className="logo-icon">E</div>
+          <div className="logo-icon">
+            <img
+              src="/logo.png"
+              alt="EduSphere Logo"
+              className="brand-logo-img"
+            />
+          </div>
           {(!collapsed || mobileOpen) && (
-            <span className="logo-text">EduSphere</span>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                flex: 1,
+                justifyContent: "space-between",
+              }}
+            >
+              <span className="logo-text">EduSphere</span>
+              {/* NEW: The Information / Welcome Guide Icon */}
+              <NavLink
+                to="/welcome"
+                className={({ isActive }) =>
+                  `info-nav-icon ${isActive ? "active" : ""}`
+                }
+                style={({ isActive }) => ({
+                  color: isActive
+                    ? "var(--primary-color)"
+                    : "var(--text-muted)",
+                  display: "flex",
+                  alignItems: "center",
+                  padding: "4px",
+                  borderRadius: "6px",
+                  transition: "all 0.2s ease",
+                })}
+                title="System Guide & Architecture"
+              >
+                <Info size={15} />
+              </NavLink>
+            </div>
           )}
           <button
             className="icon-btn mobile-close-btn"
