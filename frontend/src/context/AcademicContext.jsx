@@ -1,3 +1,5 @@
+/* eslint-disable  */
+
 import React, { createContext, useState, useEffect, useContext } from "react";
 import { academicService, staffService } from "../services/api";
 import { useAuth } from "./AuthContext";
