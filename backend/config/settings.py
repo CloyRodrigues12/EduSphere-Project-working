@@ -50,7 +50,6 @@ INSTALLED_APPS = [
     'corsheaders',          # For Frontend communication
     'core',
     'attendance', #------------------attendance-----------------
-    'docusense',       # Our custom app
 
     # --- 3rd Party Auth Apps ---
     'rest_framework.authtoken',

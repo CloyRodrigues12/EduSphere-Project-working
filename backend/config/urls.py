@@ -95,8 +95,6 @@ urlpatterns = [
 
     # --- PHASE 4: ATTENDANCE ---
     path('api/attendance/', include('attendance.urls')), 
-    # --- DOCUSENSE ---
-    path('api/docusense/', include('docusense.urls')),
 
 
 
