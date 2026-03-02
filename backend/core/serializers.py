@@ -20,16 +20,29 @@ from .models import Student, StudentGroup
 from .models import TeachingAllocation
 
 # 1. User Details (for /user/me/)
+# 1. User Details (for /user/me/)
 class CustomUserDetailsSerializer(UserDetailsSerializer):
     role = serializers.CharField(source="profile.role", read_only=True)
     organization_name = serializers.CharField(source="profile.organization.name", read_only=True, allow_null=True)
     is_setup_complete = serializers.BooleanField(source="profile.is_setup_complete", read_only=True)
     permissions = serializers.JSONField(source="profile.permissions", read_only=True)
+    
+    # --- PHASE 2 ADDITION: Flag for Google/Invited Users ---
+    requires_password_setup = serializers.SerializerMethodField()
 
     class Meta(UserDetailsSerializer.Meta):
         fields = UserDetailsSerializer.Meta.fields + (
-            'role', 'organization_name', 'is_setup_complete', 'permissions'
+            'role', 'organization_name', 'is_setup_complete', 'permissions',
+            'requires_password_setup' # <-- ADDED HERE
         )
+
+    def get_requires_password_setup(self, obj):
+        """
+        If the user logged in via Google for the first time, or was added by an admin,
+        Django sets an "unusable password". This flag tells React to intercept them 
+        and force a password setup.
+        """
+        return not obj.has_usable_password()
 
 # 2. Password Reset Request (Sending the Email)
 class CustomPasswordResetSerializer(PasswordResetSerializer):

@@ -1,4 +1,4 @@
-/* eslint-disable  */
+/* eslint-disable react-hooks/exhaustive-deps */
 import React, { createContext, useState, useEffect, useContext } from "react";
 import axios from "axios";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -10,151 +10,123 @@ const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  
+  // State to tell the Login page if we need to show the "Set Password" screen
+  const [requiresGoogleSetup, setRequiresGoogleSetup] = useState(false); 
+
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Define logout early so the interceptor can use it safely
   const logout = () => {
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
-    localStorage.removeItem("edusphere_saved_dept"); // Wipe memory state
-    localStorage.removeItem("edusphere_saved_year"); // Wipe memory state
+    localStorage.removeItem("edusphere_saved_dept");
+    localStorage.removeItem("edusphere_saved_year");
     setUser(null);
+    setRequiresGoogleSetup(false);
     navigate("/login");
   };
 
-  // AXIOS INTERCEPTOR
+  // --- AXIOS INTERCEPTORS ---
   useEffect(() => {
-    // 1. Request Interceptor: Attach Token
     const reqInterceptor = axios.interceptors.request.use(
       (config) => {
         const token = localStorage.getItem("access_token");
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
+        if (token) config.headers.Authorization = `Bearer ${token}`;
         return config;
       },
       (error) => Promise.reject(error),
     );
 
-    // 2. Response Interceptor: Handle 401 Token Expiry
     const resInterceptor = axios.interceptors.response.use(
       (response) => response,
       async (error) => {
         const originalRequest = error.config;
-
-        // FIX: Ensure we do NOT intercept 401s coming from the refresh endpoint itself!
         if (
           error.response?.status === 401 &&
           !originalRequest._retry &&
           localStorage.getItem("refresh_token") &&
-          !originalRequest.url.includes("token/refresh") // <--- PREVENTS INFINITE LOOP
+          !originalRequest.url.includes("token/refresh") // Prevents infinite loop
         ) {
           originalRequest._retry = true;
-
           try {
-            // Attempt to refresh token
             const refreshToken = localStorage.getItem("refresh_token");
             const res = await axios.post(
               `${import.meta.env.VITE_API_URL}/api/auth/token/refresh/`,
               { refresh: refreshToken },
             );
-
-            // Save new tokens
             const newAccess = res.data.access;
             localStorage.setItem("access_token", newAccess);
-
-            // Retry original request with new token
             originalRequest.headers.Authorization = `Bearer ${newAccess}`;
             return axios(originalRequest);
           } catch (refreshError) {
             console.error("Session expired completely.", refreshError);
-            logout(); // Force logout
-            return Promise.reject(refreshError); // FIX: Break the promise chain!
+            logout();
+            return Promise.reject(refreshError);
           }
         }
-
-        // FIX: If the refresh token was dead, or it's an unrecoverable 401, aggressively logout.
+        
         if (error.response?.status === 401) {
           logout();
         }
-
         return Promise.reject(error);
       },
     );
 
-    // Cleanup interceptors on unmount
     return () => {
       axios.interceptors.request.eject(reqInterceptor);
       axios.interceptors.response.eject(resInterceptor);
     };
   }, [navigate]);
 
+  // --- ROUTING LOGIC ---
   const handleRedirect = (userData) => {
     if (!userData) return;
 
-    // 1. If organization setup is not complete, force them to setup
+    // If they need a password setup, stop here and tell the UI
+    if (userData.requires_password_setup) {
+      setRequiresGoogleSetup(true);
+      if (location.pathname !== "/login") navigate("/login");
+      return;
+    }
+
     if (!userData.is_setup_complete) {
       if (location.pathname !== "/setup") navigate("/setup");
-      return; // Stop execution here
+      return;
     }
 
-    // 2. Setup is complete. Check if they have seen the welcome guide.
-    const hasSeenWelcome = localStorage.getItem(
-      `has_seen_welcome_${userData.id}`,
-    );
-
+    const hasSeenWelcome = localStorage.getItem(`has_seen_welcome_${userData.id}`);
     if (!hasSeenWelcome) {
-      // Never seen it before! Mark as seen and force redirect to Welcome Guide
       localStorage.setItem(`has_seen_welcome_${userData.id}`, "true");
-
-      // Prevent infinite redirect if they are already on /welcome
-      if (location.pathname !== "/welcome") {
-        navigate("/welcome");
-      }
-    }
-    // 3. They HAVE seen the welcome guide.
-    // If they just logged in or finished setup, send them to the Dashboard.
-    else if (location.pathname === "/login" || location.pathname === "/setup") {
+      if (location.pathname !== "/welcome") navigate("/welcome");
+    } else if (location.pathname === "/login" || location.pathname === "/setup") {
       navigate("/");
     }
-    // If they are navigating anywhere else (like /staff or /attendance), just let them proceed normally!
   };
 
+  // --- INITIAL AUTH CHECK ---
   useEffect(() => {
     const checkLoggedIn = async () => {
-      // authentication check
       const performAuthCheck = async () => {
         const token = localStorage.getItem("access_token");
         if (token) {
           try {
-            const res = await axios.get(
-              `${import.meta.env.VITE_API_URL}/api/user/me/`,
-            );
+            const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/user/me/`);
             setUser(res.data);
             handleRedirect(res.data);
           } catch (error) {
-            // The interceptor will usually handle the 401, but as a fallback, we wipe.
             logout();
           }
         }
       };
 
-      // Delay Logic for UX
       if (loading) {
-        // INITIAL LOAD (Spinner Active)
-        await Promise.all([
-          performAuthCheck(),
-          new Promise((resolve) => setTimeout(resolve, 1000)), // 1 Sec Delay
-        ]);
-
-        // Only hide spinner after 1 second has passed
+        await Promise.all([performAuthCheck(), new Promise((r) => setTimeout(r, 1000))]);
         setLoading(false);
       } else {
         await performAuthCheck();
       }
     };
-
     checkLoggedIn();
   }, [location.pathname]);
 
@@ -166,12 +138,15 @@ export const AuthProvider = ({ children }) => {
     handleRedirect(userData);
   };
 
+  // ==========================================
+  // AUTHENTICATION METHODS
+  // ==========================================
+
   const googleLogin = async (googleData) => {
     try {
-      const res = await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/auth/google/`,
-        { access_token: googleData.access_token },
-      );
+      const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/google/`, { 
+        access_token: googleData.access_token 
+      });
       handleAuthResponse(res);
       return { success: true };
     } catch (error) {
@@ -181,10 +156,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const res = await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/auth/login/`,
-        { email, password },
-      );
+      const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/login/`, { email, password });
       handleAuthResponse(res);
       return { success: true };
     } catch (error) {
@@ -192,32 +164,30 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const register = async (name, email, password) => {
+  // --- SIGN UP WITH OTP ---
+  const requestSignUpOTP = async (email) => {
     try {
-      // 1. Split Name
-      const nameParts = name.trim().split(/\s+/);
+      await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/register/request-otp/`, { email });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: getErrorMessage(error) };
+    }
+  };
 
-      // Safety fallback if validation is bypassed
+  const verifySignUpOTP = async (name, email, password, otp) => {
+    try {
+      // 1. Splitting the Name (Restored Logic)
+      const nameParts = name.trim().split(/\s+/);
       const firstName = nameParts[0];
       const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
 
-      // 2. Generate Username
-      const baseName = name.toLowerCase().replace(/\s+/g, "");
-      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-      const generatedUsername = `${baseName}${randomSuffix}`;
-
-      const res = await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/auth/registration/`,
-        {
-          username: generatedUsername,
-          email: email,
-          password1: password,
-          password2: password,
-          first_name: firstName,
-          last_name: lastName,
-        },
-      );
-
+      const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/register/verify-otp/`, {
+        email, 
+        otp, 
+        password, 
+        first_name: firstName, 
+        last_name: lastName
+      });
       handleAuthResponse(res);
       return { success: true };
     } catch (error) {
@@ -225,12 +195,44 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // --- JOIN TEAM FLOW ---
+  const requestJoinTeamOTP = async (email) => {
+    try {
+      await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/join-team/request-otp/`, { email });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: getErrorMessage(error) };
+    }
+  };
+
+  const completeJoinTeam = async (email, otp, password) => {
+    try {
+      const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/join-team/complete/`, {
+        email, otp, password
+      });
+      handleAuthResponse(res);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: getErrorMessage(error) };
+    }
+  };
+
+  // --- GOOGLE SET PASSWORD ---
+  const setFirstTimePassword = async (password) => {
+    try {
+      await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/set-google-password/`, { password });
+      setRequiresGoogleSetup(false);
+      handleRedirect({...user, requires_password_setup: false});
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: getErrorMessage(error) };
+    }
+  };
+
+  // --- PASSWORD RESET FLOW (Restored) ---
   const resetPassword = async (email) => {
     try {
-      await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/auth/password/reset/`,
-        { email },
-      );
+      await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/password/reset/`, { email });
       return { success: true };
     } catch (error) {
       return { success: false, error: getErrorMessage(error) };
@@ -259,15 +261,19 @@ export const AuthProvider = ({ children }) => {
       value={{
         user,
         loading,
+        requiresGoogleSetup,
         googleLogin,
         login,
-        register,
+        requestSignUpOTP,
+        verifySignUpOTP,
+        requestJoinTeamOTP,
+        completeJoinTeam,
+        setFirstTimePassword,
         resetPassword,
-        resetPasswordConfirm,
+        resetPasswordConfirm, 
         logout,
       }}
     >
-      {/* If loading, show the loading screen. Otherwise show the App. */}
       {loading ? <LoadingScreen /> : children}
     </AuthContext.Provider>
   );

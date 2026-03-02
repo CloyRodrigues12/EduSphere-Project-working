@@ -45,6 +45,18 @@ from rest_framework import serializers
 from django.db.models import Count
 from core.models import StudentGroup, TeachingAllocation
 
+        
+import random
+from django.core.mail import send_mail
+from django.conf import settings
+from django.utils import timezone
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework_simplejwt.tokens import RefreshToken
+from .models import EmailVerificationOTP
+
 
 # 1. Google Login
 class GoogleLogin(SocialLoginView):
@@ -114,6 +126,248 @@ class SetupOrganizationView(APIView):
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
+
+# --- HELPER FUNCTION FOR JWT ---
+def get_tokens_for_user(user):
+    refresh = RefreshToken.for_user(user)
+    return {
+        'refresh': str(refresh),
+        'access': str(refresh.access_token),
+    }
+    
+
+
+# ==========================================
+# OTP REGISTRATION FLOW
+# ==========================================
+    # For RequestRegistrationOTPView and JoinTeamRequestOTPView:
+
+
+class RequestRegistrationOTPView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email')
+        if not email:
+            return Response({"error": "Email is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if User.objects.filter(email=email).exists():
+            return Response({"error": "An account with this email already exists."}, status=status.HTTP_400_BAD_REQUEST)
+
+        otp_code = EmailVerificationOTP.generate_otp()
+        
+        # Save or update existing OTP for this email
+        EmailVerificationOTP.objects.update_or_create(
+            email=email,
+            defaults={'otp': otp_code, 'created_at': timezone.now()}
+        )
+        
+        html_message = f"""
+<!DOCTYPE html>
+<html>
+<body style="margin:0; padding:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f9;">
+    <div style="max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+        <div style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding: 30px; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">EduSphere Verification</h1>
+        </div>
+        <div style="padding: 40px 30px; text-align: center; color: #333333;">
+            <p style="font-size: 16px; color: #4b5563; margin-bottom: 20px;">Use the code below to complete your setup.</p>
+            <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: inline-block;">
+                <p style="margin: 0; font-size: 32px; letter-spacing: 5px; font-weight: bold; color: #4f46e5;">{otp_code}</p>
+            </div>
+            <p style="font-size: 12px; color: #9ca3af;">This code expires in 10 minutes.</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+        # Send the email
+        send_mail(
+    subject='EduSphere - Verification Code',
+    message=f'Your verification code is: {otp_code}', # Plaintext fallback
+    from_email=settings.EMAIL_HOST_USER,
+    recipient_list=[email],
+    fail_silently=False,
+    html_message=html_message # Styled HTML version
+)
+        return Response({"message": "OTP sent successfully."})
+
+
+class VerifyRegistrationOTPView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email')
+        otp_code = request.data.get('otp')
+        password = request.data.get('password')
+        first_name = request.data.get('first_name', '')
+        last_name = request.data.get('last_name', '')
+
+        try:
+            otp_record = EmailVerificationOTP.objects.get(email=email, otp=otp_code)
+            
+            if not otp_record.is_valid():
+                return Response({"error": "OTP has expired. Please request a new one."}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 1. Create User
+            base_username = email.split('@')[0].replace(".", "")
+            username = f"{base_username}{random.randint(1000, 9999)}"
+            
+            user = User.objects.create_user(
+                username=username, 
+                email=email, 
+                password=password,
+                first_name=first_name,
+                last_name=last_name
+            )
+            
+            # 2. Cleanup OTP
+            otp_record.delete()
+
+            # 3. Generate JWT Tokens
+            tokens = get_tokens_for_user(user)
+            
+            return Response({
+                "message": "Account created successfully.",
+                "access": tokens['access'],
+                "refresh": tokens['refresh'],
+                "user": {
+                    "id": user.id, 
+                    "email": user.email, 
+                    "first_name": user.first_name, 
+                    "is_setup_complete": getattr(user.profile, 'is_setup_complete', False)
+                }
+            })
+            
+        except EmailVerificationOTP.DoesNotExist:
+            return Response({"error": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST)
+
+
+# ==========================================
+# JOIN TEAM FLOW (For Pre-added Faculty)
+# ==========================================
+
+
+
+class JoinTeamRequestOTPView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email')
+        
+        try:
+            user = User.objects.get(email=email)
+            # If the user has a usable password, they've already set up their account
+            # If the user has a password AND has successfully logged in before, they are active.
+            # If last_login is None, they are still "fresh" and can use the Join Team flow.
+            if user.has_usable_password() and user.last_login is not None:
+                return Response({"error": "This account is already active. Please log in normally."}, status=status.HTTP_400_BAD_REQUEST)
+                
+        except User.DoesNotExist:
+            return Response({"error": "No invitation found for this email. Contact your administrator."}, status=status.HTTP_404_NOT_FOUND)
+        otp_code = EmailVerificationOTP.generate_otp()
+        
+        EmailVerificationOTP.objects.update_or_create(
+            email=email,
+            defaults={'otp': otp_code, 'created_at': timezone.now()}
+        )
+        
+        html_message = f"""
+<!DOCTYPE html>
+<html>
+<body style="margin:0; padding:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f9;">
+    <div style="max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+        <div style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding: 30px; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">EduSphere Verification</h1>
+        </div>
+        <div style="padding: 40px 30px; text-align: center; color: #333333;">
+            <p style="font-size: 16px; color: #4b5563; margin-bottom: 20px;">Use the code below to complete your setup.</p>
+            <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: inline-block;">
+                <p style="margin: 0; font-size: 32px; letter-spacing: 5px; font-weight: bold; color: #4f46e5;">{otp_code}</p>
+            </div>
+            <p style="font-size: 12px; color: #9ca3af;">This code expires in 10 minutes.</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+        send_mail(
+    subject='EduSphere - Verification Code',
+    message=f'Your verification code is: {otp_code}', # Plaintext fallback
+    from_email=settings.EMAIL_HOST_USER,
+    recipient_list=[email],
+    fail_silently=False,
+    html_message=html_message # Styled HTML version
+)
+        return Response({"message": "OTP sent to your email."})
+
+
+class JoinTeamCompleteView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email')
+        otp_code = request.data.get('otp')
+        new_password = request.data.get('password')
+
+        try:
+            otp_record = EmailVerificationOTP.objects.get(email=email, otp=otp_code)
+            
+            if not otp_record.is_valid():
+                return Response({"error": "OTP has expired."}, status=status.HTTP_400_BAD_REQUEST)
+            
+            user = User.objects.get(email=email)
+            
+            user.set_password(new_password)
+            user.save()
+
+            # --- ADD THIS BLOCK ---
+            # Automatically bypass the Setup Wizard for invited staff
+            if hasattr(user, 'profile'):
+                user.profile.is_setup_complete = True
+                user.profile.save()
+            # ----------------------
+
+            otp_record.delete()
+
+            tokens = get_tokens_for_user(user)
+            return Response({
+                "message": "Account activated successfully.",
+                "access": tokens['access'],
+                "refresh": tokens['refresh'],
+                "user": {
+                    "id": user.id, 
+                    "email": user.email, 
+                    "first_name": user.first_name,
+                    # --- UPDATE THIS TO True ---
+                    "is_setup_complete": True 
+                }
+            })
+
+        except (EmailVerificationOTP.DoesNotExist, User.DoesNotExist):
+            return Response({"error": "Invalid OTP or Email."}, status=status.HTTP_400_BAD_REQUEST)
+
+# ==========================================
+# GOOGLE AUTH: SET PASSWORD
+# ==========================================
+
+class SetGooglePasswordView(APIView):
+    permission_classes = [IsAuthenticated] # Must be logged in via Google token
+
+    def post(self, request):
+        user = request.user
+        new_password = request.data.get('password')
+        
+        if not new_password:
+            return Response({"error": "Password is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        user.set_password(new_password)
+        user.save()
+        return Response({"message": "Password set successfully."})
 
 # ==========================================
 # 2. STAFF MANAGEMENT (The Office Clerks / Admins)

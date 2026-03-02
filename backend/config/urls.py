@@ -25,6 +25,13 @@ from core.views import ToggleTeachingRoleView
 
 from core.views import StudentDirectoryView, StudentGroupView, StudentToggleStatusView
 
+from core.views import (
+    RequestRegistrationOTPView,
+    VerifyRegistrationOTPView,
+    JoinTeamRequestOTPView,
+    JoinTeamCompleteView,
+    SetGooglePasswordView
+)
 
 def password_reset_redirect(request, uidb64, token):
     # This takes the tokens from the email link and sends the user to React (port 5173)
@@ -52,6 +59,15 @@ urlpatterns = [
     path('api/auth/', include('dj_rest_auth.urls')),
     path('api/auth/registration/', include('dj_rest_auth.registration.urls')),
     path('api/auth/google/', GoogleLogin.as_view(), name='google_login'),
+    
+    # --- CUSTOM AUTH & OTP ROUTES ---
+    path('api/auth/register/request-otp/', RequestRegistrationOTPView.as_view(), name='request-otp'),
+    path('api/auth/register/verify-otp/', VerifyRegistrationOTPView.as_view(), name='verify-otp'),
+    
+    path('api/auth/join-team/request-otp/', JoinTeamRequestOTPView.as_view(), name='join-team-request-otp'),
+    path('api/auth/join-team/complete/', JoinTeamCompleteView.as_view(), name='join-team-complete'),
+    
+    path('api/auth/set-google-password/', SetGooglePasswordView.as_view(), name='set-google-password'),
 
 
     # --- ORGANIZATION & USER ---

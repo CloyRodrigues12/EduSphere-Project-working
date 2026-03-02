@@ -3,6 +3,9 @@ from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.conf import settings
+import random
+from django.utils import timezone
+from datetime import timedelta
 
 # ==========================================
 # 1. THE STRUCTURE (Space)
@@ -102,6 +105,36 @@ class UserProfile(models.Model):
 def ensure_profile_exists(sender, instance, created, **kwargs):
     if created:
         UserProfile.objects.get_or_create(user=instance)
+
+
+
+
+
+
+# ==========================================
+# 8. AUTHENTICATION & SECURITY (OTP)
+# ==========================================
+
+class EmailVerificationOTP(models.Model):
+    """
+    Temporarily stores OTPs for sign-ups and 'Join Team' flows.
+    """
+    email = models.EmailField(unique=True)
+    otp = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def is_valid(self):
+        # OTP is valid for 10 minutes from creation
+        expiration_time = self.created_at + timedelta(minutes=10)
+        return timezone.now() < expiration_time
+
+    @classmethod
+    def generate_otp(cls):
+        # Generates a random 6-digit number
+        return str(random.randint(100000, 999999))
+
+    def __str__(self):
+        return f"{self.email} - {self.otp}"
 
 # ==========================================
 # 4. THE CURRICULUM (The "Factory" Rules)
