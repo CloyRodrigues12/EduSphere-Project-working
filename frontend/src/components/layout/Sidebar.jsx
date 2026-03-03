@@ -38,31 +38,28 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
     { icon: FileSearch, label: "DocuSense AI", path: "/docusense" },
   ];
 
-  if (user?.role_code === "ORG_ADMIN" || user?.role_code === "SUPER_ADMIN") {
-    // ... existing admin links
-    navItems.push({
-      icon: Settings,
-      label: "Admin Actions",
-      path: "/academic-settings",
-    });
-  }
+  
 
-  // 4. Only add "Team" if user is an Admin
-  if (user?.role_code === "ORG_ADMIN" || user?.role_code === "SUPER_ADMIN") {
-    navItems.splice(2, 0, {
-      // Shifted index to account for Attendance
-      icon: Shield,
-      label: "Team & Perms",
-      path: "/staff",
-    });
+  // Add these boolean checks for cleaner logic
+const isOrgAdmin = ["ORG_ADMIN", "SUPER_ADMIN"].includes(user?.role_code);
+const isHODOrAdmin = ["ORG_ADMIN", "SUPER_ADMIN", "HOD"].includes(user?.role_code);
 
-    navItems.splice(4, 0, {
-      // Shifted index to account for Attendance
-      icon: Layers,
-      label: "Allocation Matrix",
-      path: "/allocations",
-    });
-  }
+// 1. Only ORG_ADMIN gets Admin Actions
+if (isOrgAdmin) {
+  navItems.push({
+    icon: Settings, label: "Admin Actions", path: "/academic-settings",
+  });
+}
+
+// 2. Both ORG_ADMIN and HOD get Team & Allocations
+if (isHODOrAdmin) {
+  navItems.splice(2, 0, {
+    icon: Shield, label: "Team & Perms", path: "/staff",
+  });
+  navItems.splice(4, 0, {
+    icon: Layers, label: "Allocation Matrix", path: "/allocations",
+  });
+}
 
   const handleLogoutClick = () => {
     setShowLogoutConfirm(true);

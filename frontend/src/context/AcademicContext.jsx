@@ -73,38 +73,31 @@ export const AcademicProvider = ({ children }) => {
       if (deptsRes.data && deptsRes.data.length > 0) {
         setDepartments(deptsRes.data);
 
-        const isAdmin =
-          user?.role_code === "SUPER_ADMIN" ||
-          user?.role_code === "ORG_ADMIN" ||
-          user?.role === "ORG_ADMIN" ||
-          user?.role === "Super Admin" ||
-          user?.role === "Principal/HOD";
+        // Replace the isAdmin check inside fetchGlobalContext:
+const isOrgAdmin = ["SUPER_ADMIN", "ORG_ADMIN"].includes(user?.role_code);
 
-        // Check Memory First
-        const savedDeptId = localStorage.getItem("edusphere_saved_dept");
-        let initialDept = null;
+// Check Memory First
+const savedDeptId = localStorage.getItem("edusphere_saved_dept");
+let initialDept = null;
 
-        if (savedDeptId) {
-          if (savedDeptId === "ALL" && isAdmin) {
-            initialDept = { id: "ALL", name: "All Departments" };
-          } else {
-            initialDept = deptsRes.data.find(
-              (d) => String(d.id) === String(savedDeptId),
-            );
-          }
-        }
+if (savedDeptId) {
+  if (savedDeptId === "ALL" && isOrgAdmin) {
+    initialDept = { id: "ALL", name: "All Departments" };
+  } else {
+    initialDept = deptsRes.data.find((d) => String(d.id) === String(savedDeptId));
+  }
+}
 
-        // Fallback to default logic if memory is empty
-        if (!initialDept) {
-          if (isAdmin) {
-            initialDept = { id: "ALL", name: "All Departments" };
-          } else {
-            initialDept =
-              deptsRes.data.find((d) => d.name === user.department) ||
-              deptsRes.data[0];
-          }
-        }
-        setActiveDepartment(initialDept);
+// Fallback to default logic if memory is empty
+if (!initialDept) {
+  if (isOrgAdmin) {
+    initialDept = { id: "ALL", name: "All Departments" };
+  } else {
+    // Both HOD and Faculty fall back to their assigned department ONLY
+    initialDept = deptsRes.data.find((d) => d.name === user.department) || deptsRes.data[0];
+  }
+}
+setActiveDepartment(initialDept);
       } else {
         setDepartments([]);
         setActiveDepartmentState(null);

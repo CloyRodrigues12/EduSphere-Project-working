@@ -5,6 +5,7 @@ from django.db import transaction
 from .models import ClassSession, AttendanceRecord
 from core.models import TeachingAllocation
 from .serializers import ClassSessionSerializer
+from django.db.models import Q
 
 class ClassSessionView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -17,22 +18,34 @@ class ClassSessionView(APIView):
         if allocation_id:
             # Fetch for a specific class
             sessions = ClassSession.objects.filter(allocation_id=allocation_id).order_by('-date', '-updated_at')
-        else:
-            # Global Calendar Logic: Fetch ALL sessions based on Department Filter
-            is_admin = user_profile.role in ['ORG_ADMIN', 'SUPER_ADMIN', 'HOD']
-            target_dept_id = request.headers.get('X-Department-Id')
+            return Response(ClassSessionSerializer(sessions, many=True).data)
 
-            # Start by restricting to the user's Organization
-            sessions = ClassSession.objects.filter(allocation__subject__department__organization=user_profile.organization)
+        # Global Calendar Logic: Fetch ALL sessions
+        is_org_admin = user_profile.role in ['ORG_ADMIN', 'SUPER_ADMIN']
+        is_hod = user_profile.role == 'HOD'
+        target_dept_id = request.headers.get('X-Department-Id')
 
-            # Apply Security / Sandbox Filter
-            if not is_admin:
-                sessions = sessions.filter(allocation__faculty=user_profile)
-            elif target_dept_id and target_dept_id != 'ALL':
+        # Start by restricting to the user's Organization
+        sessions = ClassSession.objects.filter(allocation__subject__department__organization=user_profile.organization)
+
+        # Apply Strict Security / Sandbox Filter
+        if is_org_admin:
+            if target_dept_id and target_dept_id != 'ALL':
                 sessions = sessions.filter(allocation__subject__department_id=target_dept_id)
+        elif is_hod:
+            # HOD Sandbox: Ignore headers, strictly bind to their own department + their own classes
+            if user_profile.department:
+                sessions = sessions.filter(
+                    Q(allocation__subject__department=user_profile.department) | 
+                    Q(allocation__faculty=user_profile)
+                ).distinct()
+            else:
+                sessions = sessions.filter(allocation__faculty=user_profile)
+        else:
+            # Faculty Sandbox: Strictly what they teach
+            sessions = sessions.filter(allocation__faculty=user_profile)
 
-            sessions = sessions.order_by('-date', '-updated_at')
-                
+        sessions = sessions.order_by('-date', '-updated_at')
         return Response(ClassSessionSerializer(sessions, many=True).data)
 
     def post(self, request):
@@ -43,13 +56,16 @@ class ClassSessionView(APIView):
         topics_covered = request.data.get('topics_covered', '')
 
         try:
-            # 1. Fetch the allocation
             allocation = TeachingAllocation.objects.get(id=allocation_id)
-            
-            # 2. SECURITY CHECK: Ensure it's the assigned teacher OR an Admin
             user_profile = request.user.profile
-            if user_profile.role not in ['ORG_ADMIN', 'SUPER_ADMIN', 'HOD'] and allocation.faculty != user_profile:
-                return Response({"error": "Unauthorized: You are not assigned to this class."}, status=403)
+            is_org_admin = user_profile.role in ['ORG_ADMIN', 'SUPER_ADMIN']
+            
+            # SECURITY CHECK
+            if not is_org_admin:
+                if user_profile.role == 'HOD' and allocation.subject.department != user_profile.department:
+                    return Response({"error": "Unauthorized: Class outside your department."}, status=403)
+                elif user_profile.role not in ['HOD'] and allocation.faculty != user_profile:
+                    return Response({"error": "Unauthorized: You are not assigned to this class."}, status=403)
             
             with transaction.atomic():
                 session = ClassSession.objects.create(
@@ -61,7 +77,7 @@ class ClassSessionView(APIView):
                 
                 students = allocation.student_group.students.all()
                 
-                # The Auto-Fill Magic: Create a PRESENT record for everyone instantly
+                # Auto-Fill: Create a PRESENT record for everyone instantly
                 records_to_create = [
                     AttendanceRecord(session=session, student=student, status='PRESENT')
                     for student in students
@@ -81,11 +97,15 @@ class ClassSessionView(APIView):
         session_id = request.GET.get('session_id')
         try:
             session = ClassSession.objects.get(id=session_id)
+            user_profile = request.user.profile
+            is_org_admin = user_profile.role in ['ORG_ADMIN', 'SUPER_ADMIN']
             
             # Security Check
-            user_profile = request.user.profile
-            if user_profile.role not in ['ORG_ADMIN', 'SUPER_ADMIN', 'HOD'] and session.allocation.faculty != user_profile:
-                return Response({"error": "Unauthorized to delete this session."}, status=403)
+            if not is_org_admin:
+                if user_profile.role == 'HOD' and session.allocation.subject.department != user_profile.department:
+                    return Response({"error": "Unauthorized: Session belongs to another department."}, status=403)
+                elif user_profile.role not in ['HOD'] and session.allocation.faculty != user_profile:
+                    return Response({"error": "Unauthorized to delete this session."}, status=403)
                 
             session.delete()
             return Response({"message": "Session deleted successfully."}, status=200)
@@ -121,7 +141,7 @@ class AttendanceReportView(APIView):
         allocation_id = request.GET.get('allocation_id')
         start_date = request.GET.get('start_date') 
         end_date = request.GET.get('end_date')     
-        merge_shared = request.GET.get('merge_shared') == 'true' # --- NEW: The Merge Flag ---
+        merge_shared = request.GET.get('merge_shared') == 'true' 
         
         if not allocation_id:
             return Response({"error": "Allocation ID is required"}, status=400)
@@ -130,12 +150,17 @@ class AttendanceReportView(APIView):
             base_alloc = TeachingAllocation.objects.select_related('subject', 'student_group', 'faculty__user').get(id=allocation_id)
             
             user_profile = request.user.profile
-            if user_profile.role not in ['ORG_ADMIN', 'SUPER_ADMIN', 'HOD'] and base_alloc.faculty != user_profile:
-                return Response({"error": "Unauthorized to view this report."}, status=403)
+            is_org_admin = user_profile.role in ['ORG_ADMIN', 'SUPER_ADMIN']
+            
+            # Security Check
+            if not is_org_admin:
+                if user_profile.role == 'HOD' and base_alloc.subject.department != user_profile.department:
+                    return Response({"error": "Unauthorized to view this department's report."}, status=403)
+                elif user_profile.role not in ['HOD'] and base_alloc.faculty != user_profile:
+                    return Response({"error": "Unauthorized to view this report."}, status=403)
 
-            # --- NEW: ALLOCATION MERGING LOGIC ---
+            # ALLOCATION MERGING LOGIC
             if merge_shared:
-                # Find EVERY allocation for this exact Subject and Batch combination
                 target_allocations = TeachingAllocation.objects.filter(
                     subject=base_alloc.subject,
                     student_group=base_alloc.student_group
@@ -143,7 +168,6 @@ class AttendanceReportView(APIView):
             else:
                 target_allocations = [base_alloc]
 
-            # Fetch sessions across all matched allocations
             sessions = ClassSession.objects.filter(allocation__in=target_allocations)
             
             if start_date:
@@ -162,7 +186,6 @@ class AttendanceReportView(APIView):
                 last_session_date = None
             
             student_stats = {}
-            # Base the student list on the primary allocation's group
             for student in base_alloc.student_group.students.all():
                 student_stats[student.id] = {
                     "roll_number": student.roll_number,
@@ -197,7 +220,7 @@ class AttendanceReportView(APIView):
                 
             results.sort(key=lambda x: x['roll_number'])
             
-            # --- NEW: COMBINE FACULTY NAMES IF MERGED ---
+            # COMBINE FACULTY NAMES IF MERGED
             if merge_shared:
                 faculty_names = []
                 for a in target_allocations:
@@ -232,8 +255,8 @@ class CumulativeReportView(APIView):
         academic_year_id = request.GET.get('academic_year_id')
         semester = request.GET.get('semester')
         subject_ids = request.GET.get('subject_ids')
-        start_date = request.GET.get('start_date') # NEW
-        end_date = request.GET.get('end_date')     # NEW
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')    
 
         if not academic_year_id or not semester or not subject_ids:
             return Response({"error": "Missing parameters"}, status=400)
@@ -241,19 +264,26 @@ class CumulativeReportView(APIView):
         try:
             subject_id_list = [int(sid) for sid in subject_ids.split(',') if sid.strip()]
             
-            # Fetch all allocations for these subjects
             allocations = TeachingAllocation.objects.filter(
                 academic_year_id=academic_year_id,
                 subject_id__in=subject_id_list
             ).select_related('subject', 'subject__department', 'student_group')
 
+            # Sandbox Check
+            user_profile = request.user.profile
+            is_org_admin = user_profile.role in ['ORG_ADMIN', 'SUPER_ADMIN']
+            
+            if not is_org_admin:
+                if user_profile.role == 'HOD':
+                    allocations = allocations.filter(subject__department=user_profile.department)
+                else:
+                    allocations = allocations.filter(faculty=user_profile)
+
             if not allocations.exists():
                 return Response({"error": "No recorded classes found for these subjects."}, status=404)
 
-            # Extract Department Name
             department_name = allocations.first().subject.department.name
             
-            # Extract unique subjects for the PDF columns
             subjects_info = {}
             for alloc in allocations:
                 if alloc.subject.id not in subjects_info:
@@ -269,17 +299,14 @@ class CumulativeReportView(APIView):
             global_first_date = None
             global_last_date = None
 
-            # Calculate Total Conducted (TC) & find the Date Range
             for alloc in allocations:
                 sessions = ClassSession.objects.filter(allocation=alloc)
                 
-                # Apply Date Filters
                 if start_date:
                     sessions = sessions.filter(date__gte=start_date)
                 if end_date:
                     sessions = sessions.filter(date__lte=end_date)
                 
-                # Find absolute first and last dates
                 if sessions.exists():
                     ordered = sessions.order_by('date')
                     f_date = ordered.first().date
@@ -292,7 +319,6 @@ class CumulativeReportView(APIView):
                 tc = sum(s.lecture_count for s in sessions)
                 alloc_tc_cache[alloc.id] = {"tc": tc, "sessions": sessions, "subject_id": str(alloc.subject.id)}
 
-                # Initialize students who are officially in this allocation's batch
                 for student in alloc.student_group.students.all():
                     if student.id not in student_stats:
                         student_stats[student.id] = {
@@ -307,11 +333,9 @@ class CumulativeReportView(APIView):
                     if sub_id not in student_stats[student.id]["subjects"]:
                         student_stats[student.id]["subjects"][sub_id] = {"ta": 0, "tc": 0}
                     
-                    # Add this allocation's TC to the student's expected total
                     student_stats[student.id]["subjects"][sub_id]["tc"] += tc
                     student_stats[student.id]["total_tc"] += tc
 
-            # Process Attendance Records (TA)
             for alloc in allocations:
                 sessions = alloc_tc_cache[alloc.id]["sessions"]
                 sub_id = alloc_tc_cache[alloc.id]["subject_id"]
@@ -327,7 +351,6 @@ class CumulativeReportView(APIView):
                         student_stats[sid]["subjects"][sub_id]["ta"] += multiplier
                         student_stats[sid]["total_ta"] += multiplier
 
-            # Calculate Percentages and Format
             results = []
             for stats in student_stats.values():
                 for sub_id, sub_stats in stats["subjects"].items():
@@ -354,119 +377,136 @@ class AnalyticsRadarView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        academic_year_id = request.GET.get('academic_year_id')
-        semester = request.GET.get('semester')
-        subject_id = request.GET.get('subject_id')
-        allocation_id = request.GET.get('allocation_id')
-        start_date = request.GET.get('start_date') 
-        end_date = request.GET.get('end_date')     
-        
-        if not academic_year_id:
-            return Response({"error": "Academic Year ID is required"}, status=400)
+        try:
+            academic_year_id = request.GET.get('academic_year_id')
+            semester = request.GET.get('semester')
+            subject_id = request.GET.get('subject_id')
+            allocation_id = request.GET.get('allocation_id')
+            start_date = request.GET.get('start_date') 
+            end_date = request.GET.get('end_date')     
             
-        user_profile = request.user.profile
-        is_admin = user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']
-        target_dept_id = request.headers.get('X-Department-Id')
-        
-        # Base query restricted to organization
-        allocations = TeachingAllocation.objects.filter(
-            academic_year_id=academic_year_id,
-            subject__department__organization=user_profile.organization
-        ).select_related('subject', 'student_group')
-        
-        # Apply Security / Sandbox Filter
-        if not is_admin:
-            if not user_profile.department:
+            if not academic_year_id:
+                return Response({"error": "Academic Year ID is required"}, status=400)
+                
+            user_profile = request.user.profile
+            is_org_admin = user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']
+            is_hod = user_profile.role == 'HOD'
+            target_dept_id = request.headers.get('X-Department-Id')
+            
+            # Base query restricted to organization
+            allocations = TeachingAllocation.objects.filter(
+                academic_year_id=academic_year_id,
+                subject__department__organization=user_profile.organization
+            ).select_related('subject', 'student_group')
+            
+            # Apply Security / Sandbox Filter (Fixed for HOD)
+            if is_org_admin:
+                if target_dept_id and target_dept_id != 'ALL':
+                    allocations = allocations.filter(subject__department_id=target_dept_id)
+            elif is_hod:
+                if user_profile.department:
+                    allocations = allocations.filter(
+                        Q(subject__department=user_profile.department) | 
+                        Q(faculty=user_profile)
+                    ).distinct()
+                else:
+                    allocations = allocations.filter(faculty=user_profile)
+            else:
+                allocations = allocations.filter(faculty=user_profile)
+
+            # Apply Explicit Filters (from UI dropdowns)
+            if allocation_id:
+                allocations = allocations.filter(id=allocation_id)
+            else:
+                if semester:
+                    allocations = allocations.filter(subject__semester=semester)
+                if subject_id:
+                    allocations = allocations.filter(subject_id=subject_id)
+
+            if not allocations.exists():
                 return Response({"safe": [], "atRisk": [], "defaulters": [], "chartData": [], "totalStudents": 0})
-            allocations = allocations.filter(subject__department=user_profile.department, faculty=user_profile)
-        elif target_dept_id and target_dept_id != 'ALL':
-            allocations = allocations.filter(subject__department_id=target_dept_id)
 
-        # Apply Explicit Filters (from UI dropdowns)
-        if allocation_id:
-            allocations = allocations.filter(id=allocation_id)
-        else:
-            if semester:
-                allocations = allocations.filter(subject__semester=semester)
-            if subject_id:
-                allocations = allocations.filter(subject_id=subject_id)
+            student_stats = {}
+            global_first_date = None
+            global_last_date = None
 
-        if not allocations.exists():
-            return Response({"safe": [], "atRisk": [], "defaulters": [], "chartData": [], "totalStudents": 0})
-
-        student_stats = {}
-        global_first_date = None
-        global_last_date = None
-
-        for alloc in allocations:
-            sessions = ClassSession.objects.filter(allocation=alloc)
-            
-            if start_date:
-                sessions = sessions.filter(date__gte=start_date)
-            if end_date:
-                sessions = sessions.filter(date__lte=end_date)
-
-            if sessions.exists():
-                ordered = sessions.order_by('date')
-                f_date = ordered.first().date
-                l_date = ordered.last().date
-                if not global_first_date or f_date < global_first_date:
-                    global_first_date = f_date
-                if not global_last_date or l_date > global_last_date:
-                    global_last_date = l_date
+            for alloc in allocations:
+                sessions = ClassSession.objects.filter(allocation=alloc)
                 
-            tc = sum(s.lecture_count for s in sessions)
-            
-            for student in alloc.student_group.students.all():
-                if student.id not in student_stats:
-                    student_stats[student.id] = {
-                        "id": student.id,
-                        "name": student.full_name,
-                        "roll_number": student.roll_number,
-                        "semester": str(alloc.subject.semester) if hasattr(alloc.subject, 'semester') else "N/A", 
-                        "ta": 0,
-                        "tc": 0
-                    }
-                student_stats[student.id]["tc"] += tc
-                
-            records = AttendanceRecord.objects.filter(session__in=sessions).select_related('session')
-            for record in records:
-                sid = record.student_id
-                if sid in student_stats:
-                    if record.status in ['PRESENT', 'LATE'] or record.status.startswith('DUTY'):
-                        student_stats[sid]['ta'] += record.session.lecture_count
+                if start_date:
+                    sessions = sessions.filter(date__gte=start_date)
+                if end_date:
+                    sessions = sessions.filter(date__lte=end_date)
 
-        safe, at_risk, defaulters = [], [], []
-        for s in student_stats.values():
-            if s["tc"] > 0:
-                perc = round((s["ta"] / s["tc"]) * 100, 2)
-            else:
-                perc = 100.0 
-                
-            s["percentage"] = perc
-            if perc < 75:
-                defaulters.append(s)
-            elif perc < 80:
-                at_risk.append(s)
-            else:
-                safe.append(s)
+                if sessions.exists():
+                    ordered = sessions.order_by('date')
+                    f_date = ordered.first().date
+                    l_date = ordered.last().date
+                    if not global_first_date or f_date < global_first_date:
+                        global_first_date = f_date
+                    if not global_last_date or l_date > global_last_date:
+                        global_last_date = l_date
                     
-        defaulters.sort(key=lambda x: x['roll_number'])
-        at_risk.sort(key=lambda x: x['roll_number'])
-        safe.sort(key=lambda x: x['roll_number'])
-        
-        chart_data = [
-            {"name": "Safe", "value": len(safe), "fill": "#10b981"},         
-            {"name": "At Risk", "value": len(at_risk), "fill": "#f59e0b"},   
-            {"name": "Defaulters", "value": len(defaulters), "fill": "#ef4444"} 
-        ]
+                tc = sum(s.lecture_count for s in sessions)
+                
+                for student in alloc.student_group.students.all():
+                    if student.id not in student_stats:
+                        student_stats[student.id] = {
+                            "id": student.id,
+                            "name": student.full_name,
+                            "roll_number": student.roll_number,
+                            "semester": str(alloc.subject.semester) if hasattr(alloc.subject, 'semester') else "N/A", 
+                            "ta": 0,
+                            "tc": 0
+                        }
+                    student_stats[student.id]["tc"] += tc
+                    
+                records = AttendanceRecord.objects.filter(session__in=sessions).select_related('session')
+                for record in records:
+                    sid = record.student_id
+                    if sid in student_stats:
+                        if record.status in ['PRESENT', 'LATE'] or record.status.startswith('DUTY'):
+                            student_stats[sid]['ta'] += record.session.lecture_count
 
-        return Response({
-            "safe": safe,
-            "atRisk": at_risk,
-            "defaulters": defaulters,
-            "chartData": chart_data,
-            "totalStudents": len(student_stats),
-            "first_session_date": global_first_date,
-            "last_session_date": global_last_date
-        })
+            safe, at_risk, defaulters = [], [], []
+            for s in student_stats.values():
+                if s["tc"] > 0:
+                    perc = round((s["ta"] / s["tc"]) * 100, 2)
+                else:
+                    perc = 100.0 
+                    
+                s["percentage"] = perc
+                if perc < 75:
+                    defaulters.append(s)
+                elif perc < 80:
+                    at_risk.append(s)
+                else:
+                    safe.append(s)
+                        
+            defaulters.sort(key=lambda x: x['roll_number'])
+            at_risk.sort(key=lambda x: x['roll_number'])
+            safe.sort(key=lambda x: x['roll_number'])
+            
+            chart_data = [
+                {"name": "Safe", "value": len(safe), "fill": "#10b981"},         
+                {"name": "At Risk", "value": len(at_risk), "fill": "#f59e0b"},   
+                {"name": "Defaulters", "value": len(defaulters), "fill": "#ef4444"} 
+            ]
+
+            return Response({
+                "safe": safe,
+                "atRisk": at_risk,
+                "defaulters": defaulters,
+                "chartData": chart_data,
+                "totalStudents": len(student_stats),
+                "first_session_date": global_first_date,
+                "last_session_date": global_last_date
+            })
+            
+        except Exception as e:
+            # Fallback to prevent infinite spinners if an error occurs
+            print(f"Analytics Error: {str(e)}")
+            return Response({
+                "safe": [], "atRisk": [], "defaulters": [], 
+                "chartData": [], "totalStudents": 0, "error": str(e)
+            })

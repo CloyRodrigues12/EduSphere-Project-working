@@ -44,10 +44,14 @@ const Attendance = () => {
   const { user } = useAuth();
   const { activeAcademicYear, activeDepartment } = useAcademic();
 
-  const { subjectName, groupName } = location.state || {
+  const { subjectName, groupName, isMine } = location.state || {
     subjectName: "Class Details",
     groupName: "Batch",
+    isMine: false, // Default to false
   };
+
+  // Determine if the current user has rights to modify attendance for this class
+  const canEdit = isMine || ["ORG_ADMIN", "SUPER_ADMIN", "HOD"].includes(user?.role_code);
 
   const [myClasses, setMyClasses] = useState([]);
   const [sessions, setSessions] = useState([]);
@@ -120,8 +124,7 @@ const Attendance = () => {
   const fetchClasses = async () => {
     try {
       if (
-        user?.role_code === "ORG_ADMIN" ||
-        user?.role_code === "SUPER_ADMIN"
+        ["ORG_ADMIN", "SUPER_ADMIN", "HOD"].includes(user?.role_code)
       ) {
         const res = await academicService.getAllocations(activeAcademicYear.id);
         const myUserId = user?.pk || user?.id;
@@ -760,7 +763,7 @@ const Attendance = () => {
           <div className="att-stat-pill">
             <Users size={14} /> {presentCount} / {session.records?.length || 0}
           </div>
-          {allocationId && (
+          {allocationId && canEdit && (
             <button
               className="att-icon-btn delete-btn"
               title="Delete Session"
@@ -906,7 +909,8 @@ const Attendance = () => {
                     {alloc.group_name} • {alloc.subject_type?.replace("_", " ")}
                     <br />
                     {(user?.role_code === "ORG_ADMIN" ||
-                      user?.role_code === "SUPER_ADMIN") && (
+                      user?.role_code === "SUPER_ADMIN"||
+                      user?.role_code === "HOD") && (
                       <span className="att-prof-badge">
                         👨‍🏫 Prof. {alloc.faculty_name}
                       </span>
@@ -920,6 +924,7 @@ const Attendance = () => {
                       state: {
                         subjectName: alloc.subject_name,
                         groupName: alloc.group_name,
+                        isMine: alloc.isMine,
                       },
                     })
                   }
@@ -1457,6 +1462,7 @@ const Attendance = () => {
                 onStatusChange={handleStatusChange}
                 onBulkStatusChange={handleBulkStatusChange}
                 onSave={handleSaveAttendance}
+                canEdit={canEdit}
               />
             </div>
           </div>
@@ -1491,6 +1497,7 @@ const Attendance = () => {
           onStatusChange={handleStatusChange}
           onBulkStatusChange={handleBulkStatusChange}
           onSave={handleSaveAttendance}
+          canEdit={canEdit}
         />
       ) : (
         <div className="att-history-view slide-up-fade">
@@ -1535,12 +1542,14 @@ const Attendance = () => {
               >
                 <Download size={18} /> Export PDF
               </button>
-              <button
-                className="att-btn att-btn-primary"
-                onClick={() => setShowNewModal(true)}
-              >
-                <Plus size={18} /> Record New Session
-              </button>
+              {canEdit && (
+                <button
+                  className="att-btn att-btn-primary"
+                  onClick={() => setShowNewModal(true)}
+                >
+                  <Plus size={18} /> Record New Session
+                </button>
+              )}
             </div>
           </div>
 
@@ -2097,13 +2106,13 @@ const Attendance = () => {
     </div>
   );
 };
-
 // ROLL CALL GRID
 const RollCallGrid = ({
   session,
   onStatusChange,
   onBulkStatusChange,
   onSave,
+  canEdit, // <-- New Prop
 }) => (
   <div className="att-roll-call slide-up-fade">
     <div
@@ -2122,36 +2131,41 @@ const RollCallGrid = ({
             Date: {new Date(session.date).toLocaleDateString("en-GB")}
           </h3>
           <p style={{ margin: 0, color: "var(--text-secondary)" }}>
-            Tap a student's status to change it.
+            {canEdit ? "Tap a student's status to change it." : "Viewing Attendance Record (Read-Only)"}
           </p>
         </div>
-        <button className="att-btn att-btn-primary" onClick={onSave}>
-          <Save size={18} /> Save Attendance
-        </button>
+        {canEdit && (
+          <button className="att-btn att-btn-primary" onClick={onSave}>
+            <Save size={18} /> Save Attendance
+          </button>
+        )}
       </div>
-      <div
-        style={{
-          display: "flex",
-          gap: "10px",
-          borderTop: "1px dashed var(--border-color)",
-          paddingTop: "1rem",
-        }}
-      >
-        <button
-          className="att-btn att-btn-secondary"
-          style={{ flex: 1, color: "#10b981", borderColor: "#10b981" }}
-          onClick={() => onBulkStatusChange("PRESENT")}
+      
+      {canEdit && (
+        <div
+          style={{
+            display: "flex",
+            gap: "10px",
+            borderTop: "1px dashed var(--border-color)",
+            paddingTop: "1rem",
+          }}
         >
-          <CheckCircle size={18} /> Mark All Present
-        </button>
-        <button
-          className="att-btn att-btn-secondary"
-          style={{ flex: 1, color: "#ef4444", borderColor: "#ef4444" }}
-          onClick={() => onBulkStatusChange("ABSENT")}
-        >
-          <XCircle size={18} /> Mark All Absent
-        </button>
-      </div>
+          <button
+            className="att-btn att-btn-secondary"
+            style={{ flex: 1, color: "#10b981", borderColor: "#10b981" }}
+            onClick={() => onBulkStatusChange("PRESENT")}
+          >
+            <CheckCircle size={18} /> Mark All Present
+          </button>
+          <button
+            className="att-btn att-btn-secondary"
+            style={{ flex: 1, color: "#ef4444", borderColor: "#ef4444" }}
+            onClick={() => onBulkStatusChange("ABSENT")}
+          >
+            <XCircle size={18} /> Mark All Absent
+          </button>
+        </div>
+      )}
     </div>
     <div className="att-student-list">
       {session.records.map((record) => (
@@ -2165,18 +2179,21 @@ const RollCallGrid = ({
           </div>
           <div className="att-actions">
             <button
+              disabled={!canEdit} // <-- Lock it
               className={`att-tap present ${record.status === "PRESENT" ? "active" : ""}`}
               onClick={() => onStatusChange(record.id, "PRESENT")}
             >
               <CheckCircle size={18} /> Present
             </button>
             <button
+              disabled={!canEdit} // <-- Lock it
               className={`att-tap absent ${record.status === "ABSENT" ? "active" : ""}`}
               onClick={() => onStatusChange(record.id, "ABSENT")}
             >
               <XCircle size={18} /> Absent
             </button>
             <select
+              disabled={!canEdit} // <-- Lock it
               className={`att-tap duty ${record.status.startsWith("DUTY") || record.status === "LATE" ? "active" : ""}`}
               value={
                 record.status.startsWith("DUTY") || record.status === "LATE"

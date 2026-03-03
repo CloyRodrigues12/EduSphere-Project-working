@@ -199,11 +199,7 @@ const Topbar = ({ title, onMenuClick }) => {
     window.location.reload();
   };
 
-  // FIXED: Now checks role_code properly instead of display string
-  const isAdmin =
-    user?.role_code === "ORG_ADMIN" ||
-    user?.role_code === "SUPER_ADMIN" ||
-    user?.role_code === "HOD";
+  const isOrgAdmin = ["ORG_ADMIN", "SUPER_ADMIN"].includes(user?.role_code);
 
   return (
     <header className="topbar glass-panel">
@@ -222,7 +218,7 @@ const Topbar = ({ title, onMenuClick }) => {
         >
           <Building2 size={16} className="text-primary" />
 
-          {isAdmin ? (
+          {isOrgAdmin ? (
             <div
               style={{
                 display: "flex",

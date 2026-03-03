@@ -14,8 +14,12 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { academicService } from "../services/api";
 import "./SubjectCatalog.css";
+import { useAuth } from "../context/AuthContext";
 
 const SubjectCatalog = () => {
+
+const { user } = useAuth();
+
   // Filters
   const [term, setTerm] = useState("odd"); // 'odd' or 'even'
   const [activeSem, setActiveSem] = useState(1);
@@ -53,6 +57,9 @@ const SubjectCatalog = () => {
     setTimeout(() => setToast({ show: false, message: "", type: "" }), 3000);
   };
 
+  // Role verification check
+  const isAuthorizedToEdit = ["ORG_ADMIN", "SUPER_ADMIN", "HOD"].includes(user?.role_code);
+  
   const fetchSubjects = async () => {
     setLoading(true);
     try {
@@ -104,9 +111,12 @@ const SubjectCatalog = () => {
             Define the curriculum and electives for the department.
           </p>
         </div>
-        <button className="btn-primary" onClick={() => setShowModal(true)}>
-          <Plus size={18} /> Add Subject
-        </button>
+        {/* Wrap the Add Subject button */}
+           {isAuthorizedToEdit && (
+              <button className="btn-primary" onClick={() => setShowModal(true)}>
+                <Plus size={18} /> Add Subject
+              </button>
+           )}
       </div>
 
       {/* Term & Semester Controls */}
@@ -195,10 +205,15 @@ const SubjectCatalog = () => {
                           {sub.subject_type.replace("_", " ")}
                         </span>
                       </td>
+                      {/* Wrap the Edit/Delete actions */}
+         
                       <td>
                         <div className="credit-bubble">{sub.credits}</div>
-                      </td>
+                        
+                      </td>{isAuthorizedToEdit && (
+           <>
                       <td style={{ textAlign: "right" }}>
+                        
                         <button
                           className="btn-icon action-edit"
                           onClick={() => setEditTarget(sub)}
@@ -214,6 +229,8 @@ const SubjectCatalog = () => {
                           <Trash2 size={16} />
                         </button>
                       </td>
+                      </>
+         )}
                     </motion.tr>
                   ))
                 ) : (
@@ -232,6 +249,8 @@ const SubjectCatalog = () => {
           </table>
         )}
       </div>
+
+      
 
       {/* Add / Edit Modal */}
       <AnimatePresence>

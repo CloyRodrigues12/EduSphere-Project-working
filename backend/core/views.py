@@ -137,6 +137,14 @@ def get_tokens_for_user(user):
         'access': str(refresh.access_token),
     }
     
+def get_queryset(self):
+    user_profile = self.request.user.profile
+    if user_profile.role == 'HOD':
+        # Force sandbox: HOD can ONLY fetch users/allocations in their own department
+        return UserProfile.objects.filter(department=user_profile.department)
+    elif user_profile.role in ['ORG_ADMIN', 'SUPER_ADMIN']:
+        return UserProfile.objects.filter(organization=user_profile.organization)
+    return UserProfile.objects.none() # Faculty can't view staff list
 
 
 # ==========================================
@@ -1175,7 +1183,7 @@ class SubjectCatalogView(APIView):
 
     def put(self, request):
         """ Update an existing subject """
-        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
             return Response({"error": "Permission denied"}, status=403)
 
         course_id = request.data.get('id')
@@ -1191,7 +1199,7 @@ class SubjectCatalogView(APIView):
 
     def delete(self, request):
         """ Safely delete a subject """
-        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
             return Response({"error": "Permission denied"}, status=403)
 
         course_id = request.GET.get('id')
@@ -1398,9 +1406,10 @@ class StudentGroupView(APIView):
             return Response({"error": "Group not found"}, status=404)
 
 
+from django.db.models import Q
 
 # ==========================================
-# 1. THE ALLOCATION MATRIX (Admin View)
+# 1. THE ALLOCATION MATRIX (Admin & HOD View)
 # ==========================================
 class AllocationManagerView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -1408,7 +1417,8 @@ class AllocationManagerView(APIView):
     def get(self, request):
         """ Fetch all allocations for the department (Admin View) """
         user_profile = request.user.profile
-        is_admin = user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']
+        is_org_admin = user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']
+        is_hod = user_profile.role == 'HOD'
         target_dept_id = request.headers.get('X-Department-Id')
         
         ay_id = request.GET.get('academic_year')
@@ -1420,13 +1430,21 @@ class AllocationManagerView(APIView):
             academic_year_id=ay_id
         )
         
-        # Apply Security / Sandbox Filter
-        if not is_admin:
-            if not user_profile.department:
-                return Response([])
-            allocations = allocations.filter(subject__department=user_profile.department)
-        elif target_dept_id and target_dept_id != 'ALL':
-            allocations = allocations.filter(subject__department_id=target_dept_id)
+        # Apply Strict Security / Sandbox Filter
+        if is_org_admin:
+            if target_dept_id and target_dept_id != 'ALL':
+                allocations = allocations.filter(subject__department_id=target_dept_id)
+        elif is_hod:
+            # HOD Sandbox: Show department classes AND any classes they personally teach
+            if user_profile.department:
+                allocations = allocations.filter(
+                    Q(subject__department=user_profile.department) | Q(faculty=user_profile)
+                ).distinct()
+            else:
+                allocations = allocations.filter(faculty=user_profile)
+        else:
+            # Normal faculty only see their own
+            allocations = allocations.filter(faculty=user_profile)
             
         if faculty_id:
             allocations = allocations.filter(faculty_id=faculty_id)
@@ -1435,24 +1453,22 @@ class AllocationManagerView(APIView):
 
     def post(self, request):
         """ Bulk Create Allocations (The 'Multiple Batches' Magic) """
-        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+        # FIX: Added HOD to permissions
+        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
             return Response({"error": "Permission denied"}, status=403)
             
         ay_id = request.data.get('academic_year')
         faculty_id = request.data.get('faculty_id')
         subject_id = request.data.get('subject_id')
-        group_ids = request.data.get('student_group_ids', []) # THIS IS THE ARRAY!
+        group_ids = request.data.get('student_group_ids', []) 
         
         if not all([ay_id, faculty_id, subject_id, group_ids]):
             return Response({"error": "Missing required fields"}, status=400)
 
         created_allocations = []
-        
         try:
-            # Use a transaction so if one fails, they all fail (Data Integrity)
             with transaction.atomic():
                 for group_id in group_ids:
-                    # get_or_create prevents duplicates if the HOD clicks twice
                     allocation, created = TeachingAllocation.objects.get_or_create(
                         academic_year_id=ay_id,
                         faculty_id=faculty_id,
@@ -1471,7 +1487,8 @@ class AllocationManagerView(APIView):
 
     def delete(self, request):
         """ Remove a specific allocation """
-        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+        # FIX: Added HOD to permissions
+        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
             return Response({"error": "Permission denied"}, status=403)
             
         allocation_id = request.GET.get('id')
@@ -1480,8 +1497,8 @@ class AllocationManagerView(APIView):
             return Response({"message": "Allocation removed"})
         except TeachingAllocation.DoesNotExist:
             return Response({"error": "Not found"}, status=404)
-
-
+        
+        
 # ==========================================
 # 2. FACULTY DASHBOARD (Teacher View)
 # ==========================================
