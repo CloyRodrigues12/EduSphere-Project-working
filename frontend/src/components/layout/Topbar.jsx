@@ -350,7 +350,7 @@ const Topbar = ({ title, onMenuClick }) => {
             />
             <div className="profile-info">
               <span className="name">{user.name}</span>
-              <span className="role">{user.role}</span>
+              <span className="role">{user.designation || user.role}</span> 
             </div>
             <ChevronDown
               size={16}
@@ -381,7 +381,7 @@ const Topbar = ({ title, onMenuClick }) => {
 
               <ul className="dropdown-menu">
                 {/* --- NEW: ADMIN TEACHING TOGGLE --- */}
-                {isAdmin && (
+                {isOrgAdmin && (
                   <li
                     className="info-item"
                     style={{

@@ -34,7 +34,6 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
     { icon: Library, label: "Subject Catalog", path: "/subjects" },
     { icon: Users, label: "Dir & Batches", path: "/students" },
     { icon: Banknote, label: "Fees", path: "/fees" },
-    { icon: UploadCloud, label: "Upload Data", path: "/upload" },
     { icon: FileSearch, label: "DocuSense AI", path: "/docusense" },
   ];
 
@@ -58,6 +57,9 @@ if (isHODOrAdmin) {
   });
   navItems.splice(4, 0, {
     icon: Layers, label: "Allocation Matrix", path: "/allocations",
+  });
+  navItems.splice(6, 0, {
+    icon: UploadCloud, label: "Upload Data", path: "/upload",
   });
 }
 

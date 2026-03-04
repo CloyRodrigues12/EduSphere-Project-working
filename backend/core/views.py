@@ -82,14 +82,14 @@ class SetupOrganizationView(APIView):
 
         org_name = request.data.get('organization_name')
         org_type = request.data.get('type')
-        dept_name = request.data.get('department_name') # NEW
-        academic_year_name = request.data.get('academic_year_name') # NEW
+        dept_name = request.data.get('department_name') 
+        academic_year_name = request.data.get('academic_year_name') 
+        designation = request.data.get('designation') # <--- 1. EXTRACT THIS
 
         if not all([org_name, org_type, dept_name, academic_year_name]):
             return Response({"error": "Organization, Department, and Academic Year are all required."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            # Enforce multi-tenant baseline initialization
             with transaction.atomic():
                 # 1. Create the Organization
                 org = Organization.objects.create(name=org_name, type=org_type)
@@ -114,6 +114,7 @@ class SetupOrganizationView(APIView):
                 user_profile.organization = org
                 user_profile.department = dept
                 user_profile.role = 'SUPER_ADMIN'
+                user_profile.designation = designation # <--- 2. SAVE IT HERE
                 user_profile.is_setup_complete = True
                 user_profile.save()
 
@@ -596,7 +597,8 @@ class CurrentUserView(APIView):
             "designation": profile.designation or "Staff Member",
             "org_type": org.type if org else "Institute",
             "is_setup_complete": profile.is_setup_complete,
-            "is_teaching_faculty": profile.is_teaching_faculty 
+            "is_teaching_faculty": profile.is_teaching_faculty ,
+            "has_usable_password": user.has_usable_password()
         })
     
 
@@ -1273,25 +1275,29 @@ class StudentDirectoryView(APIView):
 
     def patch(self, request):
         """ Bulk update semester AND migrate them to the active academic year """
-        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+        user_profile = request.user.profile
+        # FIX: Allow HOD to bulk promote
+        if user_profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
             return Response({"error": "Permission denied"}, status=403)
 
         student_ids = request.data.get('student_ids', [])
         new_sem = request.data.get('new_semester')
-        target_ay_id = request.data.get('academic_year_id') # Catch the new year
+        target_ay_id = request.data.get('academic_year_id') 
         
         if not student_ids or not new_sem:
             return Response({"error": "Missing student IDs or target semester"}, status=400)
             
-        students = Student.objects.filter(id__in=student_ids, department=request.user.profile.department)
+        # FIX: Let Org Admin manipulate any student, but restrict HOD to their department
+        if user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']:
+            students = Student.objects.filter(id__in=student_ids, organization=user_profile.organization)
+        else:
+            students = Student.objects.filter(id__in=student_ids, department=user_profile.department)
         
-        # Update Semester AND assign them to the new Academic Year
         update_data = {'current_semester': new_sem}
         if target_ay_id:
             update_data['academic_year_id'] = target_ay_id
             
         students.update(**update_data)
-        
         return Response({"message": f"Successfully promoted/demoted {len(student_ids)} students."})
 
 # ==========================================
@@ -1354,12 +1360,19 @@ class StudentGroupView(APIView):
     
     def put(self, request):
         """ Update Batch / Group details (Name, Type) """
-        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+        user_profile = request.user.profile
+        # FIX: Allow HOD
+        if user_profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
             return Response({"error": "Permission denied"}, status=403)
             
         group_id = request.data.get('id')
         try:
-            group = StudentGroup.objects.get(id=group_id, department=request.user.profile.department)
+            # FIX: Allow Org Admins to edit regardless of Topbar Context
+            if user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']:
+                group = StudentGroup.objects.get(id=group_id, department__organization=user_profile.organization)
+            else:
+                group = StudentGroup.objects.get(id=group_id, department=user_profile.department)
+                
             serializer = StudentGroupSerializer(group, data=request.data, partial=True)
             if serializer.is_valid():
                 serializer.save()
@@ -1370,17 +1383,21 @@ class StudentGroupView(APIView):
 
     def patch(self, request):
         """ Add or Remove students from a specific group """
-        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+        user_profile = request.user.profile
+        # FIX: Allow HOD
+        if user_profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
             return Response({"error": "Permission denied"}, status=403)
             
         group_id = request.data.get('group_id')
-        action = request.data.get('action') # 'add', 'remove', or 'set'
+        action = request.data.get('action') 
         student_ids = request.data.get('student_ids', [])
         
         try:
-            group = StudentGroup.objects.get(id=group_id, department=request.user.profile.department)
+            if user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']:
+                group = StudentGroup.objects.get(id=group_id, department__organization=user_profile.organization)
+            else:
+                group = StudentGroup.objects.get(id=group_id, department=user_profile.department)
             
-            # The Magic Django ManyToMany logic
             if action == 'add':
                 group.students.add(*student_ids)
             elif action == 'remove':
@@ -1393,13 +1410,18 @@ class StudentGroupView(APIView):
             return Response({"error": "Group not found"}, status=404)
 
     def delete(self, request):
-        """ Delete a Batch (This does NOT delete the students, just the bucket) """
-        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+        """ Delete a Batch """
+        user_profile = request.user.profile
+        
+        if user_profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
             return Response({"error": "Permission denied"}, status=403)
             
         group_id = request.GET.get('id')
         try:
-            group = StudentGroup.objects.get(id=group_id, department=request.user.profile.department)
+            if user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']:
+                group = StudentGroup.objects.get(id=group_id, department__organization=user_profile.organization)
+            else:
+                group = StudentGroup.objects.get(id=group_id, department=user_profile.department)
             group.delete()
             return Response({"message": "Group deleted successfully"})
         except StudentGroup.DoesNotExist:
@@ -1622,11 +1644,17 @@ class StudentToggleStatusView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
-        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+        user_profile = request.user.profile
+        # FIX: Allow HOD
+        if user_profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
             return Response({"error": "Permission denied"}, status=403)
             
         try:
-            student = Student.objects.get(id=pk, department=request.user.profile.department)
+            if user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']:
+                student = Student.objects.get(id=pk, organization=user_profile.organization)
+            else:
+                student = Student.objects.get(id=pk, department=user_profile.department)
+                
             student.is_active = not student.is_active
             student.save()
             status_text = "Activated" if student.is_active else "Deactivated"

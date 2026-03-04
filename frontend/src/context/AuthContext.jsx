@@ -46,7 +46,7 @@ export const AuthProvider = ({ children }) => {
           error.response?.status === 401 &&
           !originalRequest._retry &&
           localStorage.getItem("refresh_token") &&
-          !originalRequest.url.includes("token/refresh") // Prevents infinite loop
+          !originalRequest.url.includes("token/refresh")
         ) {
           originalRequest._retry = true;
           try {
@@ -83,24 +83,52 @@ export const AuthProvider = ({ children }) => {
   const handleRedirect = (userData) => {
     if (!userData) return;
 
-    // If they need a password setup, stop here and tell the UI
-    if (userData.requires_password_setup) {
+    // 1. Explicitly check the Database Flag for password status
+    if (userData.has_usable_password === false) {
       setRequiresGoogleSetup(true);
       if (location.pathname !== "/login") navigate("/login");
       return;
+    } else {
+      // Clear it if they do have a password
+      setRequiresGoogleSetup(false);
     }
 
+    // 2. Setup Profile check
     if (!userData.is_setup_complete) {
       if (location.pathname !== "/setup") navigate("/setup");
       return;
     }
 
+    // 3. Welcome screen check
     const hasSeenWelcome = localStorage.getItem(`has_seen_welcome_${userData.id}`);
     if (!hasSeenWelcome) {
       localStorage.setItem(`has_seen_welcome_${userData.id}`, "true");
       if (location.pathname !== "/welcome") navigate("/welcome");
     } else if (location.pathname === "/login" || location.pathname === "/setup") {
       navigate("/");
+    }
+  };
+
+  // --- CRITICAL FIX: Fetch Fresh Profile on Login ---
+  const handleAuthResponse = async (res) => {
+    const { access, refresh } = res.data;
+    localStorage.setItem("access_token", access);
+    localStorage.setItem("refresh_token", refresh);
+    
+    try {
+      // Always fetch the true CurrentUser payload which includes our custom flags
+      const userRes = await axios.get(`${import.meta.env.VITE_API_URL}/api/user/me/`, {
+        headers: { Authorization: `Bearer ${access}` }
+      });
+      setUser(userRes.data);
+      handleRedirect(userRes.data);
+    } catch (err) {
+      console.error("Failed to sync profile context", err);
+      // Fallback if the profile fetch fails
+      if (res.data.user) {
+        setUser(res.data.user);
+        handleRedirect(res.data.user);
+      }
     }
   };
 
@@ -130,13 +158,6 @@ export const AuthProvider = ({ children }) => {
     checkLoggedIn();
   }, [location.pathname]);
 
-  const handleAuthResponse = (res) => {
-    const { access, refresh, user: userData } = res.data;
-    localStorage.setItem("access_token", access);
-    localStorage.setItem("refresh_token", refresh);
-    setUser(userData);
-    handleRedirect(userData);
-  };
 
   // ==========================================
   // AUTHENTICATION METHODS
@@ -147,7 +168,7 @@ export const AuthProvider = ({ children }) => {
       const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/google/`, { 
         access_token: googleData.access_token 
       });
-      handleAuthResponse(res);
+      await handleAuthResponse(res); // Now waits for the fresh profile!
       return { success: true };
     } catch (error) {
       return { success: false, error: "Google login failed." };
@@ -157,7 +178,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/login/`, { email, password });
-      handleAuthResponse(res);
+      await handleAuthResponse(res);
       return { success: true };
     } catch (error) {
       return { success: false, error: getErrorMessage(error) };
@@ -176,7 +197,6 @@ export const AuthProvider = ({ children }) => {
 
   const verifySignUpOTP = async (name, email, password, otp) => {
     try {
-      // 1. Splitting the Name (Restored Logic)
       const nameParts = name.trim().split(/\s+/);
       const firstName = nameParts[0];
       const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
@@ -188,7 +208,7 @@ export const AuthProvider = ({ children }) => {
         first_name: firstName, 
         last_name: lastName
       });
-      handleAuthResponse(res);
+      await handleAuthResponse(res);
       return { success: true };
     } catch (error) {
       return { success: false, error: getErrorMessage(error) };
@@ -210,7 +230,7 @@ export const AuthProvider = ({ children }) => {
       const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/join-team/complete/`, {
         email, otp, password
       });
-      handleAuthResponse(res);
+      await handleAuthResponse(res);
       return { success: true };
     } catch (error) {
       return { success: false, error: getErrorMessage(error) };
@@ -222,14 +242,14 @@ export const AuthProvider = ({ children }) => {
     try {
       await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/set-google-password/`, { password });
       setRequiresGoogleSetup(false);
-      handleRedirect({...user, requires_password_setup: false});
+      handleRedirect({...user, has_usable_password: true}); // Tell router the password is set
       return { success: true };
     } catch (error) {
       return { success: false, error: getErrorMessage(error) };
     }
   };
 
-  // --- PASSWORD RESET FLOW (Restored) ---
+  // --- PASSWORD RESET FLOW ---
   const resetPassword = async (email) => {
     try {
       await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/password/reset/`, { email });

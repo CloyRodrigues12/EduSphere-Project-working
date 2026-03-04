@@ -527,3 +527,16 @@
 .settings-link:hover {
   color: var(--primary-color) !important;
 }
+
+/* --- Dropdown Options Theming --- */
+.year-selector option {
+  background-color: var(--bg-card, #ffffff);
+  color: var(--text-primary, #1e293b);
+  font-weight: 500;
+}
+
+/* Dark Mode Override for Options */
+[data-theme="dark"] .year-selector option {
+  background-color: #1e293b; /* Dark dropdown background */
+  color: #f8fafc; /* Light text */
+}

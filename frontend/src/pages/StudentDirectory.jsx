@@ -21,9 +21,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import { studentService } from "../services/api";
 import "./StudentDirectory.css";
 import { useAcademic } from "../context/AcademicContext";
+import { useAuth } from "../context/AuthContext"; // <-- NEW IMPORT
 
 const StudentDirectory = () => {
   const { activeAcademicYear } = useAcademic();
+  const { user } = useAuth(); // <-- Get current user
+
+  // RBAC Permission Check
+  const canEdit = ["ORG_ADMIN", "SUPER_ADMIN", "HOD"].includes(user?.role_code);
 
   const [students, setStudents] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -93,13 +98,13 @@ const StudentDirectory = () => {
       await studentService.bulkUpdateSemester(
         Array.from(selectedStudents),
         targetSem,
-        activeAcademicYear.id, // <-- NEW: Locks them into the current active year
+        activeAcademicYear.id,
       );
       showToast(
         `Successfully moved ${selectedStudents.size} students to Sem ${targetSem}`,
       );
       setShowPromoteModal(false);
-      setSelectedStudents(new Set()); // <-- Clears the checkboxes after promoting
+      setSelectedStudents(new Set());
       fetchData();
     } catch (err) {
       showToast("Failed to promote students.", "error");
@@ -149,7 +154,6 @@ const StudentDirectory = () => {
     }
   };
 
-  // loading guard
   if (!activeAcademicYear) {
     return (
       <div
@@ -169,6 +173,7 @@ const StudentDirectory = () => {
       </div>
     );
   }
+
   return (
     <div className="directory-container fade-in">
       <div
@@ -232,7 +237,7 @@ const StudentDirectory = () => {
           </div>
 
           <AnimatePresence>
-            {selectedStudents.size > 0 && (
+            {selectedStudents.size > 0 && canEdit && (
               <motion.div
                 className="bulk-action-bar"
                 initial={{ height: 0, opacity: 0 }}
@@ -269,19 +274,21 @@ const StudentDirectory = () => {
               <table className="roster-table">
                 <thead>
                   <tr>
-                    <th style={{ width: "40px" }}>
-                      <button
-                        className="checkbox-btn"
-                        onClick={handleSelectAll}
-                      >
-                        {selectedStudents.size === students.length &&
-                        students.length > 0 ? (
-                          <CheckSquare size={18} className="text-primary" />
-                        ) : (
-                          <Square size={18} className="text-muted" />
-                        )}
-                      </button>
-                    </th>
+                    {canEdit && (
+                      <th style={{ width: "40px" }}>
+                        <button
+                          className="checkbox-btn"
+                          onClick={handleSelectAll}
+                        >
+                          {selectedStudents.size === students.length &&
+                          students.length > 0 ? (
+                            <CheckSquare size={18} className="text-primary" />
+                          ) : (
+                            <Square size={18} className="text-muted" />
+                          )}
+                        </button>
+                      </th>
+                    )}
                     <th>Enrollment</th>
                     <th>Full Name</th>
                     <th>Roll No</th>
@@ -299,18 +306,20 @@ const StudentDirectory = () => {
                           opacity: student.is_active === false ? 0.5 : 1,
                         }}
                       >
-                        <td>
-                          <button
-                            className="checkbox-btn"
-                            onClick={() => toggleSelection(student.id)}
-                          >
-                            {selectedStudents.has(student.id) ? (
-                              <CheckSquare size={18} className="text-primary" />
-                            ) : (
-                              <Square size={18} className="text-muted" />
-                            )}
-                          </button>
-                        </td>
+                        {canEdit && (
+                          <td>
+                            <button
+                              className="checkbox-btn"
+                              onClick={() => toggleSelection(student.id)}
+                            >
+                              {selectedStudents.has(student.id) ? (
+                                <CheckSquare size={18} className="text-primary" />
+                              ) : (
+                                <Square size={18} className="text-muted" />
+                              )}
+                            </button>
+                          </td>
+                        )}
                         <td className="font-mono text-sm">
                           {student.enrollment_number}
                         </td>
@@ -331,28 +340,29 @@ const StudentDirectory = () => {
                           }}
                         >
                           {student.roll_number || "-"}
-                          {/* NEW: Deactivate Button */}
-                          <button
-                            className="btn-icon"
-                            onClick={() => handleToggleStatus(student)}
-                            title={
-                              student.is_active
-                                ? "Deactivate Student"
-                                : "Activate Student"
-                            }
-                          >
-                            {student.is_active ? (
-                              <UserX size={16} color="#ef4444" />
-                            ) : (
-                              <UserCheck size={16} color="#10b981" />
-                            )}
-                          </button>
+                          {canEdit && (
+                            <button
+                              className="btn-icon"
+                              onClick={() => handleToggleStatus(student)}
+                              title={
+                                student.is_active
+                                  ? "Deactivate Student"
+                                  : "Activate Student"
+                              }
+                            >
+                              {student.is_active ? (
+                                <UserX size={16} color="#ef4444" />
+                              ) : (
+                                <UserCheck size={16} color="#10b981" />
+                              )}
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="4" className="empty-state">
+                      <td colSpan={canEdit ? "4" : "3"} className="empty-state">
                         <Users size={32} className="opacity-20 mb-2" />
                         <p>No students found for this semester.</p>
                       </td>
@@ -370,14 +380,15 @@ const StudentDirectory = () => {
             <h3>
               <Layers size={18} className="text-primary" /> Groups & Batches
             </h3>
-            {/* COMPACT BUTTON */}
-            <button
-              className="btn-primary"
-              style={{ padding: "0.4rem 0.8rem", fontSize: "0.85rem" }}
-              onClick={() => setShowGroupModal(true)}
-            >
-              <UserPlus size={16} /> New Group
-            </button>
+            {canEdit && (
+              <button
+                className="btn-primary"
+                style={{ padding: "0.4rem 0.8rem", fontSize: "0.85rem" }}
+                onClick={() => setShowGroupModal(true)}
+              >
+                <UserPlus size={16} /> New Group
+              </button>
+            )}
           </div>
 
           <div className="groups-grid">
@@ -396,22 +407,24 @@ const StudentDirectory = () => {
                         {group.type}
                       </span>
                     </div>
-                    <div style={{ display: "flex", gap: "0.5rem" }}>
-                      <button
-                        className="btn-icon hover-primary"
-                        onClick={() => setEditGroupTarget(group)}
-                        title="Edit Group"
-                      >
-                        <Edit2 size={16} />
-                      </button>
-                      <button
-                        className="btn-icon hover-red"
-                        onClick={() => handleDeleteGroup(group.id)}
-                        title="Delete Group"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
+                    {canEdit && (
+                      <div style={{ display: "flex", gap: "0.5rem" }}>
+                        <button
+                          className="btn-icon hover-primary"
+                          onClick={() => setEditGroupTarget(group)}
+                          title="Edit Group"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button
+                          className="btn-icon hover-red"
+                          onClick={() => handleDeleteGroup(group.id)}
+                          title="Delete Group"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   <div className="group-card-body">
@@ -420,7 +433,7 @@ const StudentDirectory = () => {
                     </div>
 
                     <AnimatePresence>
-                      {selectedStudents.size > 0 && (
+                      {selectedStudents.size > 0 && canEdit && (
                         <motion.button
                           className="btn-assign"
                           initial={{ opacity: 0, y: 10 }}
@@ -447,7 +460,7 @@ const StudentDirectory = () => {
       </div>
 
       <AnimatePresence>
-        {(showGroupModal || editGroupTarget) && (
+        {(showGroupModal || editGroupTarget) && canEdit && (
           <GroupFormModal
             activeSem={activeSem}
             activeAyId={activeAcademicYear.id}
@@ -460,7 +473,7 @@ const StudentDirectory = () => {
             showToast={showToast}
           />
         )}
-        {showPromoteModal && (
+        {showPromoteModal && canEdit && (
           <PromoteModal
             selectedCount={selectedStudents.size}
             currentSem={activeSem}
@@ -490,7 +503,6 @@ const GroupFormModal = ({
     academic_year: activeAyId,
   });
 
-  // Local state to track students so we can remove them instantly from the UI
   const [studentsList, setStudentsList] = useState(
     groupData?.students_list || [],
   );
@@ -523,8 +535,8 @@ const GroupFormModal = ({
         [studentId],
         "remove",
       );
-      setStudentsList(studentsList.filter((s) => s.id !== studentId)); // Remove from UI instantly
-      onRefresh(); // Refresh background data
+      setStudentsList(studentsList.filter((s) => s.id !== studentId)); 
+      onRefresh();
       showToast("Student removed from batch.", "success");
     } catch (err) {
       showToast("Failed to remove student.", "error");
@@ -577,7 +589,6 @@ const GroupFormModal = ({
             </select>
           </div>
 
-          {/* NEW: Student Roster Management for Edit Mode */}
           {isEdit && (
             <div className="sinput-group mt-4">
               <label>Current Students ({studentsList.length})</label>
@@ -633,8 +644,6 @@ const GroupFormModal = ({
 const PromoteModal = ({ onClose, onConfirm, selectedCount, currentSem }) => {
   const defaultSem = currentSem < 8 ? currentSem + 1 : 1;
   const [targetSem, setTargetSem] = useState(defaultSem);
-
-  // Check if they are demoting/degrading
   const isDemotion = targetSem < currentSem;
 
   return (
@@ -672,7 +681,6 @@ const PromoteModal = ({ onClose, onConfirm, selectedCount, currentSem }) => {
             </select>
           </div>
 
-          {/* NEW: Demotion Warning popup */}
           {isDemotion && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
