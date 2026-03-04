@@ -817,16 +817,17 @@ class FacultyManagementView(APIView):
         return Response(serializer.errors, status=400)
     
     def patch(self, request):
-        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
+        user_profile = request.user.profile
+        if user_profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
             return Response({"error": "Permission denied"}, status=403)
 
         profile_id = request.GET.get('id')
         try:
-            # FIX: Removed role='FACULTY' so HODs can be edited too
-            profile = UserProfile.objects.get(
-                id=profile_id, 
-                organization=request.user.profile.organization
-            )
+            # STRICT SANDBOX CHECK
+            if user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']:
+                profile = UserProfile.objects.get(id=profile_id, organization=user_profile.organization)
+            else:
+                profile = UserProfile.objects.get(id=profile_id, department=user_profile.department)
             
             # Update User Base Name
             full_name = request.data.get('full_name')
@@ -834,16 +835,18 @@ class FacultyManagementView(APIView):
                 profile.user.first_name = full_name
                 profile.user.save()
             
-            # Update Profile Details
-            if 'role' in request.data and request.user.profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']:
+            # Admin-only fields
+            if 'role' in request.data and user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']:
                 profile.role = request.data['role']
+            if 'department_id' in request.data and user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']:
+                dept = Department.objects.get(id=request.data['department_id'], organization=profile.organization)
+                profile.department = dept
+                
+            # Allowed fields for HOD & Admin
             if 'designation' in request.data:
                 profile.designation = request.data['designation']
             if 'phone_number' in request.data:
                 profile.phone_number = request.data['phone_number']
-            if 'department_id' in request.data:
-                dept = Department.objects.get(id=request.data['department_id'], organization=profile.organization)
-                profile.department = dept
                 
             # Update Profile Picture
             if 'profile_picture' in request.FILES:
@@ -856,35 +859,35 @@ class FacultyManagementView(APIView):
             return Response(FacultySerializer(profile).data)
 
         except UserProfile.DoesNotExist:
-            return Response({"error": "Faculty not found"}, status=404)
-        except Department.DoesNotExist:
-            return Response({"error": "Invalid Department ID"}, status=400)
+            return Response({"error": "Faculty not found or not in your department"}, status=404)
         except Exception as e:
             return Response({"error": str(e)}, status=500)
             
     def delete(self, request):
-        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
+        user_profile = request.user.profile
+        if user_profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
             return Response({"error": "Permission denied"}, status=403)
 
         profile_id = request.GET.get('id')
         try:
-            # FIX: Removed role='FACULTY'
-            target_profile = UserProfile.objects.get(
-                id=profile_id, 
-                organization=request.user.profile.organization
-            )
+            # STRICT SANDBOX CHECK
+            if user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']:
+                target_profile = UserProfile.objects.get(id=profile_id, organization=user_profile.organization)
+            else:
+                target_profile = UserProfile.objects.get(id=profile_id, department=user_profile.department)
             
             if target_profile.user.id == request.user.id:
                 return Response({"error": "You cannot delete your own account!"}, status=400)
             
+            # --- HARD DELETE ---
             target_profile.user.delete()
             return Response({"message": "Faculty removed successfully"})
 
         except UserProfile.DoesNotExist:
-            return Response({"error": "Faculty not found"}, status=404)
+            return Response({"error": "Faculty not found or not in your department"}, status=404)
         except Exception as e:
             return Response({"error": str(e)}, status=500)
-
+        
 # ==========================================
 # 3. Check Duplicate (Year-Aware)
 # ==========================================
@@ -1190,12 +1193,19 @@ class SubjectCatalogView(APIView):
 
     def put(self, request):
         """ Update an existing subject """
-        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
+        user_profile = request.user.profile
+        # FIX: Allow HOD
+        if user_profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
             return Response({"error": "Permission denied"}, status=403)
 
         course_id = request.data.get('id')
         try:
-            course = Course.objects.get(id=course_id, department=request.user.profile.department)
+            # FIX: Allow Admins cross-department access, restrict HOD to their own
+            if user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']:
+                course = Course.objects.get(id=course_id, department__organization=user_profile.organization)
+            else:
+                course = Course.objects.get(id=course_id, department=user_profile.department)
+                
             serializer = CourseSerializer(course, data=request.data, partial=True)
             if serializer.is_valid():
                 serializer.save()
@@ -1205,26 +1215,30 @@ class SubjectCatalogView(APIView):
             return Response({"error": "Course not found"}, status=404)
 
     def delete(self, request):
-        """ Safely delete a subject """
-        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
+        """ Safely delete a subject (Hard Delete) """
+        user_profile = request.user.profile
+        if user_profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
             return Response({"error": "Permission denied"}, status=403)
 
         course_id = request.GET.get('id')
         try:
-            course = Course.objects.get(id=course_id, department=request.user.profile.department)
+            if user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']:
+                course = Course.objects.get(id=course_id, department__organization=user_profile.organization)
+            else:
+                course = Course.objects.get(id=course_id, department=user_profile.department)
             
-            # THE DELETION LOCK: Prevent deleting subjects that are already allocated!
+            # SAFEGUARD: Still prevent deleting if a teacher is already assigned to it!
             if TeachingAllocation.objects.filter(subject=course).exists():
                 return Response({
                     "error": "Cannot delete this subject because it is already allocated to a teacher. Remove the allocation first."
                 }, status=400)
                 
+            # HARD DELETE: Completely remove it from the database
             course.delete()
             return Response({"message": "Subject deleted successfully"})
+            
         except Course.DoesNotExist:
             return Response({"error": "Course not found"}, status=404)
-
-
 
 
 
@@ -1514,17 +1528,23 @@ class AllocationManagerView(APIView):
 
     def delete(self, request):
         """ Remove a specific allocation """
-        # FIX: Added HOD to permissions
-        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
+        user_profile = request.user.profile
+        if user_profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
             return Response({"error": "Permission denied"}, status=403)
             
         allocation_id = request.GET.get('id')
         try:
-            TeachingAllocation.objects.get(id=allocation_id).delete()
+            allocation = TeachingAllocation.objects.get(id=allocation_id)
+            
+            # --- NEW STRICT SANDBOX CHECK ---
+            if user_profile.role == 'HOD' and allocation.subject.department != user_profile.department:
+                return Response({"error": "You cannot delete allocations outside your department."}, status=403)
+            # --------------------------------
+            
+            allocation.delete()
             return Response({"message": "Allocation removed"})
         except TeachingAllocation.DoesNotExist:
             return Response({"error": "Not found"}, status=404)
-        
         
 # ==========================================
 # 2. FACULTY DASHBOARD (Teacher View)
