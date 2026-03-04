@@ -93,8 +93,8 @@ if (!initialDept) {
   if (isOrgAdmin) {
     initialDept = { id: "ALL", name: "All Departments" };
   } else {
-    // Both HOD and Faculty fall back to their assigned department ONLY
-    initialDept = deptsRes.data.find((d) => d.name === user.department) || deptsRes.data[0];
+    // MATCH BY EXACT ID from the backend
+    initialDept = deptsRes.data.find((d) => d.id === user.department_id) || deptsRes.data[0];
   }
 }
 setActiveDepartment(initialDept);

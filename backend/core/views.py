@@ -585,6 +585,7 @@ class CurrentUserView(APIView):
             
         profile = user.profile
         org = profile.organization
+        dept = profile.department
 
         return Response({
             "id": user.id,
@@ -598,7 +599,11 @@ class CurrentUserView(APIView):
             "org_type": org.type if org else "Institute",
             "is_setup_complete": profile.is_setup_complete,
             "is_teaching_faculty": profile.is_teaching_faculty ,
-            "has_usable_password": user.has_usable_password()
+            "has_usable_password": user.has_usable_password(),
+            
+            "department_id": dept.id if dept else None,
+            "department_name": dept.name if dept else None,
+            "department_code": dept.code if dept else None
         })
     
 
