@@ -8,52 +8,40 @@ from django.contrib.auth.models import User
 import traceback
 from core.models import Organization, UserProfile 
 
+
 from rest_framework.parsers import MultiPartParser, FormParser
-from rest_framework import status
 from core.models import Department
 
 from django.core.mail import send_mail
 from django.conf import settings
 
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from core.models import DataImportLog
 from core.ingestion.ecs_pipeline.students import StudentIngestionService
-
 
 from django.db import transaction
 from .models import UserProfile, Department
 from .serializers import FacultySerializer, AddFacultySerializer
 
 from core.serializers import DepartmentSerializer
-
 from core.models import Course, TeachingAllocation
 from core.serializers import CourseSerializer
 
+# --- CRITICAL IMPORT FOR SANDBOXING ---
 from django.db.models import Q
+
 from core.models import Student, StudentGroup
 from core.serializers import StudentSerializer, StudentGroupSerializer
-
-from django.db import transaction
-from core.models import TeachingAllocation, UserProfile
 from core.serializers import TeachingAllocationSerializer
 
 from core.models import AcademicYear
 from rest_framework import serializers
 
-
 from django.db.models import Count
-from core.models import StudentGroup, TeachingAllocation
-
         
 import random
-from django.core.mail import send_mail
-from django.conf import settings
 from django.utils import timezone
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import EmailVerificationOTP
 
@@ -65,12 +53,6 @@ class GoogleLogin(SocialLoginView):
     client_class = OAuth2Client
 
 # 2. Setup Organization
-from django.db import transaction
-from core.models import Organization, Department, AcademicYear
-
-from django.db import transaction
-from core.models import Organization, Department, AcademicYear
-
 class SetupOrganizationView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -84,24 +66,19 @@ class SetupOrganizationView(APIView):
         org_type = request.data.get('type')
         dept_name = request.data.get('department_name') 
         academic_year_name = request.data.get('academic_year_name') 
-        designation = request.data.get('designation') # <--- 1. EXTRACT THIS
+        designation = request.data.get('designation')
 
         if not all([org_name, org_type, dept_name, academic_year_name]):
             return Response({"error": "Organization, Department, and Academic Year are all required."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             with transaction.atomic():
-                # 1. Create the Organization
                 org = Organization.objects.create(name=org_name, type=org_type)
-                
-                # 2. Create the first Department
                 dept = Department.objects.create(
                     organization=org, 
                     name=dept_name, 
                     code=dept_name[:4].upper() 
                 )
-                
-                # 3. Create the first Academic Year
                 ay = AcademicYear.objects.create(
                     organization=org,
                     name=academic_year_name,
@@ -110,11 +87,10 @@ class SetupOrganizationView(APIView):
                     is_active=True
                 )
 
-                # 4. Link everything to the Super Admin (User)
                 user_profile.organization = org
                 user_profile.department = dept
                 user_profile.role = 'SUPER_ADMIN'
-                user_profile.designation = designation # <--- 2. SAVE IT HERE
+                user_profile.designation = designation
                 user_profile.is_setup_complete = True
                 user_profile.save()
 
@@ -127,8 +103,6 @@ class SetupOrganizationView(APIView):
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-
 
 # --- HELPER FUNCTION FOR JWT ---
 def get_tokens_for_user(user):
@@ -137,23 +111,10 @@ def get_tokens_for_user(user):
         'refresh': str(refresh),
         'access': str(refresh.access_token),
     }
-    
-def get_queryset(self):
-    user_profile = self.request.user.profile
-    if user_profile.role == 'HOD':
-        # Force sandbox: HOD can ONLY fetch users/allocations in their own department
-        return UserProfile.objects.filter(department=user_profile.department)
-    elif user_profile.role in ['ORG_ADMIN', 'SUPER_ADMIN']:
-        return UserProfile.objects.filter(organization=user_profile.organization)
-    return UserProfile.objects.none() # Faculty can't view staff list
-
 
 # ==========================================
 # OTP REGISTRATION FLOW
 # ==========================================
-    # For RequestRegistrationOTPView and JoinTeamRequestOTPView:
-
-
 class RequestRegistrationOTPView(APIView):
     permission_classes = [AllowAny]
 
@@ -167,7 +128,6 @@ class RequestRegistrationOTPView(APIView):
 
         otp_code = EmailVerificationOTP.generate_otp()
         
-        # Save or update existing OTP for this email
         EmailVerificationOTP.objects.update_or_create(
             email=email,
             defaults={'otp': otp_code, 'created_at': timezone.now()}
@@ -192,16 +152,14 @@ class RequestRegistrationOTPView(APIView):
 </body>
 </html>
 """
-
-        # Send the email
         send_mail(
-    subject='EduSphere - Verification Code',
-    message=f'Your verification code is: {otp_code}', # Plaintext fallback
-    from_email=settings.EMAIL_HOST_USER,
-    recipient_list=[email],
-    fail_silently=False,
-    html_message=html_message # Styled HTML version
-)
+            subject='EduSphere - Verification Code',
+            message=f'Your verification code is: {otp_code}', 
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[email],
+            fail_silently=False,
+            html_message=html_message
+        )
         return Response({"message": "OTP sent successfully."})
 
 
@@ -221,7 +179,6 @@ class VerifyRegistrationOTPView(APIView):
             if not otp_record.is_valid():
                 return Response({"error": "OTP has expired. Please request a new one."}, status=status.HTTP_400_BAD_REQUEST)
             
-            # 1. Create User
             base_username = email.split('@')[0].replace(".", "")
             username = f"{base_username}{random.randint(1000, 9999)}"
             
@@ -233,10 +190,7 @@ class VerifyRegistrationOTPView(APIView):
                 last_name=last_name
             )
             
-            # 2. Cleanup OTP
             otp_record.delete()
-
-            # 3. Generate JWT Tokens
             tokens = get_tokens_for_user(user)
             
             return Response({
@@ -254,13 +208,6 @@ class VerifyRegistrationOTPView(APIView):
         except EmailVerificationOTP.DoesNotExist:
             return Response({"error": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST)
 
-
-# ==========================================
-# JOIN TEAM FLOW (For Pre-added Faculty)
-# ==========================================
-
-
-
 class JoinTeamRequestOTPView(APIView):
     permission_classes = [AllowAny]
 
@@ -269,9 +216,6 @@ class JoinTeamRequestOTPView(APIView):
         
         try:
             user = User.objects.get(email=email)
-            # If the user has a usable password, they've already set up their account
-            # If the user has a password AND has successfully logged in before, they are active.
-            # If last_login is None, they are still "fresh" and can use the Join Team flow.
             if user.has_usable_password() and user.last_login is not None:
                 return Response({"error": "This account is already active. Please log in normally."}, status=status.HTTP_400_BAD_REQUEST)
                 
@@ -303,15 +247,14 @@ class JoinTeamRequestOTPView(APIView):
 </body>
 </html>
 """
-
         send_mail(
-    subject='EduSphere - Verification Code',
-    message=f'Your verification code is: {otp_code}', # Plaintext fallback
-    from_email=settings.EMAIL_HOST_USER,
-    recipient_list=[email],
-    fail_silently=False,
-    html_message=html_message # Styled HTML version
-)
+            subject='EduSphere - Verification Code',
+            message=f'Your verification code is: {otp_code}', 
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[email],
+            fail_silently=False,
+            html_message=html_message
+        )
         return Response({"message": "OTP sent to your email."})
 
 
@@ -330,19 +273,14 @@ class JoinTeamCompleteView(APIView):
                 return Response({"error": "OTP has expired."}, status=status.HTTP_400_BAD_REQUEST)
             
             user = User.objects.get(email=email)
-            
             user.set_password(new_password)
             user.save()
 
-            # --- ADD THIS BLOCK ---
-            # Automatically bypass the Setup Wizard for invited staff
             if hasattr(user, 'profile'):
                 user.profile.is_setup_complete = True
                 user.profile.save()
-            # ----------------------
 
             otp_record.delete()
-
             tokens = get_tokens_for_user(user)
             return Response({
                 "message": "Account activated successfully.",
@@ -352,7 +290,6 @@ class JoinTeamCompleteView(APIView):
                     "id": user.id, 
                     "email": user.email, 
                     "first_name": user.first_name,
-                    # --- UPDATE THIS TO True ---
                     "is_setup_complete": True 
                 }
             })
@@ -360,12 +297,8 @@ class JoinTeamCompleteView(APIView):
         except (EmailVerificationOTP.DoesNotExist, User.DoesNotExist):
             return Response({"error": "Invalid OTP or Email."}, status=status.HTTP_400_BAD_REQUEST)
 
-# ==========================================
-# GOOGLE AUTH: SET PASSWORD
-# ==========================================
-
 class SetGooglePasswordView(APIView):
-    permission_classes = [IsAuthenticated] # Must be logged in via Google token
+    permission_classes = [IsAuthenticated] 
 
     def post(self, request):
         user = request.user
@@ -378,20 +311,14 @@ class SetGooglePasswordView(APIView):
         user.save()
         return Response({"message": "Password set successfully."})
 
-# ==========================================
-# 2. STAFF MANAGEMENT (The Office Clerks / Admins)
-# ==========================================
-
 class StaffManagementView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def check_admin_access(self, request):
-        """ Helper to ensure only Admins can access this API """
         if not hasattr(request.user, 'profile'):
             return False
         return request.user.profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']
 
-    # --- THE MISSING GET METHOD (Restored) ---
     def get(self, request):
         try:
             if not self.check_admin_access(request):
@@ -421,23 +348,20 @@ class StaffManagementView(APIView):
             
             return Response(data)
         except Exception as e:
-            import traceback
             traceback.print_exc()
             return Response({"error": str(e)}, status=500)
 
-    # --- THE UPDATED POST METHOD (With Resend Logic) ---
     def post(self, request):
         if not self.check_admin_access(request):
             return Response({"error": "Permission denied"}, status=403)
 
         email = request.data.get('email')
         role = request.data.get('role', 'STAFF')
-        action = request.data.get('action') # 'resend' or None
+        action = request.data.get('action') 
         
         if not email:
             return Response({"error": "Email is required"}, status=400)
 
-        # 1. Handle New vs Resend
         if User.objects.filter(email=email).exists():
             if action == 'resend':
                 new_user = User.objects.get(email=email)
@@ -448,7 +372,6 @@ class StaffManagementView(APIView):
         else:
             if action == 'resend':
                 return Response({"error": "User not found to resend"}, status=404)
-            # Create fresh user
             new_user = User.objects.create(username=email, email=email)
             new_user.set_unusable_password()
             new_user.save()
@@ -462,21 +385,13 @@ class StaffManagementView(APIView):
             profile.is_setup_complete = True 
             profile.save()
 
-            # --- PREPARE EMAIL DATA ---
             try:
-                from django.core.mail import send_mail
-                from django.conf import settings
-                
                 login_url = "http://localhost:5173/login" 
-                
-                # Get Sender Name (The Admin who clicked invite)
                 sender_name = request.user.get_full_name()
                 if not sender_name:
                     sender_name = "The Administrator"
 
                 subject = f"You're invited to join {admin_org.name} on EduSphere"
-                
-                # --- PLAIN TEXT VERSION (Fallback) ---
                 plain_message = (
                     f"Hello,\n\n"
                     f"{sender_name} has invited you to join the staff at {admin_org.name} as a {role}.\n\n"
@@ -484,7 +399,6 @@ class StaffManagementView(APIView):
                     f"Welcome to the team!"
                 )
 
-                # --- HTML STYLED VERSION ---
                 html_message = f"""
                 <!DOCTYPE html>
                 <html>
@@ -543,38 +457,29 @@ class StaffManagementView(APIView):
             print("Invite Error:", e)
             return Response({"error": "Failed to create user. Check server logs."}, status=500)
 
-    # --- THE DELETE METHOD ---
     def delete(self, request):
-        """ Safe Delete: Handles normal users AND broken 'ghost' users """
         if not self.check_admin_access(request):
             return Response({"error": "Permission denied"}, status=403)
 
         user_id = request.GET.get('id') or request.data.get('id')
-        
         try:
-            # 1. Prevent suicide (Admin deleting themselves)
             if int(user_id) == request.user.id:
                 return Response({"error": "You cannot delete yourself."}, status=400)
 
             target_user = User.objects.get(id=user_id)
-            
-            # 2. Check Permissions (Safe Mode)
             if hasattr(target_user, 'profile') and target_user.profile.organization:
                 if target_user.profile.organization != request.user.profile.organization:
                     return Response({"error": "User belongs to another organization"}, status=403)
 
-            # 3. Perform Delete
             target_user.delete()
             return Response({"message": "User removed successfully"})
 
         except User.DoesNotExist:
             return Response({"error": "User not found"}, status=404)
         except Exception as e:
-            import traceback
             traceback.print_exc()
             return Response({"error": str(e)}, status=500)
         
-# 4. Current User (Used by Topbar and Sidebar)
 class CurrentUserView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -609,42 +514,75 @@ class CurrentUserView(APIView):
 
 class StudentUploadView(APIView):
     parser_classes = (MultiPartParser, FormParser)
+    permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
         file_obj = request.FILES.get('file')
-        academic_year = request.data.get('academic_year')
+        ay_id = request.data.get('academic_year')
         semester = request.data.get('semester') 
         
         if not file_obj:
             return Response({"error": "No file uploaded"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # FIX: Change 'userprofile' to 'profile' (matching your models.py related_name)
         try:
-            organization = request.user.profile.organization
-            department = request.user.profile.department
+            profile = request.user.profile
+            org = profile.organization
+            department = profile.department
         except AttributeError:
             return Response({"error": "User profile not found."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Initialize Service
-        service = StudentIngestionService(
-            file=file_obj,
-            organization=organization,
-            department=department,
-            academic_year=academic_year,
-            semester=semester
+        academic_year_obj = None
+        if ay_id:
+            try:
+                academic_year_obj = AcademicYear.objects.get(id=ay_id, organization=org)
+            except AcademicYear.DoesNotExist:
+                pass
+
+        import_log = DataImportLog.objects.create(
+            organization=org,
+            academic_year=academic_year_obj,
+            uploaded_by=profile,
+            file_name=file_obj.name,
+            import_type='STUDENT_REGISTRATION',
+            status='PENDING'
         )
-        
-        # Run Process
-        result = service.process()
-        
-        if result['status'] == 'error':
-             return Response(result, status=status.HTTP_400_BAD_REQUEST)
-             
-        return Response(result, status=status.HTTP_201_CREATED)
-    
+
+        try:
+            service = StudentIngestionService(
+                file=file_obj,
+                organization=org,
+                department=department,
+                academic_year=academic_year_obj, 
+                semester=semester
+            )
+            
+            result = service.process()
+            import_log.success_count = result.get('processed', 0)
+            
+            if result.get('status') == 'error':
+                import_log.status = 'FAILED'
+                import_log.error_log = result.get('message', 'Unknown Error')
+                import_log.save()
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                
+            elif result.get('errors'):
+                import_log.status = 'PARTIAL_SUCCESS'
+                import_log.error_log = "\n".join(result['errors'])
+                import_log.save()
+                return Response(result, status=status.HTTP_201_CREATED)
+                
+            else:
+                import_log.status = 'SUCCESS'
+                import_log.save()
+                return Response(result, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            import_log.status = 'FAILED'
+            import_log.error_log = f"System crash: {str(e)}"
+            import_log.save()
+            return Response({"error": str(e)}, status=500)
 
 
-# 1. Check Duplicate File
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def check_duplicate_file(request):
@@ -656,34 +594,36 @@ def check_duplicate_file(request):
     ).exists()
     return Response({'exists': exists})
 
-# 2. Upload & Generate Preview (No Save to Master)
-# backend/core/views.py
-
 class UploadPreviewView(APIView):
     parser_classes = (MultiPartParser, FormParser)
-    permission_classes = [permissions.IsAuthenticated] # Ensure permissions are imported
+    permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
         file_obj = request.FILES.get('file')
+        ay_val = request.data.get('academic_year')
+        org = request.user.profile.organization
         
-        # 1. SAFETY CHECK
         if not file_obj:
-            return Response(
-                {"error": "No file received. Please try selecting the file again."}, 
-                status=400
-            )
+            return Response({"error": "No file received."}, status=400)
 
         try:
-            # 2. Save to Temp Log
+            ay_obj = None
+            if ay_val:
+                if str(ay_val).isdigit():
+                    ay_obj = AcademicYear.objects.filter(id=ay_val, organization=org).first()
+                else:
+                    ay_obj = AcademicYear.objects.filter(name=ay_val, organization=org).first()
+
             log = DataImportLog.objects.create(
-                organization=request.user.profile.organization,
-                user=request.user,
+                organization=org,
+                uploaded_by=request.user.profile,
+                academic_year=ay_obj, 
                 file_name=file_obj.name,
                 file=file_obj,
-                category='STUDENTS'
+                import_type='STUDENT_REGISTRATION',
+                status='PENDING'
             )
 
-            # 3. Run Validation Logic
             service = StudentIngestionService(log.id)
             if not service.load_and_validate_schema():
                 return Response({
@@ -693,7 +633,6 @@ class UploadPreviewView(APIView):
 
             report = service.validate_data()
 
-            # 4. Return Report for UI
             return Response({
                 "log_id": log.id,
                 "status": "ready_for_review",
@@ -710,12 +649,11 @@ class UploadPreviewView(APIView):
             traceback.print_exc()
             return Response({"error": str(e)}, status=500)
 
-# 3. Commit Data (Full or Partial)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def commit_upload(request):
     log_id = request.data.get('log_id')
-    mode = request.data.get('mode') # 'FULL' or 'PARTIAL'
+    mode = request.data.get('mode') 
     
     try:
         service = StudentIngestionService(log_id)
@@ -724,41 +662,65 @@ def commit_upload(request):
             count = service.commit_data(partial=True)
             return Response({"status": "success", "message": f"Successfully imported {count} valid records. Errors were skipped."})
         else:
-            # Full Mode - Will fail if errors exist
             count = service.commit_data(partial=False)
             return Response({"status": "success", "message": f"Successfully imported all {count} records."})
             
     except Exception as e:
         return Response({"status": "error", "message": str(e)}, status=400)
-    
 
 
+class CheckDuplicateUploadView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        filename = request.data.get('filename')
+        ay_val = request.data.get('academic_year')
+        org = request.user.profile.organization
+        
+        ay_obj = None
+        if ay_val:
+            if str(ay_val).isdigit():
+                ay_obj = AcademicYear.objects.filter(id=ay_val, organization=org).first()
+            else:
+                ay_obj = AcademicYear.objects.filter(name=ay_val, organization=org).first()
+
+        exists = DataImportLog.objects.filter(
+            organization=org,
+            academic_year=ay_obj,
+            file_name=filename,
+            status__in=['SUCCESS', 'PARTIAL_SUCCESS']
+        ).exists()
+        
+        return Response({'exists': exists})
 
 
 class FacultyManagementView(APIView):
-    """
-    Manages the 'Academic Team' (The Factory Workers).
-    Distinct from 'StaffManagementView' (The Office Clerks).
-    """
-    permission_classes = [permissions.IsAuthenticated] # Only Admin/HOD can access
+    permission_classes = [permissions.IsAuthenticated] 
     parser_classes = (MultiPartParser, FormParser)
 
     def get(self, request):
         user_profile = request.user.profile
         is_admin = user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']
         target_dept_id = request.headers.get('X-Department-Id')
+        is_global = request.GET.get('global') == 'true' 
         
-        # FIX: Include FACULTY, HODs, OR any Admin who toggled 'is_teaching_faculty'
         faculties = UserProfile.objects.filter(
             Q(role__in=['FACULTY', 'HOD']) | Q(is_teaching_faculty=True),
+            user__is_active=True,
             organization=user_profile.organization
         ).select_related('user', 'department')
         
-        # Apply Security / Sandbox Filter
-        if not is_admin:
+        if is_global:
+            # Allocation Matrix: Bypass sandbox to assign external faculty
+            pass 
+        elif not is_admin:
             if not user_profile.department:
                 return Response([])
-            faculties = faculties.filter(department=user_profile.department)
+            # HOD Registry: Show home faculty + external faculty teaching in this dept
+            faculties = faculties.filter(
+                Q(department=user_profile.department) | 
+                Q(allocations__subject__department=user_profile.department)
+            ).distinct()
         elif target_dept_id and target_dept_id != 'ALL':
             faculties = faculties.filter(department_id=target_dept_id)
 
@@ -776,7 +738,6 @@ class FacultyManagementView(APIView):
             try:
                 org = request.user.profile.organization
                 
-                # SECURITY: HODs can only add faculty to their own department!
                 target_dept_id = data['department_id']
                 if request.user.profile.role == 'HOD' and str(target_dept_id) != str(request.user.profile.department.id):
                     return Response({"error": "HODs can only assign faculty to their own department."}, status=403)
@@ -793,7 +754,6 @@ class FacultyManagementView(APIView):
                     if not profile_created and profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']:
                         return Response({"error": "This email belongs to an Admin."}, status=400)
 
-                    # Admins can set someone as HOD, otherwise default to FACULTY
                     requested_role = request.data.get('role', 'FACULTY')
                     if requested_role == 'HOD' and request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
                         return Response({"error": "Only Admins can appoint HODs."}, status=403)
@@ -823,32 +783,27 @@ class FacultyManagementView(APIView):
 
         profile_id = request.GET.get('id')
         try:
-            # STRICT SANDBOX CHECK
             if user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']:
                 profile = UserProfile.objects.get(id=profile_id, organization=user_profile.organization)
             else:
                 profile = UserProfile.objects.get(id=profile_id, department=user_profile.department)
             
-            # Update User Base Name
             full_name = request.data.get('full_name')
             if full_name:
                 profile.user.first_name = full_name
                 profile.user.save()
             
-            # Admin-only fields
             if 'role' in request.data and user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']:
                 profile.role = request.data['role']
             if 'department_id' in request.data and user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']:
                 dept = Department.objects.get(id=request.data['department_id'], organization=profile.organization)
                 profile.department = dept
                 
-            # Allowed fields for HOD & Admin
             if 'designation' in request.data:
                 profile.designation = request.data['designation']
             if 'phone_number' in request.data:
                 profile.phone_number = request.data['phone_number']
                 
-            # Update Profile Picture
             if 'profile_picture' in request.FILES:
                 profile.profile_picture = request.FILES['profile_picture']
             elif 'remove_picture' in request.data and request.data['remove_picture'] == 'true':
@@ -870,7 +825,6 @@ class FacultyManagementView(APIView):
 
         profile_id = request.GET.get('id')
         try:
-            # STRICT SANDBOX CHECK
             if user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']:
                 target_profile = UserProfile.objects.get(id=profile_id, organization=user_profile.organization)
             else:
@@ -879,210 +833,14 @@ class FacultyManagementView(APIView):
             if target_profile.user.id == request.user.id:
                 return Response({"error": "You cannot delete your own account!"}, status=400)
             
-            # --- HARD DELETE ---
-            target_profile.user.delete()
-            return Response({"message": "Faculty removed successfully"})
+            target_profile.user.is_active = False
+            target_profile.user.save()
+            return Response({"message": "Faculty deactivated successfully"})
 
         except UserProfile.DoesNotExist:
             return Response({"error": "Faculty not found or not in your department"}, status=404)
-        except Exception as e:
-            return Response({"error": str(e)}, status=500)
-        
-# ==========================================
-# 3. Check Duplicate (Year-Aware)
-# ==========================================
-class CheckDuplicateUploadView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request):
-        filename = request.data.get('filename')
-        ay_val = request.data.get('academic_year')
-        org = request.user.profile.organization
-        
-        # Robustly resolve the Academic Year (Handles both ID and String Name)
-        ay_obj = None
-        if ay_val:
-            if str(ay_val).isdigit():
-                ay_obj = AcademicYear.objects.filter(id=ay_val, organization=org).first()
-            else:
-                ay_obj = AcademicYear.objects.filter(name=ay_val, organization=org).first()
-
-        # Check if this EXACT file was uploaded FOR THIS SPECIFIC YEAR
-        exists = DataImportLog.objects.filter(
-            organization=org,
-            academic_year=ay_obj,  # <--- Now it only checks duplicates within the selected year
-            file_name=filename,
-            status__in=['SUCCESS', 'PARTIAL_SUCCESS']
-        ).exists()
-        
-        return Response({'exists': exists})
 
 
-# ==========================================
-# 1. Preview View (Dynamic Year Support)
-# ==========================================
-class UploadPreviewView(APIView):
-    parser_classes = (MultiPartParser, FormParser)
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request):
-        file_obj = request.FILES.get('file')
-        ay_val = request.data.get('academic_year')
-        org = request.user.profile.organization
-        
-        if not file_obj:
-            return Response({"error": "No file received."}, status=400)
-
-        try:
-            # 1. Robustly Resolve Academic Year 
-            ay_obj = None
-            if ay_val:
-                if str(ay_val).isdigit():
-                    ay_obj = AcademicYear.objects.filter(id=ay_val, organization=org).first()
-                else:
-                    ay_obj = AcademicYear.objects.filter(name=ay_val, organization=org).first()
-
-            # 2. Save to Temp Log with the specific Academic Year
-            log = DataImportLog.objects.create(
-                organization=org,
-                uploaded_by=request.user.profile,
-                academic_year=ay_obj, # <--- Successfully links the year to the Log
-                file_name=file_obj.name,
-                file=file_obj,
-                import_type='STUDENT_REGISTRATION',
-                status='PENDING'
-            )
-
-            # 3. Run Validation Logic
-            service = StudentIngestionService(log.id)
-            if not service.load_and_validate_schema():
-                return Response({
-                    "status": "schema_error", 
-                    "errors": service.validation_report["schema_errors"]
-                }, status=400)
-
-            report = service.validate_data()
-
-            # 4. Return Report for UI
-            return Response({
-                "log_id": log.id,
-                "status": "ready_for_review",
-                "summary": {
-                    "total_rows": len(report["valid_rows"]) + len(report["error_rows"]),
-                    "valid_count": len(report["valid_rows"]),
-                    "error_count": len(report["error_rows"]),
-                },
-                "preview_data": report["preview_data"], 
-                "error_report": report["error_rows"] 
-            })
-            
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            return Response({"error": str(e)}, status=500)
-# ==========================================
-# STUDENT DATA INGESTION
-# ==========================================
-from core.models import DataImportLog, AcademicYear
-
-class CheckDuplicateUploadView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request):
-        filename = request.data.get('filename')
-        
-        # Check against the NEW DataImportLog statuses
-        exists = DataImportLog.objects.filter(
-            organization=request.user.profile.organization,
-            file_name=filename,
-            status__in=['SUCCESS', 'PARTIAL_SUCCESS'] # Updated to match your new choices
-        ).exists()
-        
-        return Response({'exists': exists})
-
-class StudentUploadView(APIView):
-    parser_classes = (MultiPartParser, FormParser)
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request, *args, **kwargs):
-        file_obj = request.FILES.get('file')
-        ay_id = request.data.get('academic_year') # Frontend sends ID
-        semester = request.data.get('semester') 
-        
-        if not file_obj:
-            return Response({"error": "No file uploaded"}, status=status.HTTP_400_BAD_REQUEST)
-
-        # 1. Get User's Context
-        try:
-            profile = request.user.profile
-            org = profile.organization
-            department = profile.department
-        except AttributeError:
-            return Response({"error": "User profile not found."}, status=status.HTTP_400_BAD_REQUEST)
-
-        # 2. Resolve Academic Year Object
-        academic_year_obj = None
-        if ay_id:
-            try:
-                academic_year_obj = AcademicYear.objects.get(id=ay_id, organization=org)
-            except AcademicYear.DoesNotExist:
-                pass
-
-        # 3. Create Audit Trail (Pending)
-        import_log = DataImportLog.objects.create(
-            organization=org,
-            academic_year=academic_year_obj,
-            uploaded_by=profile,
-            file_name=file_obj.name,
-            import_type='STUDENT_REGISTRATION',
-            status='PENDING'
-        )
-
-        try:
-            # 4. Initialize Your Ingestion Service (students.py)
-            service = StudentIngestionService(
-                file=file_obj,
-                organization=org,
-                department=department,
-                academic_year=academic_year_obj, # Pass the object
-                semester=semester
-            )
-            
-            # 5. Run Process
-            result = service.process()
-            
-            # 6. Update Audit Log Outcome
-            import_log.success_count = result.get('processed', 0)
-            
-            if result.get('status') == 'error':
-                import_log.status = 'FAILED'
-                import_log.error_log = result.get('message', 'Unknown Error')
-                import_log.save()
-                return Response(result, status=status.HTTP_400_BAD_REQUEST)
-                
-            elif result.get('errors'):
-                import_log.status = 'PARTIAL_SUCCESS'
-                import_log.error_log = "\n".join(result['errors'])
-                import_log.save()
-                return Response(result, status=status.HTTP_201_CREATED)
-                
-            else:
-                import_log.status = 'SUCCESS'
-                import_log.save()
-                return Response(result, status=status.HTTP_201_CREATED)
-
-        except Exception as e:
-            import_log.status = 'FAILED'
-            import_log.error_log = f"System crash: {str(e)}"
-            import_log.save()
-            return Response({"error": str(e)}, status=500)
-
-
-
-
-# ==========================================
-# DEPARTMENT MANAGEMENT
-# ==========================================
 class DepartmentListView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     
@@ -1097,7 +855,6 @@ class DepartmentListView(APIView):
             
         serializer = DepartmentSerializer(data=request.data)
         if serializer.is_valid():
-            # Explicitly pass the organization directly to the database save method
             serializer.save(organization=request.user.profile.organization)
             return Response(serializer.data, status=201)
             
@@ -1125,7 +882,6 @@ class DepartmentListView(APIView):
         dept_id = request.GET.get('id')
         try:
             dept = Department.objects.get(id=dept_id, organization=request.user.profile.organization)
-            # Security: Prevent deleting a department if it has users or subjects
             if dept.userprofile_set.exists() or dept.course_set.exists():
                 return Response({"error": "Cannot delete a department that contains staff or subjects."}, status=400)
                 
@@ -1135,12 +891,6 @@ class DepartmentListView(APIView):
             return Response({"error": "Department not found"}, status=404)
 
 
-#------------------------------------------------------------------------------------------------------------------
-
-
-# ==========================================
-# SUBJECT CATALOG (Phase 2)
-# ==========================================
 class SubjectCatalogView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -1149,10 +899,8 @@ class SubjectCatalogView(APIView):
         is_admin = user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']
         target_dept_id = request.headers.get('X-Department-Id')
         
-        # FIX: Course is linked to department, so we check department__organization
         courses = Course.objects.filter(department__organization=user_profile.organization)
         
-        # Apply Security / Sandbox Filter
         if not is_admin:
             if not user_profile.department:
                 return Response([])
@@ -1167,19 +915,16 @@ class SubjectCatalogView(APIView):
         return Response(CourseSerializer(courses, many=True).data)
 
     def post(self, request):
-        """ Create a new subject """
         if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
             return Response({"error": "Permission denied"}, status=403)
 
         target_dept_id = request.headers.get('X-Department-Id')
         
-        # FAILSAFE: Prevent creating subjects while viewing "All Departments"
         if target_dept_id == 'ALL':
             return Response({"error": "Please select a specific department from the Topbar to create a subject."}, status=400)
 
         data = request.data.copy()
         
-        # SMART ROUTING: Use Topbar department if Admin, else use personal department (for HODs)
         if request.user.profile.role in ['SUPER_ADMIN', 'ORG_ADMIN'] and target_dept_id:
             data['department'] = target_dept_id
         else:
@@ -1192,15 +937,12 @@ class SubjectCatalogView(APIView):
         return Response(serializer.errors, status=400)
 
     def put(self, request):
-        """ Update an existing subject """
         user_profile = request.user.profile
-        # FIX: Allow HOD
         if user_profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
             return Response({"error": "Permission denied"}, status=403)
 
         course_id = request.data.get('id')
         try:
-            # FIX: Allow Admins cross-department access, restrict HOD to their own
             if user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']:
                 course = Course.objects.get(id=course_id, department__organization=user_profile.organization)
             else:
@@ -1215,7 +957,6 @@ class SubjectCatalogView(APIView):
             return Response({"error": "Course not found"}, status=404)
 
     def delete(self, request):
-        """ Safely delete a subject (Hard Delete) """
         user_profile = request.user.profile
         if user_profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
             return Response({"error": "Permission denied"}, status=403)
@@ -1227,28 +968,17 @@ class SubjectCatalogView(APIView):
             else:
                 course = Course.objects.get(id=course_id, department=user_profile.department)
             
-            # SAFEGUARD: Still prevent deleting if a teacher is already assigned to it!
             if TeachingAllocation.objects.filter(subject=course).exists():
                 return Response({
                     "error": "Cannot delete this subject because it is already allocated to a teacher. Remove the allocation first."
                 }, status=400)
                 
-            # HARD DELETE: Completely remove it from the database
             course.delete()
             return Response({"message": "Subject deleted successfully"})
             
         except Course.DoesNotExist:
             return Response({"error": "Course not found"}, status=404)
 
-
-
-
-# ==========================================
-# 1. THE STUDENT DIRECTORY (Master List & Bulk Promote)
-# ==========================================
-
-from django.db.models import Q
-from core.models import AcademicYear, Student
 
 class StudentDirectoryView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -1258,10 +988,8 @@ class StudentDirectoryView(APIView):
         is_admin = user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']
         target_dept_id = request.headers.get('X-Department-Id')
         
-        # Start with the whole organization
         students = Student.objects.filter(organization=user_profile.organization)
         
-        # Apply Security / Sandbox Filter
         if not is_admin:
             if not user_profile.department:
                 return Response({"error": "You are not assigned to a department"}, status=400)
@@ -1269,7 +997,6 @@ class StudentDirectoryView(APIView):
         elif target_dept_id and target_dept_id != 'ALL':
             students = students.filter(department_id=target_dept_id)
 
-        # Smart Flow Logic (Academic Year)
         ay_id = request.GET.get('academic_year') 
         if ay_id:
             try:
@@ -1293,9 +1020,7 @@ class StudentDirectoryView(APIView):
         return Response(StudentSerializer(students, many=True).data)
 
     def patch(self, request):
-        """ Bulk update semester AND migrate them to the active academic year """
         user_profile = request.user.profile
-        # FIX: Allow HOD to bulk promote
         if user_profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
             return Response({"error": "Permission denied"}, status=403)
 
@@ -1306,7 +1031,6 @@ class StudentDirectoryView(APIView):
         if not student_ids or not new_sem:
             return Response({"error": "Missing student IDs or target semester"}, status=400)
             
-        # FIX: Let Org Admin manipulate any student, but restrict HOD to their department
         if user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']:
             students = Student.objects.filter(id__in=student_ids, organization=user_profile.organization)
         else:
@@ -1318,10 +1042,7 @@ class StudentDirectoryView(APIView):
             
         students.update(**update_data)
         return Response({"message": f"Successfully promoted/demoted {len(student_ids)} students."})
-
-# ==========================================
-# 2. STUDENT BATCH MANAGEMENT (The Buckets)
-# ==========================================
+    
 class StudentGroupView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -1330,10 +1051,8 @@ class StudentGroupView(APIView):
         is_admin = user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']
         target_dept_id = request.headers.get('X-Department-Id')
         
-        # FIX: StudentGroup is linked to department, so we check department__organization
         groups = StudentGroup.objects.filter(department__organization=user_profile.organization)
 
-        # Apply Security / Sandbox Filter
         if not is_admin:
             if not user_profile.department:
                 return Response([])
@@ -1341,7 +1060,6 @@ class StudentGroupView(APIView):
         elif target_dept_id and target_dept_id != 'ALL':
             groups = groups.filter(department_id=target_dept_id)
 
-        # Academic Year Filter
         ay_id = request.query_params.get('academic_year') or request.GET.get('academic_year')
         if ay_id:
             groups = groups.filter(academic_year_id=ay_id)
@@ -1353,19 +1071,16 @@ class StudentGroupView(APIView):
         return Response(StudentGroupSerializer(groups, many=True).data)
 
     def post(self, request):
-        """ Create a new Batch / Group """
         if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
             return Response({"error": "Permission denied"}, status=403)
             
         target_dept_id = request.headers.get('X-Department-Id')
         
-        # FAILSAFE: Prevent creating batches while viewing "All Departments"
         if target_dept_id == 'ALL':
             return Response({"error": "Please select a specific department from the Topbar to create a batch."}, status=400)
 
         data = request.data.copy()
         
-        # SMART ROUTING
         if request.user.profile.role in ['SUPER_ADMIN', 'ORG_ADMIN'] and target_dept_id:
             data['department'] = target_dept_id
         else:
@@ -1378,15 +1093,12 @@ class StudentGroupView(APIView):
         return Response(serializer.errors, status=400)
     
     def put(self, request):
-        """ Update Batch / Group details (Name, Type) """
         user_profile = request.user.profile
-        # FIX: Allow HOD
         if user_profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
             return Response({"error": "Permission denied"}, status=403)
             
         group_id = request.data.get('id')
         try:
-            # FIX: Allow Org Admins to edit regardless of Topbar Context
             if user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']:
                 group = StudentGroup.objects.get(id=group_id, department__organization=user_profile.organization)
             else:
@@ -1401,9 +1113,7 @@ class StudentGroupView(APIView):
             return Response({"error": "Group not found"}, status=404)
 
     def patch(self, request):
-        """ Add or Remove students from a specific group """
         user_profile = request.user.profile
-        # FIX: Allow HOD
         if user_profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
             return Response({"error": "Permission denied"}, status=403)
             
@@ -1429,7 +1139,6 @@ class StudentGroupView(APIView):
             return Response({"error": "Group not found"}, status=404)
 
     def delete(self, request):
-        """ Delete a Batch """
         user_profile = request.user.profile
         
         if user_profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
@@ -1447,16 +1156,10 @@ class StudentGroupView(APIView):
             return Response({"error": "Group not found"}, status=404)
 
 
-from django.db.models import Q
-
-# ==========================================
-# 1. THE ALLOCATION MATRIX (Admin & HOD View)
-# ==========================================
 class AllocationManagerView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        """ Fetch all allocations for the department (Admin View) """
         user_profile = request.user.profile
         is_org_admin = user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']
         is_hod = user_profile.role == 'HOD'
@@ -1465,37 +1168,47 @@ class AllocationManagerView(APIView):
         ay_id = request.GET.get('academic_year')
         faculty_id = request.GET.get('faculty_id') 
         
-        # Base query: all allocations in the org for the year
+        if faculty_id == 'undefined':
+            faculty_id = None
+        
         allocations = TeachingAllocation.objects.filter(
             subject__department__organization=user_profile.organization,
             academic_year_id=ay_id
         )
         
-        # Apply Strict Security / Sandbox Filter
         if is_org_admin:
             if target_dept_id and target_dept_id != 'ALL':
                 allocations = allocations.filter(subject__department_id=target_dept_id)
         elif is_hod:
-            # HOD Sandbox: Show department classes AND any classes they personally teach
             if user_profile.department:
-                allocations = allocations.filter(
-                    Q(subject__department=user_profile.department) | Q(faculty=user_profile)
-                ).distinct()
+                if faculty_id:
+                     # Check if the requested faculty is internal or external
+                     try:
+                         target_faculty = UserProfile.objects.get(id=faculty_id)
+                         if target_faculty.department != user_profile.department:
+                             # External faculty: HOD only sees what they teach in the HOD's dept
+                             allocations = allocations.filter(subject__department=user_profile.department)
+                         # If internal, we apply no department filter, revealing their full cross-department workload
+                     except UserProfile.DoesNotExist:
+                         pass
+                else:
+                    # General view
+                    allocations = allocations.filter(
+                        Q(subject__department=user_profile.department) | Q(faculty=user_profile)
+                    ).distinct()
             else:
                 allocations = allocations.filter(faculty=user_profile)
         else:
-            # Normal faculty only see their own
             allocations = allocations.filter(faculty=user_profile)
             
-        if faculty_id:
+        if faculty_id: 
             allocations = allocations.filter(faculty_id=faculty_id)
             
         return Response(TeachingAllocationSerializer(allocations, many=True).data)
 
     def post(self, request):
-        """ Bulk Create Allocations (The 'Multiple Batches' Magic) """
-        # FIX: Added HOD to permissions
-        if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
+        user_profile = request.user.profile
+        if user_profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
             return Response({"error": "Permission denied"}, status=403)
             
         ay_id = request.data.get('academic_year')
@@ -1505,6 +1218,16 @@ class AllocationManagerView(APIView):
         
         if not all([ay_id, faculty_id, subject_id, group_ids]):
             return Response({"error": "Missing required fields"}, status=400)
+
+        # --- NEW STRICT SANDBOX CHECK ---
+        if user_profile.role == 'HOD':
+            try:
+                subject = Course.objects.get(id=subject_id)
+                if subject.department != user_profile.department:
+                    return Response({"error": "You can only assign teachers to subjects within your own department."}, status=403)
+            except Course.DoesNotExist:
+                return Response({"error": "Subject not found."}, status=404)
+        # --------------------------------
 
         created_allocations = []
         try:
@@ -1527,7 +1250,6 @@ class AllocationManagerView(APIView):
             return Response({"error": str(e)}, status=500)
 
     def delete(self, request):
-        """ Remove a specific allocation """
         user_profile = request.user.profile
         if user_profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
             return Response({"error": "Permission denied"}, status=403)
@@ -1546,15 +1268,10 @@ class AllocationManagerView(APIView):
         except TeachingAllocation.DoesNotExist:
             return Response({"error": "Not found"}, status=404)
         
-# ==========================================
-# 2. FACULTY DASHBOARD (Teacher View)
-# ==========================================
 class MyClassesView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        """ Fetch ONLY the classes assigned to the logged-in teacher """
-        # We only want classes for the currently ACTIVE Academic Year
         try:
             allocations = TeachingAllocation.objects.filter(
                 faculty=request.user.profile,
@@ -1565,30 +1282,20 @@ class MyClassesView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=500)
 
-
-
-# Quick serializer for the view
 class AcademicYearSerializer(serializers.ModelSerializer):
     class Meta:
         model = AcademicYear
         fields = '__all__'
 
-# ==========================================
-# ACADEMIC YEAR MANAGEMENT
-# ==========================================
 class AcademicYearView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        """ Fetch all academic years for the organization """
-        # Only Org Admins/Super Admins might need to see all, 
-        # but everyone needs to know the active one.
         org = request.user.profile.organization
         years = AcademicYear.objects.filter(organization=org).order_by('-start_date')
         return Response(AcademicYearSerializer(years, many=True).data)
 
     def post(self, request):
-        """ Create a new Academic Year """
         if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
             return Response({"error": "Permission denied"}, status=403)
             
@@ -1597,7 +1304,6 @@ class AcademicYearView(APIView):
         
         serializer = AcademicYearSerializer(data=data)
         if serializer.is_valid():
-            # If they set this as active, deactivate all others first
             if serializer.validated_data.get('is_active', False):
                 AcademicYear.objects.filter(organization=request.user.profile.organization).update(is_active=False)
             
@@ -1606,7 +1312,6 @@ class AcademicYearView(APIView):
         return Response(serializer.errors, status=400)
 
     def put(self, request):
-        """ Update an Academic Year (e.g., Set as Active) """
         if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
             return Response({"error": "Permission denied"}, status=403)
             
@@ -1614,7 +1319,6 @@ class AcademicYearView(APIView):
         try:
             year = AcademicYear.objects.get(id=ay_id, organization=request.user.profile.organization)
             
-            # If marking as active, deactivate the others
             is_active = request.data.get('is_active')
             if str(is_active).lower() == 'true':
                 AcademicYear.objects.filter(organization=request.user.profile.organization).update(is_active=False)
@@ -1628,13 +1332,10 @@ class AcademicYearView(APIView):
         except AcademicYear.DoesNotExist:
             return Response({"error": "Academic Year not found"}, status=404)
 
-
-
 class AcademicYearSummaryView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        """ Get structural analytics for a specific academic year """
         if request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
             return Response({"error": "Permission denied"}, status=403)
             
@@ -1642,14 +1343,11 @@ class AcademicYearSummaryView(APIView):
         if not ay_id:
             return Response({"error": "Year ID is required"}, status=400)
 
-        # 1. Batches Breakdown by Semester
         groups = StudentGroup.objects.filter(academic_year_id=ay_id)
         sem_data = groups.values('semester').annotate(batch_count=Count('id')).order_by('semester')
         
-        # 2. Count UNIQUE students enrolled in at least one batch this year
         total_students = groups.aggregate(total=Count('students', distinct=True))['total'] or 0
 
-        # 3. Faculty Workload Breakdown
         allocations = TeachingAllocation.objects.filter(academic_year_id=ay_id)
         faculty_data = allocations.values(
             'faculty__user__first_name', 
@@ -1664,13 +1362,11 @@ class AcademicYearSummaryView(APIView):
             "faculty_workload": list(faculty_data)
         })
 
-
 class StudentToggleStatusView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
         user_profile = request.user.profile
-        # FIX: Allow HOD
         if user_profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
             return Response({"error": "Permission denied"}, status=403)
             
@@ -1687,9 +1383,7 @@ class StudentToggleStatusView(APIView):
         except Student.DoesNotExist:
             return Response({"error": "Student not found"}, status=404)
 
-
 class ToggleTeachingRoleView(APIView):
-    """ Allows Admins to add themselves to the Faculty Registry """
     permission_classes = [permissions.IsAuthenticated]
     
     def post(self, request):

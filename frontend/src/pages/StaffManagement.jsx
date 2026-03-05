@@ -24,9 +24,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import "./StaffManagement.css";
 import { staffService, academicService } from "../services/api";
 import { useAcademic } from "../context/AcademicContext";
-import { useAuth } from "../context/AuthContext"; // <-- NEW IMPORT
+import { useAuth } from "../context/AuthContext"; 
 
-// FIX: Look for both full_name and name safely
 const getInitials = (name) => {
   if (!name) return "F";
   const cleanName = name.replace(/^(Dr\.|Prof\.|Mr\.|Mrs\.|Ms\.)\s+/i, "");
@@ -55,8 +54,8 @@ const getColorForName = (name) => {
 };
 
 const StaffManagement = () => {
-  const { user } = useAuth(); // <-- Get Current User
-  const isHOD = user?.role_code === "HOD"; // <-- Identify HOD
+  const { user } = useAuth(); 
+  const isHOD = user?.role_code === "HOD"; 
 
   const [activeTab, setActiveTab] = useState("faculty");
   const [members, setMembers] = useState([]);
@@ -152,7 +151,6 @@ const StaffManagement = () => {
     }
   };
 
-  // FIX: Make search filter check both full_name and name
   const filteredMembers = members.filter((m) => {
     const displayName = m.full_name || m.name || "";
     return (
@@ -194,7 +192,6 @@ const StaffManagement = () => {
 
       <div className="tabs-container">
         {["faculty", "staff"].map((tab) => {
-          // ENFORCEMENT 1: Hide "Office Staff" tab from HOD
           if (isHOD && tab === "staff") return null;
 
           return (
@@ -254,7 +251,10 @@ const StaffManagement = () => {
                 {filteredMembers.length > 0 ? (
                   filteredMembers.map((member) => {
                     const displayName = member.full_name || member.name || "Unknown";
-                    const isSelf = member.email === user?.email; // Identify if row is current user
+                    const isSelf = member.email === user?.email; 
+                    
+                    const deptName = member.department_name || member.department || "";
+                    const isExternal = isHOD && deptName !== activeDepartment?.name;
 
                     return (
                       <motion.tr
@@ -315,7 +315,12 @@ const StaffManagement = () => {
                           )}
                         </td>
                         <td>
-                          {member.department_name || member.department || "-"}
+                          {deptName || "-"}
+                          {isExternal && (
+                            <span style={{ fontSize: "0.7rem", marginLeft: "8px", background: "rgba(245, 158, 11, 0.15)", color: "#d97706", padding: "2px 6px", borderRadius: "10px", fontWeight: "bold" }}>
+                              External
+                            </span>
+                          )}
                         </td>
                         <td>
                           {member.is_setup_complete ||
@@ -348,8 +353,7 @@ const StaffManagement = () => {
                               </button>
                             )}
                             
-                            {/* ENFORCEMENT 2: HOD Cannot edit themselves */}
-                            {activeTab === "faculty" && !(isHOD && isSelf) && (
+                            {activeTab === "faculty" && !(isHOD && isSelf) && !isExternal && (
                               <button
                                 className="btn-icon action-edit"
                                 onClick={() => setEditTarget(member)}
@@ -374,8 +378,7 @@ const StaffManagement = () => {
                                 </button>
                               )}
                               
-                            {/* ENFORCEMENT 2: HOD Cannot delete themselves */}
-                            {member.role_code !== "ORG_ADMIN" && !(isHOD && isSelf) && (
+                            {member.role_code !== "ORG_ADMIN" && !(isHOD && isSelf) && !isExternal && (
                               <button
                                 className="btn-icon action-delete"
                                 onClick={() => setDeleteTarget(member)}
@@ -480,7 +483,6 @@ const StaffManagement = () => {
           </div>
         )}
         
-        {/* WORKLOAD MODAL */}
         {showWorkloadModal && (
           <div className="modal-overlay">
             <motion.div
@@ -594,7 +596,6 @@ const FacultyFormModal = ({
 
   const resolvedName = facultyData?.full_name || facultyData?.name || "";
 
-  // Helper to accurately map Department ID
   let initialDeptId = "";
   if (facultyData) {
     if (facultyData.department_id) initialDeptId = facultyData.department_id;
@@ -605,7 +606,6 @@ const FacultyFormModal = ({
     }
   }
   
-  // ENFORCEMENT 4: Auto-select Department for HOD
   if (!initialDeptId) {
     initialDeptId = (isHOD && activeDepartment) ? activeDepartment.id : (departments.length > 0 ? departments[0].id : "");
   }
@@ -613,7 +613,6 @@ const FacultyFormModal = ({
   const [formData, setFormData] = useState({
     full_name: resolvedName,
     email: facultyData?.email || "",
-    // ENFORCEMENT 3: Force FACULTY role if HOD is creating the profile
     role: isHOD ? "FACULTY" : (facultyData?.role_code === "HOD" ? "HOD" : "FACULTY"),
     designation: facultyData?.designation || "Assistant Professor",
     phone_number: facultyData?.phone_number || "",
@@ -786,7 +785,7 @@ const FacultyFormModal = ({
                 <select
                   required
                   value={formData.department_id}
-                  disabled={isHOD} // ENFORCEMENT 4: HOD Cannot change dept
+                  disabled={isHOD}
                   onChange={(e) =>
                     setFormData({ ...formData, department_id: e.target.value })
                   }
@@ -806,7 +805,6 @@ const FacultyFormModal = ({
               </div>
             </div>
 
-            {/* Smart Flex Grid to prevent cropping */}
             <div
               className="input-row"
               style={{
@@ -821,7 +819,7 @@ const FacultyFormModal = ({
                   <Briefcase size={18} className="input-icon" />
                   <select
                     value={formData.role}
-                    disabled={isHOD} // ENFORCEMENT 3: HOD Cannot grant HOD
+                    disabled={isHOD} 
                     onChange={(e) =>
                       setFormData({ ...formData, role: e.target.value })
                     }
@@ -835,7 +833,6 @@ const FacultyFormModal = ({
                 </div>
               </div>
 
-              {/* Designation is hidden dynamically when HOD is selected */}
               {formData.role !== "HOD" && (
                 <div className="sinput-group">
                   <label>Designation</label>

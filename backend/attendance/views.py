@@ -25,15 +25,13 @@ class ClassSessionView(APIView):
         is_hod = user_profile.role == 'HOD'
         target_dept_id = request.headers.get('X-Department-Id')
 
-        # Start by restricting to the user's Organization
         sessions = ClassSession.objects.filter(allocation__subject__department__organization=user_profile.organization)
 
-        # Apply Strict Security / Sandbox Filter
         if is_org_admin:
             if target_dept_id and target_dept_id != 'ALL':
                 sessions = sessions.filter(allocation__subject__department_id=target_dept_id)
         elif is_hod:
-            # HOD Sandbox: Ignore headers, strictly bind to their own department + their own classes
+            # HOD Calendar: Show their department + any external classes they personally teach
             if user_profile.department:
                 sessions = sessions.filter(
                     Q(allocation__subject__department=user_profile.department) | 
@@ -42,7 +40,6 @@ class ClassSessionView(APIView):
             else:
                 sessions = sessions.filter(allocation__faculty=user_profile)
         else:
-            # Faculty Sandbox: Strictly what they teach
             sessions = sessions.filter(allocation__faculty=user_profile)
 
         sessions = sessions.order_by('-date', '-updated_at')
@@ -60,11 +57,12 @@ class ClassSessionView(APIView):
             user_profile = request.user.profile
             is_org_admin = user_profile.role in ['ORG_ADMIN', 'SUPER_ADMIN']
             
-            # SECURITY CHECK
+            # SECURITY CHECK: Allow if it's their department OR if they personally teach it
             if not is_org_admin:
-                if user_profile.role == 'HOD' and allocation.subject.department != user_profile.department:
+                is_assigned_faculty = (allocation.faculty == user_profile)
+                if user_profile.role == 'HOD' and allocation.subject.department != user_profile.department and not is_assigned_faculty:
                     return Response({"error": "Unauthorized: Class outside your department."}, status=403)
-                elif user_profile.role not in ['HOD'] and allocation.faculty != user_profile:
+                elif user_profile.role not in ['HOD'] and not is_assigned_faculty:
                     return Response({"error": "Unauthorized: You are not assigned to this class."}, status=403)
             
             with transaction.atomic():
@@ -100,11 +98,12 @@ class ClassSessionView(APIView):
             user_profile = request.user.profile
             is_org_admin = user_profile.role in ['ORG_ADMIN', 'SUPER_ADMIN']
             
-            # Security Check
+            # Security Check: Allow if it's their department OR if they personally teach it
             if not is_org_admin:
-                if user_profile.role == 'HOD' and session.allocation.subject.department != user_profile.department:
+                is_assigned_faculty = (session.allocation.faculty == user_profile)
+                if user_profile.role == 'HOD' and session.allocation.subject.department != user_profile.department and not is_assigned_faculty:
                     return Response({"error": "Unauthorized: Session belongs to another department."}, status=403)
-                elif user_profile.role not in ['HOD'] and session.allocation.faculty != user_profile:
+                elif user_profile.role not in ['HOD'] and not is_assigned_faculty:
                     return Response({"error": "Unauthorized to delete this session."}, status=403)
                 
             session.delete()
@@ -137,7 +136,7 @@ class AttendanceReportView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        """ Calculates TA, TC, and % for a specific class for PDF export """
+        """ Calculates TA, TC, and % for a SPECIFIC individual class PDF export """
         allocation_id = request.GET.get('allocation_id')
         start_date = request.GET.get('start_date') 
         end_date = request.GET.get('end_date')     
@@ -152,11 +151,12 @@ class AttendanceReportView(APIView):
             user_profile = request.user.profile
             is_org_admin = user_profile.role in ['ORG_ADMIN', 'SUPER_ADMIN']
             
-            # Security Check
+            # Security Check: Allow if it's their department OR if they personally teach it
             if not is_org_admin:
-                if user_profile.role == 'HOD' and base_alloc.subject.department != user_profile.department:
+                is_assigned_faculty = (base_alloc.faculty == user_profile)
+                if user_profile.role == 'HOD' and base_alloc.subject.department != user_profile.department and not is_assigned_faculty:
                     return Response({"error": "Unauthorized to view this department's report."}, status=403)
-                elif user_profile.role not in ['HOD'] and base_alloc.faculty != user_profile:
+                elif user_profile.role not in ['HOD'] and not is_assigned_faculty:
                     return Response({"error": "Unauthorized to view this report."}, status=403)
 
             # ALLOCATION MERGING LOGIC
@@ -220,7 +220,6 @@ class AttendanceReportView(APIView):
                 
             results.sort(key=lambda x: x['roll_number'])
             
-            # COMBINE FACULTY NAMES IF MERGED
             if merge_shared:
                 faculty_names = []
                 for a in target_allocations:
@@ -269,15 +268,17 @@ class CumulativeReportView(APIView):
                 subject_id__in=subject_id_list
             ).select_related('subject', 'subject__department', 'student_group')
 
-            # Sandbox Check
             user_profile = request.user.profile
             is_org_admin = user_profile.role in ['ORG_ADMIN', 'SUPER_ADMIN']
             
+            # --- UPDATED SANDBOX: Both HOD and Faculty see the whole department ---
             if not is_org_admin:
-                if user_profile.role == 'HOD':
+                if user_profile.department:
+                    # Strictly department subjects for overall cumulative reports.
                     allocations = allocations.filter(subject__department=user_profile.department)
                 else:
                     allocations = allocations.filter(faculty=user_profile)
+            # ---------------------------------------------------------------------
 
             if not allocations.exists():
                 return Response({"error": "No recorded classes found for these subjects."}, status=404)
@@ -372,7 +373,7 @@ class CumulativeReportView(APIView):
 
         except Exception as e:
             return Response({"error": str(e)}, status=500)
-
+        
 class AnalyticsRadarView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -390,31 +391,32 @@ class AnalyticsRadarView(APIView):
                 
             user_profile = request.user.profile
             is_org_admin = user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']
-            is_hod = user_profile.role == 'HOD'
             target_dept_id = request.headers.get('X-Department-Id')
             
-            # Base query restricted to organization
             allocations = TeachingAllocation.objects.filter(
                 academic_year_id=academic_year_id,
                 subject__department__organization=user_profile.organization
             ).select_related('subject', 'student_group')
             
-            # Apply Security / Sandbox Filter (Fixed for HOD)
+            # --- UPDATED SANDBOX: Faculty acts exactly like HOD for analytics ---
             if is_org_admin:
                 if target_dept_id and target_dept_id != 'ALL':
                     allocations = allocations.filter(subject__department_id=target_dept_id)
-            elif is_hod:
+            else:
                 if user_profile.department:
-                    allocations = allocations.filter(
-                        Q(subject__department=user_profile.department) | 
-                        Q(faculty=user_profile)
-                    ).distinct()
+                    # If viewing an INDIVIDUAL class they teach, allow external viewing.
+                    if allocation_id:
+                        allocations = allocations.filter(
+                            Q(subject__department=user_profile.department) | Q(faculty=user_profile)
+                        )
+                    # If viewing OVERALL department data, restrict strictly to their department.
+                    else:
+                        allocations = allocations.filter(subject__department=user_profile.department)
                 else:
                     allocations = allocations.filter(faculty=user_profile)
-            else:
-                allocations = allocations.filter(faculty=user_profile)
+            # --------------------------------------------------------------------
 
-            # Apply Explicit Filters (from UI dropdowns)
+            # Apply final individual filters
             if allocation_id:
                 allocations = allocations.filter(id=allocation_id)
             else:
@@ -504,7 +506,6 @@ class AnalyticsRadarView(APIView):
             })
             
         except Exception as e:
-            # Fallback to prevent infinite spinners if an error occurs
             print(f"Analytics Error: {str(e)}")
             return Response({
                 "safe": [], "atRisk": [], "defaulters": [], 

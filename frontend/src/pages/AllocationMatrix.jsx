@@ -17,9 +17,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { staffService, academicService, studentService } from "../services/api";
 import "./AllocationMatrix.css";
 import { useAcademic } from "../context/AcademicContext";
+import { useAuth } from "../context/AuthContext";
 
 const AllocationMatrix = () => {
-  const { activeAcademicYear } = useAcademic();
+  const { activeAcademicYear, activeDepartment } = useAcademic();
+  const { user } = useAuth();
 
   const [facultyList, setFacultyList] = useState([]);
   const [allocations, setAllocations] = useState([]);
@@ -29,12 +31,14 @@ const AllocationMatrix = () => {
   const [searchTerm, setSearchTerm] = useState("");
 
   const [showModal, setShowModal] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState(null); // NEW: Deletion State
+  const [deleteTarget, setDeleteTarget] = useState(null); 
   const [toast, setToast] = useState({
     show: false,
     message: "",
     type: "success",
   });
+
+  const isOrgAdmin = ["ORG_ADMIN", "SUPER_ADMIN"].includes(user?.role_code);
 
   const getImageUrl = (path) => {
     if (!path) return null;
@@ -58,7 +62,7 @@ const AllocationMatrix = () => {
 
   const fetchFaculty = async () => {
     try {
-      const res = await staffService.getFaculty();
+      const res = await staffService.getOrganizationFaculties()
       setFacultyList(res.data);
     } catch (err) {
       showToast("Failed to load faculty", "error");
@@ -79,7 +83,6 @@ const AllocationMatrix = () => {
     }
   };
 
-  // NEW: Deletion Confirmation Handler
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     try {
@@ -97,10 +100,55 @@ const AllocationMatrix = () => {
     const displayName = f.full_name || f.name || "";
     return displayName.toLowerCase().includes(searchTerm.toLowerCase());
   });
-  // --- NAVIGATION GUARD: Redirect if no active academic year ---
+
+  const internalFaculties = filteredFaculty.filter((f) => (f.department_name || f.department) === activeDepartment?.name);
+  const externalFaculties = filteredFaculty.filter((f) => (f.department_name || f.department) !== activeDepartment?.name);
+
   if (!activeAcademicYear) {
     return <div className="spinner" style={{ margin: "5rem auto" }}></div>;
   }
+
+  const renderFacultyRow = (faculty, isExternal = false) => {
+    const displayName = faculty.full_name || faculty.name || "Unknown";
+    return (
+      <div
+        key={faculty.id}
+        className={`faculty-list-item ${selectedFaculty?.id === faculty.id ? "active" : ""}`}
+        onClick={() => setSelectedFaculty(faculty)}
+      >
+        {faculty.profile_picture ? (
+          <img
+            src={getImageUrl(faculty.profile_picture)}
+            alt={displayName}
+            className="avatar-circle-sm"
+            style={{ objectFit: "cover" }}
+            onError={(e) => {
+              e.target.style.display = "none";
+              e.target.nextSibling.style.display = "flex";
+            }}
+          />
+        ) : null}
+
+        <div
+          className="avatar-circle-sm fallback-avatar"
+          style={{
+            background: "var(--primary-color)",
+            display: faculty.profile_picture ? "none" : "flex",
+          }}
+        >
+          {displayName.charAt(0).toUpperCase()}
+        </div>
+
+        <div>
+          <div className="font-medium">{displayName}</div>
+          <div className="text-sm text-muted">
+            {faculty.designation || "Faculty"} 
+            {isExternal && <span style={{ color: "#d97706", fontWeight: "bold", marginLeft: "4px" }}>• {faculty.department_name || faculty.department}</span>}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="allocation-container fade-in">
@@ -144,48 +192,25 @@ const AllocationMatrix = () => {
             {loading ? (
               <div className="spinner" style={{ margin: "2rem auto" }}></div>
             ) : (
-              filteredFaculty.map((faculty) => {
-                const displayName =
-                  faculty.full_name || faculty.name || "Unknown";
-
-                return (
-                  <div
-                    key={faculty.id}
-                    className={`faculty-list-item ${selectedFaculty?.id === faculty.id ? "active" : ""}`}
-                    onClick={() => setSelectedFaculty(faculty)}
-                  >
-                    {faculty.profile_picture ? (
-                      <img
-                        src={getImageUrl(faculty.profile_picture)}
-                        alt={displayName}
-                        className="avatar-circle-sm"
-                        style={{ objectFit: "cover" }}
-                        onError={(e) => {
-                          e.target.style.display = "none";
-                          e.target.nextSibling.style.display = "flex";
-                        }}
-                      />
-                    ) : null}
-
-                    <div
-                      className="avatar-circle-sm fallback-avatar"
-                      style={{
-                        background: "var(--primary-color)",
-                        display: faculty.profile_picture ? "none" : "flex",
-                      }}
-                    >
-                      {displayName.charAt(0).toUpperCase()}
+              isOrgAdmin ? (
+                filteredFaculty.map((faculty) => renderFacultyRow(faculty, true))
+              ) : (
+                <>
+                  {internalFaculties.length > 0 && (
+                    <div style={{ padding: "0.5rem 1rem", fontSize: "0.75rem", fontWeight: "bold", color: "var(--text-muted)", textTransform: "uppercase", background: "var(--bg-main)", borderBottom: "1px solid var(--border-color)", borderTop: "1px solid var(--border-color)" }}>
+                      📍 My Department
                     </div>
+                  )}
+                  {internalFaculties.map((faculty) => renderFacultyRow(faculty, false))}
 
-                    <div>
-                      <div className="font-medium">{displayName}</div>
-                      <div className="text-sm text-muted">
-                        {faculty.designation || "Faculty"}
-                      </div>
+                  {externalFaculties.length > 0 && (
+                    <div style={{ padding: "0.5rem 1rem", fontSize: "0.75rem", fontWeight: "bold", color: "var(--text-muted)", textTransform: "uppercase", background: "var(--bg-main)", borderBottom: "1px solid var(--border-color)", borderTop: "1px solid var(--border-color)", marginTop: "0.5rem" }}>
+                      🌐 Other Departments
                     </div>
-                  </div>
-                );
-              })
+                  )}
+                  {externalFaculties.map((faculty) => renderFacultyRow(faculty, true))}
+                </>
+              )
             )}
           </div>
         </div>
@@ -230,7 +255,7 @@ const AllocationMatrix = () => {
                           className="btn-icon hover-red"
                           onClick={() =>
                             setDeleteTarget(alloc)
-                          } /* Trigger Modal */
+                          } 
                           title="Remove Class"
                         >
                           <Trash2 size={16} />
@@ -341,7 +366,6 @@ const AllocationMatrix = () => {
         </div>
       </div>
 
-      {/* --- MODALS --- */}
       <AnimatePresence>
         {showModal && selectedFaculty && (
           <AllocationModal
@@ -353,7 +377,6 @@ const AllocationMatrix = () => {
           />
         )}
 
-        {/* NEW: Deletion Confirmation Modal */}
         {deleteTarget && (
           <div className="modal-overlay">
             <motion.div
@@ -412,13 +435,11 @@ const AllocationMatrix = () => {
   );
 };
 
-// --- MULTI-BATCH ALLOCATION MODAL ---
 const AllocationModal = ({ faculty, ayId, onClose, onRefresh, showToast }) => {
   const [filterSem, setFilterSem] = useState(1);
   const [subjects, setSubjects] = useState([]);
   const [groups, setGroups] = useState([]);
 
-  // NEW: State to hold department allocations for conflict checking
   const [allAllocations, setAllAllocations] = useState([]);
   const [conflictWarning, setConflictWarning] = useState(false);
   const [conflictingClasses, setConflictingClasses] = useState([]);
@@ -433,7 +454,7 @@ const AllocationModal = ({ faculty, ayId, onClose, onRefresh, showToast }) => {
         const [subRes, grpRes, allocRes] = await Promise.all([
           academicService.getSubjects(filterSem),
           studentService.getGroups(ayId, filterSem),
-          academicService.getAllocations(ayId), // Fetching all allocations to check shared loads!
+          academicService.getAllocations(ayId), 
         ]);
         setSubjects(subRes.data);
         setGroups(grpRes.data);
@@ -450,7 +471,7 @@ const AllocationModal = ({ faculty, ayId, onClose, onRefresh, showToast }) => {
 
   const handleSubjectSelect = (subId) => {
     setSelectedSubject(subId);
-    setConflictWarning(false); // Reset warning if they change choices
+    setConflictWarning(false); 
   };
 
   const toggleGroup = (groupId) => {
@@ -458,7 +479,7 @@ const AllocationModal = ({ faculty, ayId, onClose, onRefresh, showToast }) => {
     if (newSet.has(groupId)) newSet.delete(groupId);
     else newSet.add(groupId);
     setSelectedGroups(newSet);
-    setConflictWarning(false); // Reset warning if they change choices
+    setConflictWarning(false); 
   };
 
   const handleSubmit = async (e) => {
@@ -468,7 +489,6 @@ const AllocationModal = ({ faculty, ayId, onClose, onRefresh, showToast }) => {
       return;
     }
 
-    // --- NEW: Conflict Resolution Logic ---
     const conflicts = Array.from(selectedGroups)
       .map((groupId) => {
         return allAllocations.find(
@@ -483,10 +503,9 @@ const AllocationModal = ({ faculty, ayId, onClose, onRefresh, showToast }) => {
     if (conflicts.length > 0 && !conflictWarning) {
       setConflictingClasses(conflicts);
       setConflictWarning(true);
-      return; // Stop the submission and show the warning instead
+      return; 
     }
 
-    // Proceed if no conflicts, or if they clicked the "Override" warning button
     setLoading(true);
     try {
       await academicService.createAllocations({
@@ -553,7 +572,6 @@ const AllocationModal = ({ faculty, ayId, onClose, onRefresh, showToast }) => {
         >
           <div className="sinput-group">
             <label>Select Subject</label>
-            {/* NEW: Styled Subject Selection List instead of Dropdown */}
             <div className="subject-select-box">
               {subjects.length > 0 ? (
                 subjects.map((sub) => (
@@ -618,7 +636,6 @@ const AllocationModal = ({ faculty, ayId, onClose, onRefresh, showToast }) => {
             </div>
           )}
 
-          {/* NEW: Shared Load Warning Popup */}
           <AnimatePresence>
             {conflictWarning && (
               <motion.div

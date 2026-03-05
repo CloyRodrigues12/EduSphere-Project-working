@@ -37,6 +37,7 @@ export const staffService = {
   deleteStaff: (id) => api.delete(`/staff/?id=${id}`),
 
   getFaculty: () => api.get("/faculty/"),
+  getOrganizationFaculties: () => api.get("/faculty/?global=true"),
   addFaculty: (formData) =>
     api.post("/faculty/", formData, {
       headers: { "Content-Type": "multipart/form-data" },
@@ -47,6 +48,8 @@ export const staffService = {
       headers: { "Content-Type": "multipart/form-data" },
     }),
   deleteFaculty: (id) => api.delete(`/faculty/?id=${id}`),
+
+
 };
 
 export const academicService = {
