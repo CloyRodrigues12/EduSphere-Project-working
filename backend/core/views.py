@@ -745,15 +745,22 @@ class FacultyManagementView(APIView):
                 dept = Department.objects.get(id=target_dept_id, organization=org)
 
                 with transaction.atomic():
-                    user, created = User.objects.get_or_create(
+                    # --- VULNERABILITY FIX: Prevent Overwriting Existing Users ---
+                    if User.objects.filter(email=data['email']).exists():
+                        return Response({"error": "A user with this email already exists!"}, status=400)
+                    
+                    user = User.objects.create(
                         username=data['email'],
-                        defaults={'email': data['email'], 'first_name': data['full_name'], 'is_active': True}
+                        email=data['email'], 
+                        first_name=data['full_name'], 
+                        is_active=True
                     )
+                    user.set_unusable_password()
+                    user.save()
+
                     profile, profile_created = UserProfile.objects.get_or_create(user=user)
                     
-                    if not profile_created and profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']:
-                        return Response({"error": "This email belongs to an Admin."}, status=400)
-
+                    # Admins can set someone as HOD, otherwise default to FACULTY
                     requested_role = request.data.get('role', 'FACULTY')
                     if requested_role == 'HOD' and request.user.profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
                         return Response({"error": "Only Admins can appoint HODs."}, status=403)

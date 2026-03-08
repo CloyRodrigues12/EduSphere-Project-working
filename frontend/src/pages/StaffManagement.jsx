@@ -613,7 +613,8 @@ const FacultyFormModal = ({
   const [formData, setFormData] = useState({
     full_name: resolvedName,
     email: facultyData?.email || "",
-    role: isHOD ? "FACULTY" : (facultyData?.role_code === "HOD" ? "HOD" : "FACULTY"),
+    // FIX: Safely preserve existing roles (like Admin/HOD) to prevent accidental demotions
+    role: facultyData ? facultyData.role_code : (isHOD ? "FACULTY" : "FACULTY"),
     designation: facultyData?.designation || "Assistant Professor",
     phone_number: facultyData?.phone_number || "",
     department_id: initialDeptId,
@@ -819,16 +820,22 @@ const FacultyFormModal = ({
                   <Briefcase size={18} className="input-icon" />
                   <select
                     value={formData.role}
-                    disabled={isHOD} 
+                    disabled={isHOD || ["SUPER_ADMIN", "ORG_ADMIN"].includes(facultyData?.role_code)} 
                     onChange={(e) =>
                       setFormData({ ...formData, role: e.target.value })
                     }
                     style={
-                      isHOD ? { backgroundColor: "var(--bg-main)", opacity: 0.7 } : {}
+                      isHOD || ["SUPER_ADMIN", "ORG_ADMIN"].includes(facultyData?.role_code) 
+                        ? { backgroundColor: "var(--bg-main)", opacity: 0.7 } 
+                        : {}
                     }
                   >
                     <option value="FACULTY">Teaching Faculty</option>
                     {!isHOD && <option value="HOD">Head of Department (HOD)</option>}
+                    {/* Preserve Admin visually if they are editing themselves */}
+                    {["SUPER_ADMIN", "ORG_ADMIN"].includes(facultyData?.role_code) && (
+                      <option value={facultyData.role_code}>Organization Admin</option>
+                    )}
                   </select>
                 </div>
               </div>
