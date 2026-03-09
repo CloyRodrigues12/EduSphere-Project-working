@@ -18,6 +18,7 @@ import {
   FileSearch,
   ClipboardCheck,
   Info,
+  UserStar,
 } from "lucide-react";
 import "./Sidebar.css";
 
@@ -61,7 +62,11 @@ if (isHODOrAdmin) {
   navItems.splice(6, 0, {
     icon: UploadCloud, label: "Upload Data", path: "/upload",
   });
+  navItems.splice(8, 0, {
+    icon: UserStar, label: "Faculty ", path: "/assignments",
+  });
 }
+
 
   const handleLogoutClick = () => {
     setShowLogoutConfirm(true);

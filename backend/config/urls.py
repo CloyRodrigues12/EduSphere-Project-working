@@ -112,7 +112,8 @@ urlpatterns = [
     # --- PHASE 4: ATTENDANCE ---
     path('api/attendance/', include('attendance.urls')), 
 
-
+    # Class and Mentor assignment
+     path('api/assignments/', include('faculty_assignments.urls')),
 
     
 ]

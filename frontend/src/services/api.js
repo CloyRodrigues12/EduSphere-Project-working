@@ -159,4 +159,18 @@ export const attendanceService = {
   },
 };
 
+export const assignmentService = {
+  // Class Teachers
+  getClassTeachers: (ayId) => api.get(`/assignments/class-teachers/?academic_year=${ayId}`),
+  assignClassTeacher: (data) => api.post("/assignments/class-teachers/", data),
+  deleteClassTeacher: (id) => api.delete(`/assignments/class-teachers/?id=${id}`),
+  getClassTeacherStudents: (ctId) => api.get(`/assignments/class-teachers/students/?ct_id=${ctId}`),
+  
+  // Mentors
+  getMentorSummary: () => api.get("/assignments/mentors/summary/"),
+  getMentorStudents: () => api.get("/assignments/mentors/students/"),
+  assignMentors: (data) => api.post("/assignments/mentors/students/", data),
+  removeMentee: (studentId) => api.delete(`/assignments/mentors/students/?student_id=${studentId}`),
+};
+
 export default api;

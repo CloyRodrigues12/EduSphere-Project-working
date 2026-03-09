@@ -24,6 +24,7 @@ import AllocationMatrix from "./pages/AllocationMatrix";
 import AcademicSettings from "./pages/AcademicSettings";
 
 import Attendance from "./pages/Attendance";
+import ClassMentorAssignments from "./pages/ClassMentorAssignments";
 
 // Placeholder Component
 const Placeholder = ({ title }) => (
@@ -84,6 +85,14 @@ const AppLayout = () => {
               element={
                 <ProtectedRoute>
                   <Attendance />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/assignments"
+              element={
+                <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD"]}>
+                  <ClassMentorAssignments />
                 </ProtectedRoute>
               }
             />
