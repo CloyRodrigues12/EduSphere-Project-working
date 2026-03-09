@@ -36,8 +36,12 @@ const MyClassDashboard = () => {
   };
 
   const downloadDefaultersPDF = () => {
+    if (!data || data.students.length === 0) return;
+    
     const doc = new jsPDF();
     const defaulters = data.students.filter(s => s.percentage < 75);
+
+    if (defaulters.length === 0) return alert("No defaulters found!");
 
     doc.setFontSize(18);
     doc.setTextColor(239, 68, 68);
@@ -50,23 +54,57 @@ const MyClassDashboard = () => {
     doc.text(`Department: ${data.class_info.department}`, 14, 40);
     doc.text(`Class Teacher: ${data.class_info.class_teacher_name}`, 14, 46);
 
-    const tableData = defaulters.map((s, idx) => [
-      idx + 1,
-      s.roll_number,
-      s.name,
-      s.ta,
-      s.tc,
-      `${s.percentage}%`,
-      s.mentor_name
-    ]);
+    const tableColumns = ["Roll No.", "Student Name", "Attended (TA)", "Conducted (TC)", "Overall %", "Assigned Mentor"];
+    const tableRows = [];
+    let i = 0;
+
+    // Sort defaulters by Mentor Name so identical mentors group together natively
+    defaulters.sort((a, b) => (a.mentor_name || "").localeCompare(b.mentor_name || ""));
+
+    // ALGORITHM: Group consecutive rows by Mentor Name
+    while (i < defaulters.length) {
+      const currentMentor = defaulters[i].mentor_name || "Unassigned";
+      let span = 1;
+      
+      while (i + span < defaulters.length && (defaulters[i + span].mentor_name || "Unassigned") === currentMentor) {
+        span++;
+      }
+
+      tableRows.push([
+        defaulters[i].roll_number,
+        defaulters[i].name,
+        defaulters[i].ta,
+        defaulters[i].tc,
+        `${defaulters[i].percentage}%`,
+        { 
+          content: currentMentor, 
+          rowSpan: span, 
+          styles: { valign: "middle", halign: "center", fontStyle: "bold" } 
+        }
+      ]);
+
+      for (let j = 1; j < span; j++) {
+        tableRows.push([
+          defaulters[i + j].roll_number,
+          defaulters[i + j].name,
+          defaulters[i + j].ta,
+          defaulters[i + j].tc,
+          `${defaulters[i + j].percentage}%`
+        ]);
+      }
+      i += span; 
+    }
 
     autoTable(doc, {
       startY: 52,
-      head: [["Sr No", "Roll No", "Student Name", "Attended (TA)", "Conducted (TC)", "Overall %", "Assigned Mentor"]],
-      body: tableData,
+      head: [tableColumns],
+      body: tableRows,
       theme: "grid",
-      headStyles: { fillColor: [239, 68, 68] },
-      styles: { fontSize: 9 }
+      headStyles: { fillColor: [239, 68, 68], textColor: [255, 255, 255], fontStyle: "bold" },
+      columnStyles: { 
+        4: { fontStyle: "bold", textColor: [239, 68, 68] },
+        5: { fillColor: [248, 250, 252] } 
+      }
     });
 
     doc.save(`Defaulters_${data.class_info.year_level}_${data.class_info.division || 'ALL'}.pdf`);
