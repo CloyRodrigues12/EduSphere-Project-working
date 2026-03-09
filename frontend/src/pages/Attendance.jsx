@@ -47,10 +47,9 @@ const Attendance = () => {
   const { subjectName, groupName, isMine } = location.state || {
     subjectName: "Class Details",
     groupName: "Batch",
-    isMine: false, // Default to false
+    isMine: false, 
   };
 
-  // Determine if the current user has rights to modify attendance for this class
   const canEdit = isMine || ["ORG_ADMIN", "SUPER_ADMIN", "HOD"].includes(user?.role_code);
 
   const [myClasses, setMyClasses] = useState([]);
@@ -58,18 +57,15 @@ const Attendance = () => {
   const [activeSession, setActiveSession] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Search & View Modes
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState("list");
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(null);
 
-  // INDIVIDUAL PDF Export State
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportRange, setExportRange] = useState({ start: "", end: "" });
   const [mergeShared, setMergeShared] = useState(true);
 
-  // CUMULATIVE PDF Export State
   const [showCumulModal, setShowCumulModal] = useState(false);
   const [cumulSemester, setCumulSemester] = useState("");
   const [availableSubjects, setAvailableSubjects] = useState([]);
@@ -79,7 +75,6 @@ const Attendance = () => {
     end: "",
   });
 
-  // ANALYTICS RADAR STATE
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
   const [analyticsData, setAnalyticsData] = useState(null);
   const [analyticsFilter, setAnalyticsFilter] = useState({
@@ -91,7 +86,6 @@ const Attendance = () => {
   const [analyticsSubjects, setAnalyticsSubjects] = useState([]);
   const [selectedZone, setSelectedZone] = useState("Defaulters");
 
-  // Modals
   const [showNewModal, setShowNewModal] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState(null);
   const [newSessionData, setNewSessionData] = useState({
@@ -123,9 +117,7 @@ const Attendance = () => {
 
   const fetchClasses = async () => {
     try {
-      if (
-        ["ORG_ADMIN", "SUPER_ADMIN", "HOD"].includes(user?.role_code)
-      ) {
+      if (["ORG_ADMIN", "SUPER_ADMIN", "HOD"].includes(user?.role_code)) {
         const res = await academicService.getAllocations(activeAcademicYear.id);
         const myUserId = user?.pk || user?.id;
         const sortedClasses = res.data
@@ -219,9 +211,6 @@ const Attendance = () => {
     }
   };
 
-  // --------------------------------------------------------------------
-  // ANALYTICS & DEFAULTER GENERATOR
-  // --------------------------------------------------------------------
   const fetchAnalytics = async () => {
     try {
       const res = await attendanceService.getAnalytics(
@@ -262,6 +251,9 @@ const Attendance = () => {
     }
   };
 
+  // --------------------------------------------------------------------
+  // PDF: DEFAULTERS WITH MERGED MENTOR ROWS
+  // --------------------------------------------------------------------
   const downloadDefaultersPDF = () => {
     if (!analyticsData || analyticsData.defaulters.length === 0)
       return alert("No defaulters found to download.");
@@ -274,45 +266,68 @@ const Attendance = () => {
     doc.setFontSize(11);
     doc.setTextColor(100);
 
-    // --- UPDATED DURATION LOGIC ---
     let durationText = "No classes recorded";
     if (analyticsData.first_session_date && analyticsData.last_session_date) {
-      const fDate = new Date(
-        analyticsData.first_session_date,
-      ).toLocaleDateString("en-GB");
-      const lDate = new Date(
-        analyticsData.last_session_date,
-      ).toLocaleDateString("en-GB");
+      const fDate = new Date(analyticsData.first_session_date).toLocaleDateString("en-GB");
+      const lDate = new Date(analyticsData.last_session_date).toLocaleDateString("en-GB");
       durationText = fDate === lDate ? fDate : `From ${fDate} to ${lDate}`;
     } else if (analyticsFilter.start && analyticsFilter.end) {
-      // Fallback to explicit filter if no sessions found within that range
       durationText = `From ${new Date(analyticsFilter.start).toLocaleDateString("en-GB")} to ${new Date(analyticsFilter.end).toLocaleDateString("en-GB")}`;
     }
 
     doc.text(`Duration: ${durationText}`, 40, 60);
-    if (analyticsFilter.semester)
-      doc.text(`Semester: ${analyticsFilter.semester}`, 40, 75);
-    doc.text(`Generated on: ${new Date().toLocaleDateString("en-GB")}`, 40, 90);
+    if (analyticsFilter.semester) doc.text(`Semester: ${analyticsFilter.semester}`, 40, 75);
+    
+    // NEW: Include Class Teacher
+    doc.text(`Class Teacher: ${analyticsData.class_teacher_name || "N/A"}`, 300, 60);
+    doc.text(`Generated on: ${new Date().toLocaleDateString("en-GB")}`, 300, 75);
 
-    const tableColumns = [
-      "Roll No.",
-      "Student Name",
-      "Semester",
-      "TA",
-      "TC",
-      "Percentage",
-    ];
-    const tableRows = analyticsData.defaulters.map((s) => [
-      s.roll_number,
-      s.name,
-      s.semester || "N/A",
-      s.ta,
-      s.tc,
-      `${s.percentage}%`,
-    ]);
+    const tableColumns = ["Roll No.", "Student Name", "Sem", "TA", "TC", "%", "Assigned Mentor"];
+    const defaulters = analyticsData.defaulters;
+    const tableRows = [];
+    let i = 0;
+
+    // ALGORITHM: Group consecutive rows by Mentor Name
+    while (i < defaulters.length) {
+      const currentMentor = defaulters[i].mentor_name || "Unassigned";
+      let span = 1;
+      
+      // Count how many consecutive students have the exact same mentor
+      while (i + span < defaulters.length && (defaulters[i + span].mentor_name || "Unassigned") === currentMentor) {
+        span++;
+      }
+
+      // 1. Push the first student of the group (includes the Mentor cell with rowSpan)
+      tableRows.push([
+        defaulters[i].roll_number,
+        defaulters[i].name,
+        defaulters[i].semester || "N/A",
+        defaulters[i].ta,
+        defaulters[i].tc,
+        `${defaulters[i].percentage}%`,
+        { 
+          content: currentMentor, 
+          rowSpan: span, 
+          styles: { valign: "middle", halign: "center", fontStyle: "bold" } 
+        }
+      ]);
+
+      // 2. Push the remaining students of this group (omitting the Mentor cell entirely)
+      for (let j = 1; j < span; j++) {
+        tableRows.push([
+          defaulters[i + j].roll_number,
+          defaulters[i + j].name,
+          defaulters[i + j].semester || "N/A",
+          defaulters[i + j].ta,
+          defaulters[i + j].tc,
+          `${defaulters[i + j].percentage}%`
+        ]);
+      }
+      i += span; // Jump to the next group
+    }
 
     autoTable(doc, {
-      startY: 110,
+      startY: 95,
       head: [tableColumns],
       body: tableRows,
       theme: "grid",
@@ -322,14 +337,15 @@ const Attendance = () => {
         fontStyle: "bold",
       },
       alternateRowStyles: { fillColor: [255, 250, 250] },
-      columnStyles: { 5: { fontStyle: "bold", textColor: [239, 68, 68] } },
+      columnStyles: { 
+        5: { fontStyle: "bold", textColor: [239, 68, 68] },
+        6: { fillColor: [248, 250, 252] } // Light background for Mentor column to make grouping clear
+      },
     });
+    
     doc.save("Defaulters_List.pdf");
   };
 
-  // --------------------------------------------------------------------
-  // PDF 1: INDIVIDUAL SUBJECT REPORT
-  // --------------------------------------------------------------------
   const generatePDFReport = async (e) => {
     e.preventDefault();
     try {
@@ -432,9 +448,6 @@ const Attendance = () => {
     }
   };
 
-  // --------------------------------------------------------------------
-  // PDF 2: CUMULATIVE MASTER REPORT (Replica of Don Bosco PDF)
-  // --------------------------------------------------------------------
   const handleCumulSemesterChange = async (e) => {
     const sem = e.target.value;
     setCumulSemester(sem);
@@ -480,7 +493,7 @@ const Attendance = () => {
       );
       const data = res.data;
 
-      const doc = new jsPDF("l", "pt", "a4"); // Landscape layout
+      const doc = new jsPDF("l", "pt", "a4"); 
       const pageWidth = doc.internal.pageSize.width;
 
       doc.setFontSize(16);
@@ -603,9 +616,6 @@ const Attendance = () => {
     }
   };
 
-  // --------------------------------------------------------------------
-  // RENDER HELPERS
-  // --------------------------------------------------------------------
   const filteredSessions = sessions.filter((session) => {
     const term = searchTerm.toLowerCase();
     const dateStr = new Date(session.date)
@@ -799,9 +809,7 @@ const Attendance = () => {
       </div>
     );
   }
-  // --------------------------------------------------------------------
-  // VIEW 1: LANDING PAGE
-  // --------------------------------------------------------------------
+
   if (!allocationId) {
     return (
       <div id="attendance-engine-root" className="fade-in">
@@ -870,7 +878,6 @@ const Attendance = () => {
                 <div className="att-card-details">
                   <h3>{alloc.subject_name}</h3>
                   <p>
-                    {/* NEW: Department Badge */}
                     {alloc.department_code && (
                       <span
                         style={{
@@ -889,7 +896,6 @@ const Attendance = () => {
                         {alloc.department_code}
                       </span>
                     )}
-                    {/* NEW: Semester Badge */}
                     <span
                       style={{
                         display: "inline-block",
@@ -939,7 +945,6 @@ const Attendance = () => {
         {viewMode === "calendar" && renderCalendar(sessions)}
 
         <AnimatePresence>
-          {/* CUMULATIVE MODAL */}
           {showCumulModal && (
             <div className="att-modal-overlay">
               <motion.div
@@ -1134,7 +1139,6 @@ const Attendance = () => {
             </div>
           )}
 
-          {/* LIVE ANALYTICS MODAL */}
           {showAnalyticsModal && (
             <div className="att-modal-overlay">
               <motion.div
@@ -1157,7 +1161,6 @@ const Attendance = () => {
                   </button>
                 </div>
 
-                {/* DATE & SEMESTER FILTERS */}
                 <div className="att-analytics-filters">
                   <div>
                     <label className="att-analytics-label">Start Date</label>
@@ -1235,7 +1238,6 @@ const Attendance = () => {
 
                 {analyticsData ? (
                   <div className="att-analytics-layout">
-                    {/* CHART */}
                     <div className="att-chart-section">
                       <h4
                         style={{
@@ -1292,7 +1294,6 @@ const Attendance = () => {
                         </ResponsiveContainer>
                       </div>
 
-                      {/* NEW DEFAULTER PDF BUTTON */}
                       <button
                         onClick={downloadDefaultersPDF}
                         className="att-btn"
@@ -1308,7 +1309,6 @@ const Attendance = () => {
                       </button>
                     </div>
 
-                    {/* DATA LIST */}
                     <div className="att-list-section">
                       <h4
                         style={{
@@ -1471,9 +1471,6 @@ const Attendance = () => {
     );
   }
 
-  // --------------------------------------------------------------------
-  // VIEW 2: SPECIFIC CLASS VIEW
-  // --------------------------------------------------------------------
   return (
     <div id="attendance-engine-root" className="fade-in">
       <div className="att-header-section with-back">
@@ -1568,7 +1565,6 @@ const Attendance = () => {
         </div>
       )}
 
-      {/* MODALS FOR SPECIFIC CLASS */}
       <AnimatePresence>
         {sessionToDelete && (
           <div className="att-modal-overlay">
@@ -1695,7 +1691,6 @@ const Attendance = () => {
           </div>
         )}
 
-        {/* INDIVIDUAL SUBJECT EXPORT PDF MODAL */}
         {showExportModal && (
           <div className="att-modal-overlay">
             <motion.div
@@ -1820,7 +1815,6 @@ const Attendance = () => {
           </div>
         )}
 
-        {/* LIVE ANALYTICS MODAL (Specific Class View) */}
         {showAnalyticsModal && (
           <div className="att-modal-overlay">
             <motion.div
@@ -1843,7 +1837,6 @@ const Attendance = () => {
                 </button>
               </div>
 
-              {/* DATE FILTERS ONLY (Since Semester/Subject are locked for this view) */}
               <div
                 style={{
                   display: "grid",
@@ -1908,7 +1901,6 @@ const Attendance = () => {
 
               {analyticsData ? (
                 <div className="att-analytics-layout">
-                  {/* CHART */}
                   <div className="att-chart-section">
                     <h4
                       style={{
@@ -1965,7 +1957,6 @@ const Attendance = () => {
                       </ResponsiveContainer>
                     </div>
 
-                    {/* NEW DEFAULTER PDF BUTTON */}
                     <button
                       onClick={downloadDefaultersPDF}
                       className="att-btn"
@@ -1981,7 +1972,6 @@ const Attendance = () => {
                     </button>
                   </div>
 
-                  {/* DATA LIST */}
                   <div className="att-list-section">
                     <h4
                       style={{
@@ -2097,7 +2087,10 @@ const Attendance = () => {
                   </div>
                 </div>
               ) : (
-                <div className="spinner" style={{ margin: "3rem auto" }}></div>
+                <div
+                  className="spinner"
+                  style={{ margin: "3rem auto" }}
+                ></div>
               )}
             </motion.div>
           </div>
@@ -2106,13 +2099,13 @@ const Attendance = () => {
     </div>
   );
 };
-// ROLL CALL GRID
+
 const RollCallGrid = ({
   session,
   onStatusChange,
   onBulkStatusChange,
   onSave,
-  canEdit, // <-- New Prop
+  canEdit,
 }) => (
   <div className="att-roll-call slide-up-fade">
     <div
@@ -2179,21 +2172,21 @@ const RollCallGrid = ({
           </div>
           <div className="att-actions">
             <button
-              disabled={!canEdit} // <-- Lock it
+              disabled={!canEdit} 
               className={`att-tap present ${record.status === "PRESENT" ? "active" : ""}`}
               onClick={() => onStatusChange(record.id, "PRESENT")}
             >
               <CheckCircle size={18} /> Present
             </button>
             <button
-              disabled={!canEdit} // <-- Lock it
+              disabled={!canEdit} 
               className={`att-tap absent ${record.status === "ABSENT" ? "active" : ""}`}
               onClick={() => onStatusChange(record.id, "ABSENT")}
             >
               <XCircle size={18} /> Absent
             </button>
             <select
-              disabled={!canEdit} // <-- Lock it
+              disabled={!canEdit} 
               className={`att-tap duty ${record.status.startsWith("DUTY") || record.status === "LATE" ? "active" : ""}`}
               value={
                 record.status.startsWith("DUTY") || record.status === "LATE"

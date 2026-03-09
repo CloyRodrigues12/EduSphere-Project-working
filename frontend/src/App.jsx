@@ -25,6 +25,8 @@ import AcademicSettings from "./pages/AcademicSettings";
 
 import Attendance from "./pages/Attendance";
 import ClassMentorAssignments from "./pages/ClassMentorAssignments";
+import MyClassDashboard from "./pages/MyClassDashboard";
+import MyMenteesDashboard from "./pages/MyMenteesDashboard";
 
 // Placeholder Component
 const Placeholder = ({ title }) => (
@@ -93,6 +95,23 @@ const AppLayout = () => {
               element={
                 <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD"]}>
                   <ClassMentorAssignments />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/my-class"
+              element={
+                <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD", "FACULTY"]}>
+                  <MyClassDashboard />
+                </ProtectedRoute>
+
+              }
+            />
+            <Route
+              path="/my-mentees"
+              element={
+                <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD", "FACULTY"]}>
+                  <MyMenteesDashboard />
                 </ProtectedRoute>
               }
             />

@@ -165,12 +165,18 @@ export const assignmentService = {
   assignClassTeacher: (data) => api.post("/assignments/class-teachers/", data),
   deleteClassTeacher: (id) => api.delete(`/assignments/class-teachers/?id=${id}`),
   getClassTeacherStudents: (ctId) => api.get(`/assignments/class-teachers/students/?ct_id=${ctId}`),
+
+  getMyClassDashboard: (ayId) => api.get(`/assignments/my-class/?academic_year=${ayId}`),
   
   // Mentors
   getMentorSummary: () => api.get("/assignments/mentors/summary/"),
   getMentorStudents: () => api.get("/assignments/mentors/students/"),
   assignMentors: (data) => api.post("/assignments/mentors/students/", data),
   removeMentee: (studentId) => api.delete(`/assignments/mentors/students/?student_id=${studentId}`),
+
+  // MENTOR DASHBOARD CALLS <---
+  getMyMenteesDashboard: (ayId) => api.get(`/assignments/my-mentees/?academic_year=${ayId}`),
+  getMenteeSubjectAttendance: (studentId, ayId) => api.get(`/assignments/my-mentees/subjects/?student_id=${studentId}&academic_year=${ayId}`),
 };
 
 export default api;

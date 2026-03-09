@@ -6,6 +6,7 @@ from .models import ClassSession, AttendanceRecord
 from core.models import TeachingAllocation
 from .serializers import ClassSessionSerializer
 from django.db.models import Q
+from faculty_assignments.models import Mentorship, ClassTeacher
 
 class ClassSessionView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -384,8 +385,8 @@ class AnalyticsRadarView(APIView):
             subject_id = request.GET.get('subject_id')
             allocation_id = request.GET.get('allocation_id')
             start_date = request.GET.get('start_date') 
-            end_date = request.GET.get('end_date')     
-            
+            end_date = request.GET.get('end_date') 
+                
             if not academic_year_id:
                 return Response({"error": "Academic Year ID is required"}, status=400)
                 
@@ -398,25 +399,20 @@ class AnalyticsRadarView(APIView):
                 subject__department__organization=user_profile.organization
             ).select_related('subject', 'student_group')
             
-            # --- UPDATED SANDBOX: Faculty acts exactly like HOD for analytics ---
             if is_org_admin:
                 if target_dept_id and target_dept_id != 'ALL':
                     allocations = allocations.filter(subject__department_id=target_dept_id)
             else:
                 if user_profile.department:
-                    # If viewing an INDIVIDUAL class they teach, allow external viewing.
                     if allocation_id:
                         allocations = allocations.filter(
                             Q(subject__department=user_profile.department) | Q(faculty=user_profile)
                         )
-                    # If viewing OVERALL department data, restrict strictly to their department.
                     else:
                         allocations = allocations.filter(subject__department=user_profile.department)
                 else:
                     allocations = allocations.filter(faculty=user_profile)
-            # --------------------------------------------------------------------
 
-            # Apply final individual filters
             if allocation_id:
                 allocations = allocations.filter(id=allocation_id)
             else:
@@ -428,9 +424,42 @@ class AnalyticsRadarView(APIView):
             if not allocations.exists():
                 return Response({"safe": [], "atRisk": [], "defaulters": [], "chartData": [], "totalStudents": 0})
 
+            # --- NEW: Fetch Class Teacher Name (Only accurate if filtering by a specific class/semester) ---
+            class_teacher_name = "N/A"
+            if semester:
+                # Deduce year_level from semester (1-2=FE, 3-4=SE, 5-6=TE, 7-8=BE)
+                sem_int = int(semester)
+                if sem_int <= 2: yl = 'FE'
+                elif sem_int <= 4: yl = 'SE'
+                elif sem_int <= 6: yl = 'TE'
+                else: yl = 'BE'
+                
+                # Assume first allocation's department is the target
+                first_alloc = allocations.first()
+                if first_alloc:
+                    ct = ClassTeacher.objects.filter(
+                        academic_year_id=academic_year_id, 
+                        department=first_alloc.subject.department, 
+                        year_level=yl
+                    ).first()
+                    if ct:
+                        class_teacher_name = ct.faculty.user.get_full_name() or ct.faculty.user.username
+
             student_stats = {}
             global_first_date = None
             global_last_date = None
+
+            # --- NEW: Prefetch Mentorships for all students in these allocations ---
+            # Collect all student IDs first to minimize DB hits
+            all_student_ids = set()
+            for alloc in allocations:
+                all_student_ids.update(alloc.student_group.students.values_list('id', flat=True))
+            
+            # Create a lookup dictionary mapping Student ID -> Mentor Name
+            mentor_lookup = {}
+            mentorships = Mentorship.objects.filter(student_id__in=all_student_ids).select_related('mentor__user')
+            for m in mentorships:
+                mentor_lookup[m.student_id] = m.mentor.user.get_full_name() or m.mentor.user.username
 
             for alloc in allocations:
                 sessions = ClassSession.objects.filter(allocation=alloc)
@@ -459,7 +488,9 @@ class AnalyticsRadarView(APIView):
                             "roll_number": student.roll_number,
                             "semester": str(alloc.subject.semester) if hasattr(alloc.subject, 'semester') else "N/A", 
                             "ta": 0,
-                            "tc": 0
+                            "tc": 0,
+                            # --- NEW: Attach the mentor name from our lookup ---
+                            "mentor_name": mentor_lookup.get(student.id, "Unassigned")
                         }
                     student_stats[student.id]["tc"] += tc
                     
@@ -485,9 +516,10 @@ class AnalyticsRadarView(APIView):
                 else:
                     safe.append(s)
                         
-            defaulters.sort(key=lambda x: x['roll_number'])
-            at_risk.sort(key=lambda x: x['roll_number'])
-            safe.sort(key=lambda x: x['roll_number'])
+            # --- NEW: Sort primarily by Mentor Name (to group them in PDF), then by Roll No ---
+            defaulters.sort(key=lambda x: (x.get('mentor_name', 'Unassigned'), x['roll_number']))
+            at_risk.sort(key=lambda x: (x.get('mentor_name', 'Unassigned'), x['roll_number']))
+            safe.sort(key=lambda x: (x.get('mentor_name', 'Unassigned'), x['roll_number']))
             
             chart_data = [
                 {"name": "Safe", "value": len(safe), "fill": "#10b981"},         
@@ -502,11 +534,13 @@ class AnalyticsRadarView(APIView):
                 "chartData": chart_data,
                 "totalStudents": len(student_stats),
                 "first_session_date": global_first_date,
-                "last_session_date": global_last_date
+                "last_session_date": global_last_date,
+                "class_teacher_name": class_teacher_name # --- NEW: Included in payload
             })
             
         except Exception as e:
-            print(f"Analytics Error: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return Response({
                 "safe": [], "atRisk": [], "defaulters": [], 
                 "chartData": [], "totalStudents": 0, "error": str(e)

@@ -1,0 +1,196 @@
+.assignments-container {
+  padding: 1.5rem 2rem;
+  max-width: 1400px; 
+  margin: 0 auto;
+}
+
+/* --- Compact Metrics Grid --- */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); /* Reduced from 240px */
+  gap: 1.25rem;
+}
+
+.metric-card {
+  padding: 1rem 1.25rem; /* Reduced padding */
+  border-radius: 12px; /* Smaller radius */
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.metric-card:hover {
+  border-color: var(--primary-color);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.06);
+}
+
+.metric-icon {
+  width: 42px; /* Scaled down */
+  height: 42px; /* Scaled down */
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.metric-label {
+  font-size: 0.85rem; /* Scaled down */
+  color: var(--text-secondary);
+  margin: 0 0 0.15rem 0;
+  font-weight: 500;
+}
+
+.metric-value {
+  font-size: 1.4rem; /* Scaled down */
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+}
+
+/* --- Dashboard Layout --- */
+.dashboard-grid {
+  display: grid;
+  /* Strictly restrict chart column to max 300px so it doesn't stretch */
+  grid-template-columns: minmax(220px, 300px) 1fr; 
+  gap: 1.5rem; 
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- Compact Premium Panels --- */
+.premium-panel {
+  border-radius: 16px !important; /* Reduced from 20px */
+  padding: 1.25rem !important; /* Reduced from 2rem */
+  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- Buttons & Inputs --- */
+.premium-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+}
+
+.premium-btn-danger {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #ef4444;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
+}
+
+.premium-btn-danger:hover {
+  background: #dc2626;
+  box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
+  transform: translateY(-2px);
+}
+
+.premium-search {
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  transition: all 0.2s ease;
+}
+
+.premium-search:focus-within {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+/* --- Interactive Chart Filter Badge --- */
+.filter-clear-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--primary-color);
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.filter-clear-badge:hover {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+/* --- Table Enhancements --- */
+.premium-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.premium-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 8px;
+}
+
+.premium-row {
+  transition: background-color 0.2s ease;
+}
+
+.premium-row:hover {
+  background-color: var(--bg-input) !important;
+}
+
+.premium-status-badge {
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: 0.2px;
+}
+
+/* --- Table Text Wrapping Fix --- */
+.premium-scroll .data-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.premium-scroll .data-table th,
+.premium-scroll .data-table td {
+  white-space: normal !important; 
+  word-break: break-word; 
+  vertical-align: middle;
+  padding: 0.6rem 0.5rem; 
+}
+
+/* Smart Column Width Distribution */
+.premium-scroll .data-table th:nth-child(1) { width: 14%; } /* Roll No */
+.premium-scroll .data-table th:nth-child(2) { width: 24%; } /* Name */
+.premium-scroll .data-table th:nth-child(3) { width: 9%; }  /* TA */
+.premium-scroll .data-table th:nth-child(4) { width: 9%; }  /* TC */
+.premium-scroll .data-table th:nth-child(5) { width: 11%; } /* Overall % */
+.premium-scroll .data-table th:nth-child(6) { width: 18%; } /* Mentor */
+.premium-scroll .data-table th:nth-child(7) { width: 15%; } /* Status */

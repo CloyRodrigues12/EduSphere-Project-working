@@ -19,6 +19,8 @@ import {
   ClipboardCheck,
   Info,
   UserStar,
+  Presentation,
+  HeartHandshake,
 } from "lucide-react";
 import "./Sidebar.css";
 
@@ -30,7 +32,9 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
   // 3. Dynamic Menu Logic
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/" },
-    // 2. ADD THE ATTENDANCE NAV ITEM HERE
+    // ---> ADDED: My Class Dashboard for Faculty
+    { icon: Presentation, label: "My Class", path: "/my-class" },
+    { icon: HeartHandshake, label: "My Mentees", path: "/my-mentees" },
     { icon: ClipboardCheck, label: "Attendance", path: "/attendance" },
     { icon: Library, label: "Subject Catalog", path: "/subjects" },
     { icon: Users, label: "Dir & Batches", path: "/students" },
@@ -38,35 +42,33 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
     { icon: FileSearch, label: "DocuSense AI", path: "/docusense" },
   ];
 
-  
-
   // Add these boolean checks for cleaner logic
-const isOrgAdmin = ["ORG_ADMIN", "SUPER_ADMIN"].includes(user?.role_code);
-const isHODOrAdmin = ["ORG_ADMIN", "SUPER_ADMIN", "HOD"].includes(user?.role_code);
+  const isOrgAdmin = ["ORG_ADMIN", "SUPER_ADMIN"].includes(user?.role_code);
+  const isHODOrAdmin = ["ORG_ADMIN", "SUPER_ADMIN", "HOD"].includes(user?.role_code);
 
-// 1. Only ORG_ADMIN gets Admin Actions
-if (isOrgAdmin) {
-  navItems.push({
-    icon: Settings, label: "Admin Actions", path: "/academic-settings",
-  });
-}
+  // 1. Only ORG_ADMIN gets Admin Actions
+  if (isOrgAdmin) {
+    navItems.push({
+      icon: Settings, label: "Admin Actions", path: "/academic-settings",
+    });
+  }
 
-// 2. Both ORG_ADMIN and HOD get Team & Allocations
-if (isHODOrAdmin) {
-  navItems.splice(2, 0, {
-    icon: Shield, label: "Team & Perms", path: "/staff",
-  });
-  navItems.splice(4, 0, {
-    icon: Layers, label: "Allocation Matrix", path: "/allocations",
-  });
-  navItems.splice(6, 0, {
-    icon: UploadCloud, label: "Upload Data", path: "/upload",
-  });
-  navItems.splice(8, 0, {
-    icon: UserStar, label: "Faculty ", path: "/assignments",
-  });
-}
-
+  // 2. Both ORG_ADMIN and HOD get Team & Allocations
+  // (NOTE: Indices shifted by +1 because "My Class" was added above)
+  if (isHODOrAdmin) {
+    navItems.splice(4, 0, {
+      icon: Shield, label: "Team & Perms", path: "/staff",
+    });
+    navItems.splice(6, 0, {
+      icon: Layers, label: "Allocation Matrix", path: "/allocations",
+    });
+    navItems.splice(8, 0, {
+      icon: UploadCloud, label: "Upload Data", path: "/upload",
+    });
+    navItems.splice(10, 0, {
+      icon: UserStar, label: "Faculty Assign.", path: "/assignments",
+    });
+  }
 
   const handleLogoutClick = () => {
     setShowLogoutConfirm(true);
@@ -110,7 +112,7 @@ if (isHODOrAdmin) {
               }}
             >
               <span className="logo-text">EduSphere</span>
-              {/* NEW: The Information / Welcome Guide Icon */}
+              {/* The Information / Welcome Guide Icon */}
               <NavLink
                 to="/welcome"
                 className={({ isActive }) =>
