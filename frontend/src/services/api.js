@@ -49,6 +49,10 @@ export const staffService = {
     }),
   deleteFaculty: (id) => api.delete(`/faculty/?id=${id}`),
 
+  // --->Student Accounts API <---
+  getStudentAccounts: () => api.get("/student-accounts/"),
+  manageStudentAccounts: (data) => api.post("/student-accounts/", data),
+
 
 };
 

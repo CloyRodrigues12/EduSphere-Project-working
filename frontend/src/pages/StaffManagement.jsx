@@ -18,6 +18,9 @@ import {
   Edit2,
   Send,
   Info,
+  Globe,
+  Lock,
+  Zap,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -62,26 +65,21 @@ const StaffManagement = () => {
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // --- Student Accounts State ---
+  const [studentAccounts, setStudentAccounts] = useState([]);
+  const [studentStats, setStudentStats] = useState(null);
+  const [studentDomain, setStudentDomain] = useState("");
+  const [showDomainModal, setShowDomainModal] = useState(false);
+  const [generatingAccounts, setGeneratingAccounts] = useState(false);
+
+  // --- NEW: Filters ---
+  const [yearFilter, setYearFilter] = useState("ALL");
+  const [deptFilter, setDeptFilter] = useState("ALL");
+
   const { activeAcademicYear, activeDepartment } = useAcademic();
   const [showWorkloadModal, setShowWorkloadModal] = useState(false);
   const [selectedWorkload, setSelectedWorkload] = useState([]);
   const [workloadFacultyName, setWorkloadFacultyName] = useState("");
-
-  const handleViewWorkload = async (faculty) => {
-    if (!activeAcademicYear)
-      return showToast("Select an Academic Year first.", "error");
-    try {
-      const res = await academicService.getAllocations(
-        activeAcademicYear.id,
-        faculty.id,
-      );
-      setSelectedWorkload(res.data);
-      setWorkloadFacultyName(faculty.full_name || faculty.name);
-      setShowWorkloadModal(true);
-    } catch (err) {
-      showToast("Failed to load workload data.", "error");
-    }
-  };
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
@@ -115,15 +113,38 @@ const StaffManagement = () => {
   const fetchMembers = async () => {
     setLoading(true);
     try {
-      const response =
-        activeTab === "staff"
-          ? await staffService.getStaff()
-          : await staffService.getFaculty();
-      setMembers(response.data);
+      if (activeTab === "student_accounts") {
+        const res = await staffService.getStudentAccounts();
+        setStudentAccounts(res.data.students);
+        setStudentStats(res.data.stats);
+        setStudentDomain(res.data.domain);
+      } else if (activeTab === "staff") {
+        const response = await staffService.getStaff();
+        setMembers(response.data);
+      } else {
+        const response = await staffService.getFaculty();
+        setMembers(response.data);
+      }
     } catch (error) {
-      showToast("Failed to fetch team members", "error");
+      showToast("Failed to fetch data", "error");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleViewWorkload = async (faculty) => {
+    if (!activeAcademicYear)
+      return showToast("Select an Academic Year first.", "error");
+    try {
+      const res = await academicService.getAllocations(
+        activeAcademicYear.id,
+        faculty.id,
+      );
+      setSelectedWorkload(res.data);
+      setWorkloadFacultyName(faculty.full_name || faculty.name);
+      setShowWorkloadModal(true);
+    } catch (err) {
+      showToast("Failed to load workload data.", "error");
     }
   };
 
@@ -151,13 +172,38 @@ const StaffManagement = () => {
     }
   };
 
-  const filteredMembers = members.filter((m) => {
-    const displayName = m.full_name || m.name || "";
-    return (
-      displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.email?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  });
+  const handleGenerateAccounts = async () => {
+    if (!studentDomain) return showToast("Please configure the domain first.", "error");
+    setGeneratingAccounts(true);
+    try {
+      const res = await staffService.manageStudentAccounts({ action: "generate_accounts" });
+      showToast(res.data.message, "success");
+      if (res.data.errors && res.data.errors.length > 0) {
+        console.warn("Generation Errors:", res.data.errors);
+      }
+      fetchMembers();
+    } catch (err) {
+      showToast(err.response?.data?.error || "Failed to generate accounts.", "error");
+    } finally {
+      setGeneratingAccounts(false);
+    }
+  };
+
+  // --- NEW: Applying the filters dynamically ---
+  const displayedData = activeTab === "student_accounts" 
+    ? studentAccounts.filter(s => {
+        const matchSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) || s.roll_number.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchYear = yearFilter === "ALL" || s.year_level === yearFilter;
+        const matchDept = deptFilter === "ALL" || s.department === deptFilter;
+        return matchSearch && matchYear && matchDept;
+      })
+    : members.filter((m) => {
+        const displayName = m.full_name || m.name || "";
+        return (
+          displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          m.email?.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      });
 
   return (
     <div className="staff-container">
@@ -176,22 +222,24 @@ const StaffManagement = () => {
         <div>
           <h1 className="page-title">Team Management</h1>
           <p className="page-subtitle">
-            Manage system access and academic faculty
+            Manage system access, academic faculty, and student portals.
           </p>
         </div>
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          className="btn-primary"
-          onClick={() => setShowAddModal(true)}
-        >
-          <UserPlus size={18} />{" "}
-          {activeTab === "staff" ? "Invite Staff" : "Add Faculty"}
-        </motion.button>
+        {activeTab !== "student_accounts" && (
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="btn-primary"
+            onClick={() => setShowAddModal(true)}
+          >
+            <UserPlus size={18} />{" "}
+            {activeTab === "staff" ? "Invite Staff" : "Add Faculty"}
+          </motion.button>
+        )}
       </div>
 
       <div className="tabs-container">
-        {["faculty", "staff"].map((tab) => {
+        {["faculty", "staff", "student_accounts"].map((tab) => {
           if (isHOD && tab === "staff") return null;
 
           return (
@@ -202,10 +250,12 @@ const StaffManagement = () => {
             >
               {tab === "faculty" ? (
                 <GraduationCap size={18} />
-              ) : (
+              ) : tab === "staff" ? (
                 <Users size={18} />
+              ) : (
+                <UserIcon size={18} />
               )}
-              {tab === "faculty" ? "Faculty Registry" : "Office Staff"}
+              {tab === "faculty" ? "Faculty Registry" : tab === "staff" ? "Office Staff" : "Student Accounts"}
               {activeTab === tab && (
                 <motion.div
                   className="active-tab-indicator"
@@ -217,16 +267,90 @@ const StaffManagement = () => {
         })}
       </div>
 
-      <div className="toolbar">
-        <div className="search-bar">
+      {activeTab === "student_accounts" && studentStats && (
+        <div className="student-accounts-dashboard fade-in">
+          <div className="glass-panel domain-card">
+            <div className="domain-header">
+              <Globe size={24} color="var(--primary-color)"/>
+              <h3>Institution Domain</h3>
+            </div>
+            <p className="domain-text">
+              {studentDomain ? `@${studentDomain}` : "No domain configured yet."}
+            </p>
+            {!isHOD && (
+              <button className="btn-secondary btn-sm" onClick={() => setShowDomainModal(true)}>
+                <Lock size={14} /> Edit Secure Domain
+              </button>
+            )}
+            {isHOD && (
+              <p className="text-muted text-sm" style={{ marginTop: "10px" }}><Lock size={12}/> Domain managed by Org Admin</p>
+            )}
+          </div>
+
+          <div className="glass-panel sync-card">
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+                <div>
+                  <h3>Account Generation Status</h3>
+                  <div className="stats-row" style={{ marginBottom: "1rem" }}>
+                    <div className="stat-pill neutral">Total Active: <strong>{studentStats.total}</strong></div>
+                    <div className="stat-pill success">Created: <strong>{studentStats.created}</strong></div>
+                    <div className="stat-pill danger">Pending: <strong>{studentStats.pending}</strong></div>
+                  </div>
+                </div>
+                <button 
+                  className="btn-primary" 
+                  onClick={handleGenerateAccounts} 
+                  disabled={studentStats.pending === 0 || generatingAccounts || !studentDomain}
+                >
+                  <Zap size={18} /> 
+                  {generatingAccounts ? "Generating..." : "Generate Pending Accounts"}
+                </button>
+              </div>
+
+              {/* NEW: Department-wise Breakdown Labels */}
+              <div className="dept-breakdown-row">
+                <span className="text-sm text-muted" style={{ fontWeight: 'bold', marginRight: '8px' }}>Dept Overview:</span>
+                {Object.entries(studentStats.departments).map(([dept, data]) => (
+                  <span key={dept} className="badge badge-designation" style={{ background: "var(--bg-main)", border: "1px solid var(--border-color)", color: "var(--text-secondary)" }}>
+                    <strong>{dept}</strong>: {data.created}/{data.total}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="toolbar" style={{ display: "flex", flexWrap: "wrap", gap: "1rem", justifyContent: "space-between" }}>
+        <div className="search-bar" style={{ flex: 1, minWidth: "250px" }}>
           <Search size={18} className="search-icon" />
           <input
             type="text"
-            placeholder={`Search ${activeTab}...`}
+            placeholder={`Search ${activeTab.replace('_', ' ')}...`}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
+        
+        {/* --- NEW: Filters for Student Accounts --- */}
+        {activeTab === "student_accounts" && (
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+            {!isHOD && (
+              <select className="premium-filter-select" value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)}>
+                <option value="ALL">All Departments</option>
+                {departments.map(d => <option key={d.id} value={d.code}>{d.code}</option>)}
+              </select>
+            )}
+            <select className="premium-filter-select" value={yearFilter} onChange={(e) => setYearFilter(e.target.value)}>
+              <option value="ALL">All Years</option>
+              <option value="FE">First Year (FE)</option>
+              <option value="SE">Second Year (SE)</option>
+              <option value="TE">Third Year (TE)</option>
+              <option value="BE">Final Year (BE)</option>
+            </select>
+          </div>
+        )}
       </div>
 
       <div className="table-card">
@@ -238,21 +362,67 @@ const StaffManagement = () => {
         ) : (
           <table className="data-table">
             <thead>
-              <tr>
-                <th>Name</th>
-                <th>Role / Designation</th>
-                <th>Department</th>
-                <th>Status</th>
-                <th style={{ textAlign: "right" }}>Actions</th>
-              </tr>
+              {activeTab === "student_accounts" ? (
+                <tr>
+                  <th>Student Info</th>
+                  <th>Portal Email</th>
+                  <th>Department</th>
+                  <th>Default Password Form</th>
+                  <th>Status</th>
+                </tr>
+              ) : (
+                <tr>
+                  <th>Name</th>
+                  <th>Role / Designation</th>
+                  <th>Department</th>
+                  <th>Status</th>
+                  <th style={{ textAlign: "right" }}>Actions</th>
+                </tr>
+              )}
             </thead>
             <tbody>
               <AnimatePresence mode="wait">
-                {filteredMembers.length > 0 ? (
-                  filteredMembers.map((member) => {
+                {displayedData.length > 0 ? (
+                  displayedData.map((member) => {
+                    
+                    // --- STUDENT RENDER LOGIC ---
+                    if (activeTab === "student_accounts") {
+                      return (
+                        <motion.tr key={member.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                          <td>
+                            <div className="font-medium">{member.name}</div>
+                            <div className="text-sm text-muted">{member.roll_number} • {member.year_level}</div>
+                          </td>
+                          <td>
+                            <span style={{ color: member.status !== "Pending" ? "var(--primary-color)" : "var(--text-secondary)", fontWeight: member.status !== "Pending" ? "600" : "normal" }}>
+                              {member.email}
+                            </span>
+                          </td>
+                          <td>{member.department}</td>
+                          <td>
+                            {member.has_dob 
+                              ? <span style={{ color: "#10b981", fontSize: "0.85rem", fontWeight: "600" }}>DDMMYYYY</span> 
+                              : <span style={{ color: "#f59e0b", fontSize: "0.85rem", fontWeight: "600" }}>RollNo@123</span>
+                            }
+                          </td>
+                          <td>
+                            {member.status === "Active" ? (
+                              <span className="status-badge active" title="Student has logged in"><CheckCircle size={14} /> Active (Logged In)</span>
+                            ) : member.status === "Never Logged In" ? (
+                              <span className="status-badge" style={{ background: "rgba(59, 130, 246, 0.1)", color: "#3b82f6", display: "flex", gap: "4px", alignItems: "center" }} title="Account created, pending first login">
+                                <UserIcon size={14} /> Created
+                              </span>
+                            ) : (
+                              <span className="status-badge pending"><Clock size={14} /> Pending</span>
+                            )}
+                          </td>
+                        </motion.tr>
+                      );
+                    }
+
+                    // --- FACULTY / STAFF RENDER LOGIC ---
                     const displayName = member.full_name || member.name || "Unknown";
                     const isSelf = member.email === user?.email; 
-                    
                     const deptName = member.department_name || member.department || "";
                     const isExternal = isHOD && deptName !== activeDepartment?.name;
 
@@ -396,7 +566,7 @@ const StaffManagement = () => {
                   <motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                     <td colSpan="5" className="empty-state">
                       <Users size={48} className="text-muted opacity-20 mb-2" />
-                      <p>No members found.</p>
+                      <p>No records found matching filters.</p>
                     </td>
                   </motion.tr>
                 )}
@@ -407,6 +577,16 @@ const StaffManagement = () => {
       </div>
 
       <AnimatePresence>
+        {/* --- SECURE DOMAIN MODAL --- */}
+        {showDomainModal && (
+          <DomainEditModal
+            currentDomain={studentDomain}
+            onClose={() => setShowDomainModal(false)}
+            onRefresh={fetchMembers}
+            showToast={showToast}
+          />
+        )}
+
         {showAddModal &&
           (activeTab === "staff" ? (
             <InviteStaffModal
@@ -583,6 +763,66 @@ const StaffManagement = () => {
   );
 };
 
+// --- Secure Domain Modal Component ---
+const DomainEditModal = ({ currentDomain, onClose, onRefresh, showToast }) => {
+  const [domain, setDomain] = useState(currentDomain || "");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await staffService.manageStudentAccounts({ action: 'update_domain', domain, password });
+      showToast("Domain updated successfully", "success");
+      onRefresh();
+      onClose();
+    } catch(err) {
+      showToast(err.response?.data?.error || "Error updating domain", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay">
+      <motion.div className="modal-content premium-modal small-modal" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
+        <div className="modal-header">
+          <div>
+            <h3>Configure Domain</h3>
+            <p className="modal-subtitle">Set the suffix for auto-generated student emails.</p>
+          </div>
+          <button onClick={onClose} className="close-btn"><X size={20} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="premium-form">
+          <div className="sinput-group">
+            <label>Student Email Domain</label>
+            <div className="input-wrapper">
+              <Globe size={18} className="input-icon" />
+              <input type="text" required placeholder="e.g. dbcegoa.ac.in" value={domain} onChange={(e) => setDomain(e.target.value)} />
+            </div>
+            <small className="text-muted" style={{ display: 'block', marginTop: '6px' }}>Emails will look like: <em>rollnumber@{domain || 'domain.com'}</em></small>
+          </div>
+          <div className="sinput-group" style={{ marginTop: '1rem' }}>
+            <label>Your Admin Password (Required)</label>
+            <div className="input-wrapper">
+              <Lock size={18} className="input-icon" />
+              <input type="password" required placeholder="Confirm your password..." value={password} onChange={(e) => setPassword(e.target.value)} />
+            </div>
+          </div>
+          <div className="modal-actions" style={{ marginTop: '2rem' }}>
+            <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
+            <button type="submit" disabled={loading} className="btn-primary">
+              {loading ? "Verifying..." : "Save Domain"}
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+};
+
+
 const FacultyFormModal = ({
   onClose,
   onRefresh,
@@ -613,7 +853,6 @@ const FacultyFormModal = ({
   const [formData, setFormData] = useState({
     full_name: resolvedName,
     email: facultyData?.email || "",
-    // FIX: Safely preserve existing roles (like Admin/HOD) to prevent accidental demotions
     role: facultyData ? facultyData.role_code : (isHOD ? "FACULTY" : "FACULTY"),
     designation: facultyData?.designation || "Assistant Professor",
     phone_number: facultyData?.phone_number || "",
@@ -832,7 +1071,6 @@ const FacultyFormModal = ({
                   >
                     <option value="FACULTY">Teaching Faculty</option>
                     {!isHOD && <option value="HOD">Head of Department (HOD)</option>}
-                    {/* Preserve Admin visually if they are editing themselves */}
                     {["SUPER_ADMIN", "ORG_ADMIN"].includes(facultyData?.role_code) && (
                       <option value={facultyData.role_code}>Organization Admin</option>
                     )}

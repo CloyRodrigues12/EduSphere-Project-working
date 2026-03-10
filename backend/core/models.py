@@ -12,7 +12,7 @@ from datetime import timedelta
 # ==========================================
 
 class Organization(models.Model):
-    """ The College/Institute (e.g., 'St. Xavier's Trust') """
+    """ The College/Institute """
     TYPE_CHOICES = [
         ('School', 'School'),
         ('College', 'College'),
@@ -21,6 +21,8 @@ class Organization(models.Model):
     name = models.CharField(max_length=255)
     type = models.CharField(max_length=50, choices=TYPE_CHOICES, default='College')
     address = models.TextField(blank=True, null=True)
+    # Enforced domain for auto-generating student emails
+    student_email_domain = models.CharField(max_length=100, blank=True, null=True, help_text="e.g. dbcegoa.ac.in")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -236,9 +238,12 @@ class TeachingAllocation(models.Model):
         
 
 # ==========================================
-# 6. EXISTING STUDENT MODEL 
+# STUDENT MODEL 
 # ==========================================
 class Student(models.Model):
+    
+    user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='student_record')
+    
     # Link to the Organization & Department
     organization = models.ForeignKey('Organization', on_delete=models.CASCADE)
     department = models.ForeignKey('Department', on_delete=models.CASCADE, null=True, blank=True)

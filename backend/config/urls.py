@@ -30,7 +30,7 @@ from core.views import (
     VerifyRegistrationOTPView,
     JoinTeamRequestOTPView,
     JoinTeamCompleteView,
-    SetGooglePasswordView
+    SetGooglePasswordView,StudentAccountManagementView
 )
 
 def password_reset_redirect(request, uidb64, token):
@@ -84,6 +84,9 @@ urlpatterns = [
     path('api/faculty/', FacultyManagementView.as_view(), name='faculty-list'), # For Teachers
 
     path('api/departments/', DepartmentListView.as_view(), name='department-list'),
+    
+   
+    path('api/student-accounts/', StudentAccountManagementView.as_view(), name='student_accounts'),
 
     
     ## --- STUDENT DATA ---

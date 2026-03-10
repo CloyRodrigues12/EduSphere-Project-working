@@ -1402,3 +1402,195 @@ class ToggleTeachingRoleView(APIView):
         profile.save()
         status_text = "Added to" if profile.is_teaching_faculty else "Removed from"
         return Response({"message": f"Successfully {status_text} the Faculty Registry.", "is_teaching_faculty": profile.is_teaching_faculty})
+    
+    
+    
+    
+class StudentAccountManagementView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user_role = request.user.profile.role
+        if user_role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
+            return Response({"error": "Access Denied."}, status=403)
+        
+        org = request.user.profile.organization
+        # Optimized with select_related to prevent N+1 queries
+        students = Student.objects.filter(organization=org, is_active=True).select_related('user', 'department')
+        
+        # Sandbox: HODs only see their department. Admins see the filter.
+        if user_role == 'HOD':
+            students = students.filter(department=request.user.profile.department)
+        else:
+            target_dept_id = request.headers.get('X-Department-Id')
+            if target_dept_id and target_dept_id != 'ALL':
+                students = students.filter(department_id=target_dept_id)
+
+        audit_data = []
+        dept_breakdown = {}
+        total_students = 0
+        created_accounts = 0
+
+        for s in students:
+            total_students += 1
+            has_account = bool(s.user)
+            if has_account:
+                created_accounts += 1
+
+            # Aggregate Department Stats
+            dept_code = s.department.code if s.department else "N/A"
+            if dept_code not in dept_breakdown:
+                dept_breakdown[dept_code] = {"total": 0, "created": 0}
+            
+            dept_breakdown[dept_code]["total"] += 1
+            if has_account:
+                dept_breakdown[dept_code]["created"] += 1
+
+            # Predict email
+            predicted_email = f"{s.roll_number.lower().strip()}@{org.student_email_domain}" if org.student_email_domain else "Domain not set"
+            
+            # Determine specific status
+            if has_account:
+                if s.user.last_login:
+                    status_label = "Active"
+                else:
+                    status_label = "Never Logged In"
+            else:
+                status_label = "Pending"
+
+            # Determine Year Level
+            sem = s.current_semester
+            if sem in [1, 2]: yl = "FE"
+            elif sem in [3, 4]: yl = "SE"
+            elif sem in [5, 6]: yl = "TE"
+            elif sem in [7, 8]: yl = "BE"
+            else: yl = "Alumni"
+
+            audit_data.append({
+                "id": s.id,
+                "roll_number": s.roll_number,
+                "name": s.full_name,
+                "email": s.user.email if has_account else predicted_email,
+                "status": status_label,
+                "department": dept_code,
+                "year_level": yl,
+                "has_dob": bool(s.dob)
+            })
+
+        return Response({
+            "domain": org.student_email_domain or "",
+            "stats": {
+                "total": total_students,
+                "created": created_accounts,
+                "pending": total_students - created_accounts,
+                "departments": dept_breakdown
+            },
+            "students": audit_data
+        })
+
+    def post(self, request):
+        user_profile = request.user.profile
+        if user_profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
+            return Response({"error": "Permission denied"}, status=403)
+
+        action = request.data.get('action')
+        org = user_profile.organization
+
+        # -------------------------------------------------------------
+        # ACTION 1: UPDATE DOMAIN (Protected by Password)
+        # -------------------------------------------------------------
+        if action == 'update_domain':
+            if user_profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN']:
+                return Response({"error": "Only Organization Admins can change the domain."}, status=403)
+
+            new_domain = request.data.get('domain')
+            password = request.data.get('password')
+
+            if not new_domain or not password:
+                return Response({"error": "Domain and password are required."}, status=400)
+
+            if not request.user.check_password(password):
+                return Response({"error": "Incorrect password. Domain update aborted."}, status=403)
+
+            # Clean the domain input
+            new_domain = new_domain.replace('@', '').strip().lower()
+            org.student_email_domain = new_domain
+            org.save()
+
+            return Response({"message": f"Domain successfully updated to @{new_domain}", "domain": org.student_email_domain})
+
+        # -------------------------------------------------------------
+        # ACTION 2: BULK GENERATE STUDENT ACCOUNTS
+        # -------------------------------------------------------------
+        elif action == 'generate_accounts':
+            if not org.student_email_domain:
+                return Response({"error": "Please configure the Organization Email Domain first."}, status=400)
+
+            # Find all students missing a user account
+            students = Student.objects.filter(organization=org, is_active=True, user__isnull=True)
+            
+            if user_profile.role == 'HOD':
+                students = students.filter(department=user_profile.department)
+            else:
+                target_dept_id = request.headers.get('X-Department-Id')
+                if target_dept_id and target_dept_id != 'ALL':
+                    students = students.filter(department_id=target_dept_id)
+
+            if not students.exists():
+                return Response({"message": "No pending accounts to generate!"})
+
+            generated_count = 0
+            errors = []
+
+            for student in students:
+                email = f"{student.roll_number.lower().strip()}@{org.student_email_domain}"
+                
+                # Generate Password: DOB if exists (DDMMYYYY), else Roll@123
+                if student.dob:
+                    default_password = student.dob.strftime('%d%m%Y')
+                else:
+                    default_password = f"{student.roll_number.strip()}@123"
+
+                try:
+                    with transaction.atomic():
+                        # Prevent duplicate email crashes
+                        if User.objects.filter(username=email).exists() or User.objects.filter(email=email).exists():
+                            errors.append(f"Email {email} is already in use.")
+                            continue
+
+                        # Extract basic first/last name
+                        name_parts = student.full_name.split()
+                        first_name = name_parts[0][:30]
+                        last_name = " ".join(name_parts[1:])[:30] if len(name_parts) > 1 else ""
+
+                        new_user = User.objects.create_user(
+                            username=email,
+                            email=email,
+                            password=default_password,
+                            first_name=first_name,
+                            last_name=last_name
+                        )
+
+                        # Set up the UserProfile as a STUDENT
+                        profile, _ = UserProfile.objects.get_or_create(user=new_user)
+                        profile.role = 'STUDENT'
+                        profile.organization = org
+                        profile.department = student.department
+                        profile.is_setup_complete = True # Students bypass the setup wizard
+                        profile.save()
+
+                        # Link back to the Student record
+                        student.user = new_user
+                        student.email = email
+                        student.save()
+
+                        generated_count += 1
+                except Exception as e:
+                    errors.append(f"Failed for {student.roll_number}: {str(e)}")
+
+            return Response({
+                "message": f"Successfully generated {generated_count} accounts.",
+                "errors": errors
+            })
+
+        return Response({"error": "Invalid action."}, status=400)
