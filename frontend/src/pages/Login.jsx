@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useGoogleLogin } from "@react-oauth/google";
 import { motion, AnimatePresence } from "framer-motion";
@@ -7,8 +7,9 @@ import "./Login.css";
 
 const Login = () => {
   const {
+    user,
     login,
-    googleLogin, // This is from AuthContext
+    googleLogin,
     requestSignUpOTP,
     verifySignUpOTP,
     requestJoinTeamOTP,
@@ -18,7 +19,7 @@ const Login = () => {
     requiresGoogleSetup,
   } = useAuth();
 
-  const [view, setView] = useState("login"); // 'login' | 'signup' | 'join' | 'otp-verify' | 'forgot'
+  const [view, setView] = useState("login"); 
   const [pendingAction, setPendingAction] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
@@ -30,9 +31,9 @@ const Login = () => {
   const [successMsg, setSuccessMsg] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // =========================================
-  // THE MISSING GOOGLE LOGIN HANDLER IS HERE
-  // =========================================
+  // Detect if a Student needs to change their default password ---
+  const needsStudentSetup = user && user.role_code === 'STUDENT' && !user.is_setup_complete;
+  
   const handleGoogleLogin = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
       setError("");
@@ -43,7 +44,6 @@ const Login = () => {
     },
     onError: () => setError("Google login failed."),
   });
-  // =========================================
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -119,6 +119,7 @@ const Login = () => {
     setIsLoading(false);
   };
 
+  // --- REUSED FOR GOOGLE LOGIN AND FIRST TIME STUDENT SETUP ---
   const handleSetGooglePassword = async (e) => {
     e.preventDefault();
     if (formData.password !== formData.confirmPassword) {
@@ -141,9 +142,14 @@ const Login = () => {
   return (
     <div className="login-container">
       <div className="login-card">
-        {requiresGoogleSetup ? (
+        {requiresGoogleSetup || needsStudentSetup ? (
           <form className="login-form" onSubmit={handleSetGooglePassword}>
-            {renderHeader("Set Password", "Create a secure password for your account.")}
+            {renderHeader(
+              needsStudentSetup ? "Welcome Student!" : "Secure Account", 
+              needsStudentSetup 
+                ? "Please change your default password to continue." 
+                : "Create a secure password for your account."
+            )}
             <div className="input-group">
               <label>New Password</label>
               <div className="input-wrapper">
@@ -163,7 +169,7 @@ const Login = () => {
               </div>
             </div>
             {error && <div className="status-msg error">{error}</div>}
-            <button type="submit" className="submit-btn" disabled={isLoading}>{isLoading ? "Saving..." : "Save Password"}</button>
+            <button type="submit" className="submit-btn" disabled={isLoading}>{isLoading ? "Saving..." : "Save Password & Enter"}</button>
           </form>
         ) : view === "otp-verify" ? (
           <form className="login-form" onSubmit={handleOtpSubmit}>

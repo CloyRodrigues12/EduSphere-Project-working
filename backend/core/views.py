@@ -309,6 +309,13 @@ class SetGooglePasswordView(APIView):
         
         user.set_password(new_password)
         user.save()
+
+        # ---> Mark setup as complete in the database!
+        if hasattr(user, 'profile'):
+            user.profile.is_setup_complete = True
+            user.profile.save()
+        # ---------------------------------------------------------
+
         return Response({"message": "Password set successfully."})
 
 class StaffManagementView(APIView):
@@ -1415,6 +1422,7 @@ class StudentAccountManagementView(APIView):
             return Response({"error": "Access Denied."}, status=403)
         
         org = request.user.profile.organization
+        
         # Optimized with select_related to prevent N+1 queries
         students = Student.objects.filter(organization=org, is_active=True).select_related('user', 'department')
         
@@ -1571,12 +1579,13 @@ class StudentAccountManagementView(APIView):
                             last_name=last_name
                         )
 
+                    
                         # Set up the UserProfile as a STUDENT
                         profile, _ = UserProfile.objects.get_or_create(user=new_user)
                         profile.role = 'STUDENT'
                         profile.organization = org
                         profile.department = student.department
-                        profile.is_setup_complete = True # Students bypass the setup wizard
+                        profile.is_setup_complete = False # <-- FLAG FOR FORCED PASSWORD RESET
                         profile.save()
 
                         # Link back to the Student record

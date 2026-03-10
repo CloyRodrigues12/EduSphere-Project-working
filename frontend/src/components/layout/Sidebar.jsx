@@ -29,45 +29,57 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
   const { user } = useAuth();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-  // 3. Dynamic Menu Logic
-  const navItems = [
-    { icon: LayoutDashboard, label: "Dashboard", path: "/" },
-    // ---> ADDED: My Class Dashboard for Faculty
-    { icon: Presentation, label: "My Class", path: "/my-class" },
-    { icon: HeartHandshake, label: "My Mentees", path: "/my-mentees" },
-    { icon: ClipboardCheck, label: "Attendance", path: "/attendance" },
-    { icon: Library, label: "Subject Catalog", path: "/subjects" },
-    { icon: Users, label: "Dir & Batches", path: "/students" },
-    { icon: Banknote, label: "Fees", path: "/fees" },
-    { icon: FileSearch, label: "DocuSense AI", path: "/docusense" },
-  ];
-
-  // Add these boolean checks for cleaner logic
+  // --- DYNAMIC MENU LOGIC ---
   const isOrgAdmin = ["ORG_ADMIN", "SUPER_ADMIN"].includes(user?.role_code);
   const isHODOrAdmin = ["ORG_ADMIN", "SUPER_ADMIN", "HOD"].includes(user?.role_code);
+  const isStudent = user?.role_code === "STUDENT";
 
-  // 1. Only ORG_ADMIN gets Admin Actions
-  if (isOrgAdmin) {
-    navItems.push({
-      icon: Settings, label: "Admin Actions", path: "/academic-settings",
-    });
-  }
+  let navItems = [];
 
-  // 2. Both ORG_ADMIN and HOD get Team & Allocations
-  // (NOTE: Indices shifted by +1 because "My Class" was added above)
-  if (isHODOrAdmin) {
-    navItems.splice(4, 0, {
-      icon: Shield, label: "Team & Perms", path: "/staff",
-    });
-    navItems.splice(6, 0, {
-      icon: Layers, label: "Allocation Matrix", path: "/allocations",
-    });
-    navItems.splice(8, 0, {
-      icon: UploadCloud, label: "Upload Data", path: "/upload",
-    });
-    navItems.splice(10, 0, {
-      icon: UserStar, label: "Faculty Assign.", path: "/assignments",
-    });
+  if (isStudent) {
+    // ==========================================
+    // STUDENT SIDEBAR
+    // ==========================================
+    navItems = [
+      { icon: LayoutDashboard, label: "My Dashboard", path: "/" },
+      { icon: ClipboardCheck, label: "My Attendance", path: "/my-attendance" },
+      { icon: Banknote, label: "My Fees", path: "/fees" },
+    ];
+  } else {
+    // ==========================================
+    // FACULTY / ADMIN SIDEBAR
+    // ==========================================
+    navItems = [
+      { icon: LayoutDashboard, label: "Dashboard", path: "/" },
+      { icon: Presentation, label: "My Class", path: "/my-class" },
+      { icon: HeartHandshake, label: "My Mentees", path: "/my-mentees" },
+      { icon: ClipboardCheck, label: "Attendance", path: "/attendance" },
+      { icon: Library, label: "Subject Catalog", path: "/subjects" },
+      { icon: Users, label: "Dir & Batches", path: "/students" },
+      { icon: Banknote, label: "Fees", path: "/fees" },
+      { icon: FileSearch, label: "DocuSense AI", path: "/docusense" },
+    ];
+
+    if (isOrgAdmin) {
+      navItems.push({
+        icon: Settings, label: "Admin Actions", path: "/academic-settings",
+      });
+    }
+
+    if (isHODOrAdmin) {
+      navItems.splice(4, 0, {
+        icon: Shield, label: "Team & Perms", path: "/staff",
+      });
+      navItems.splice(6, 0, {
+        icon: Layers, label: "Allocation Matrix", path: "/allocations",
+      });
+      navItems.splice(8, 0, {
+        icon: UploadCloud, label: "Upload Data", path: "/upload",
+      });
+      navItems.splice(10, 0, {
+        icon: UserStar, label: "Faculty Assign.", path: "/assignments",
+      });
+    }
   }
 
   const handleLogoutClick = () => {
@@ -112,26 +124,28 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
               }}
             >
               <span className="logo-text">EduSphere</span>
-              {/* The Information / Welcome Guide Icon */}
-              <NavLink
-                to="/welcome"
-                className={({ isActive }) =>
-                  `info-nav-icon ${isActive ? "active" : ""}`
-                }
-                style={({ isActive }) => ({
-                  color: isActive
-                    ? "var(--primary-color)"
-                    : "var(--text-muted)",
-                  display: "flex",
-                  alignItems: "center",
-                  padding: "4px",
-                  borderRadius: "6px",
-                  transition: "all 0.2s ease",
-                })}
-                title="System Guide & Architecture"
-              >
-                <Info size={15} />
-              </NavLink>
+              {/* Only show Info icon to Faculty/Staff */}
+              {!isStudent && (
+                <NavLink
+                  to="/welcome"
+                  className={({ isActive }) =>
+                    `info-nav-icon ${isActive ? "active" : ""}`
+                  }
+                  style={({ isActive }) => ({
+                    color: isActive
+                      ? "var(--primary-color)"
+                      : "var(--text-muted)",
+                    display: "flex",
+                    alignItems: "center",
+                    padding: "4px",
+                    borderRadius: "6px",
+                    transition: "all 0.2s ease",
+                  })}
+                  title="System Guide & Architecture"
+                >
+                  <Info size={15} />
+                </NavLink>
+              )}
             </div>
           )}
           <button

@@ -29,7 +29,6 @@ const getSmartAbbreviation = (name) => {
   if (!name) return "";
   const cleanName = name.trim();
 
-  // If it's already very short or entirely uppercase without spaces (e.g. "DBCE", "MIT")
   if (
     cleanName.length <= 5 ||
     (cleanName === cleanName.toUpperCase() && !cleanName.includes(" "))
@@ -37,24 +36,28 @@ const getSmartAbbreviation = (name) => {
     return cleanName;
   }
 
-  // Words to skip
   const stopWords = new Set(["of", "and", "the", "in", "on", "at", "for", "&"]);
 
-  // Split by spaces or hyphens, filter out stop words, get first letters
   const initials = cleanName
     .split(/[\s-]+/)
     .filter((word) => word.length > 0 && !stopWords.has(word.toLowerCase()))
     .map((word) => word.charAt(0).toUpperCase())
     .join("");
 
-  // Fallback to original name if the abbreviation is weirdly short (just 1 letter)
   return initials.length > 1 ? initials : cleanName;
+};
+
+// --- NEW: FIRST AND LAST NAME HELPER ---
+const getFirstAndLastName = (fullName) => {
+  if (!fullName) return "";
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length <= 1) return parts[0];
+  return `${parts[0]} ${parts[parts.length - 1]}`;
 };
 
 const Topbar = ({ title, onMenuClick }) => {
   const { logout } = useAuth();
 
-  // Bring in the global academic AND department state!
   const {
     activeAcademicYear,
     academicYears,
@@ -64,16 +67,13 @@ const Topbar = ({ title, onMenuClick }) => {
     setActiveDepartment,
   } = useAcademic();
 
-  // Check local storage first. If nothing is saved, default to "light"
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem("edusphere_theme") || "light";
   });
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-  // State to hold the year the user *wants* to switch to before confirming
   const [pendingYear, setPendingYear] = useState(null);
-
   const menuRef = useRef(null);
 
   const [user, setUser] = useState({
@@ -91,7 +91,6 @@ const Topbar = ({ title, onMenuClick }) => {
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
-    // Save the new theme to local storage every time it changes
     localStorage.setItem("edusphere_theme", theme);
   }, [theme]);
 
@@ -125,8 +124,8 @@ const Topbar = ({ title, onMenuClick }) => {
           name: userData.name,
           email: userData.email,
           role: userData.role,
-          role_code: userData.role_code, // FIXED: Extract accurate internal code
-          is_teaching_faculty: !!userData.is_teaching_faculty, // FIXED: Grab toggle state
+          role_code: userData.role_code,
+          is_teaching_faculty: !!userData.is_teaching_faculty,
           organization: userData.organization,
           location: userData.location,
           designation: userData.designation,
@@ -149,10 +148,7 @@ const Topbar = ({ title, onMenuClick }) => {
   };
 
   const handleToggleTeaching = async (e) => {
-    // Prevent default label click behavior
     e.preventDefault();
-
-    // Optimistic Update
     const newState = !user.is_teaching_faculty;
     setUser({ ...user, is_teaching_faculty: newState });
 
@@ -163,8 +159,6 @@ const Topbar = ({ title, onMenuClick }) => {
         {},
         { headers: { Authorization: `Bearer ${token}` } },
       );
-
-      // FORCE REFRESH: Reload the entire application so Sidebar & Contexts update!
       window.location.reload();
     } catch (error) {
       console.error("Failed to toggle teaching role", error);
@@ -173,12 +167,11 @@ const Topbar = ({ title, onMenuClick }) => {
     }
   };
 
-  // --- Handle Year Dropdown Change ---
   const handleYearSelect = (e) => {
     const selectedId = parseInt(e.target.value);
     const selected = academicYears.find((ay) => ay.id === selectedId);
     if (selected && selected.id !== activeAcademicYear.id) {
-      setPendingYear(selected); // Trigger Modal instead of changing instantly
+      setPendingYear(selected); 
     }
   };
 
@@ -187,7 +180,6 @@ const Topbar = ({ title, onMenuClick }) => {
     setPendingYear(null);
   };
 
-  // --- Handle Department Dropdown Change ---
   const handleDeptChange = (e) => {
     const val = e.target.value;
     if (val === "ALL") {
@@ -200,6 +192,10 @@ const Topbar = ({ title, onMenuClick }) => {
   };
 
   const isOrgAdmin = ["ORG_ADMIN", "SUPER_ADMIN"].includes(user?.role_code);
+  const isStudent = user?.role_code === "STUDENT";
+  
+  // Clean Display Role (Forces "Student" if code is STUDENT, otherwise uses designation/role)
+  const displayRole = isStudent ? "Student" : (user.designation || user.role);
 
   return (
     <header className="topbar glass-panel">
@@ -234,7 +230,7 @@ const Topbar = ({ title, onMenuClick }) => {
                   marginRight: "6px",
                   whiteSpace: "nowrap",
                 }}
-                title={user.organization} // Hover to see full name
+                title={user.organization} 
               >
                 {getSmartAbbreviation(user.organization) || "Loading..."}
               </span>
@@ -249,9 +245,7 @@ const Topbar = ({ title, onMenuClick }) => {
                 disabled={!activeDepartment}
                 title="Change Active Department"
               >
-                {/* NEW: Organization-Wide Option */}
                 <option value="ALL">All Departments (Org View)</option>
-
                 {departments.map((dept) => (
                   <option key={dept.id} value={dept.id}>
                     {dept.name}
@@ -276,7 +270,7 @@ const Topbar = ({ title, onMenuClick }) => {
                   marginRight: "6px",
                   whiteSpace: "nowrap",
                 }}
-                title={user.organization} // Hover to see full name
+                title={user.organization} 
               >
                 {getSmartAbbreviation(user.organization) || "Organization"}
               </span>
@@ -308,7 +302,7 @@ const Topbar = ({ title, onMenuClick }) => {
         </div>
 
         {/* --- Global Academic Year Selector/Badge --- */}
-        {activeAcademicYear && (
+        {activeAcademicYear && !isStudent && (
           <div className="academic-year-badge">
             <Calendar size={16} className="text-primary" />
             <select
@@ -324,6 +318,16 @@ const Topbar = ({ title, onMenuClick }) => {
               ))}
             </select>
           </div>
+        )}
+        
+        {/* Read-only badge for students */}
+        {activeAcademicYear && isStudent && (
+           <div className="academic-year-badge" style={{ cursor: "default", opacity: 0.9 }}>
+             <Calendar size={16} className="text-primary" />
+             <span style={{ fontSize: "0.85rem", fontWeight: "600", marginLeft: "6px", color: "var(--text-primary)" }}>
+               {activeAcademicYear.name}
+             </span>
+           </div>
         )}
 
         <button className="icon-btn" onClick={toggleTheme}>
@@ -349,8 +353,10 @@ const Topbar = ({ title, onMenuClick }) => {
               alt="Profile"
             />
             <div className="profile-info">
-              <span className="name">{user.name}</span>
-              <span className="role">{user.designation || user.role}</span> 
+              {/* --- TRUNCATED NAME LOGIC APPLIED HERE --- */}
+              <span className="name" title={user.name}>{getFirstAndLastName(user.name)}</span>
+              {/* --- FIXED STUDENT ROLE LABEL --- */}
+              <span className="role">{displayRole}</span> 
             </div>
             <ChevronDown
               size={16}
@@ -363,6 +369,7 @@ const Topbar = ({ title, onMenuClick }) => {
               <div className="dropdown-header">
                 <img src={user.avatarUrl} alt="User" className="large-avatar" />
                 <div className="header-info">
+                  {/* Expanded dropdown shows the FULL name */}
                   <h4>{user.name}</h4>
                   <p>{user.email}</p>
                   <div className="org-info">
@@ -380,7 +387,7 @@ const Topbar = ({ title, onMenuClick }) => {
               <div className="dropdown-divider"></div>
 
               <ul className="dropdown-menu">
-                {/* --- NEW: ADMIN TEACHING TOGGLE --- */}
+                {/* --- ADMIN TEACHING TOGGLE --- */}
                 {isOrgAdmin && (
                   <li
                     className="info-item"
@@ -407,7 +414,6 @@ const Topbar = ({ title, onMenuClick }) => {
                       </span>
                     </div>
 
-                    {/* Proper Clickable Label Wrapper */}
                     <label
                       style={{
                         cursor: "pointer",
@@ -422,7 +428,6 @@ const Topbar = ({ title, onMenuClick }) => {
                         onChange={handleToggleTeaching}
                         style={{ display: "none" }}
                       />
-                      {/* iOS Style Toggle Switch */}
                       <div
                         style={{
                           width: "36px",
@@ -457,7 +462,7 @@ const Topbar = ({ title, onMenuClick }) => {
                   <Briefcase size={18} className="text-primary" />
                   <div className="item-text">
                     <span className="label">Designation</span>
-                    <span className="value">{user.designation || "N/A"}</span>
+                    <span className="value">{displayRole || "N/A"}</span>
                   </div>
                 </li>
                 <li className="info-item">

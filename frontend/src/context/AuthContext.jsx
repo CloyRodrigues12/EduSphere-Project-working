@@ -89,14 +89,20 @@ export const AuthProvider = ({ children }) => {
       if (location.pathname !== "/login") navigate("/login");
       return;
     } else {
-      // Clear it if they do have a password
       setRequiresGoogleSetup(false);
     }
 
     // 2. Setup Profile check
     if (!userData.is_setup_complete) {
-      if (location.pathname !== "/setup") navigate("/setup");
-      return;
+      if (userData.role_code === "STUDENT") {
+        // ---> FIX: Keep students on the login page so they can change their password!
+        if (location.pathname !== "/login") navigate("/login");
+        return;
+      } else {
+        // ---> Staff go to the setup wizard
+        if (location.pathname !== "/setup") navigate("/setup");
+        return;
+      }
     }
 
     // 3. Welcome screen check
@@ -168,7 +174,7 @@ export const AuthProvider = ({ children }) => {
       const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/google/`, { 
         access_token: googleData.access_token 
       });
-      await handleAuthResponse(res); // Now waits for the fresh profile!
+      await handleAuthResponse(res); 
       return { success: true };
     } catch (error) {
       return { success: false, error: "Google login failed." };
@@ -237,12 +243,17 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // --- GOOGLE SET PASSWORD ---
+  // --- GOOGLE SET PASSWORD & STUDENT FIRST LOGIN ---
   const setFirstTimePassword = async (password) => {
     try {
       await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/set-google-password/`, { password });
       setRequiresGoogleSetup(false);
-      handleRedirect({...user, has_usable_password: true}); // Tell router the password is set
+      
+      // ---> FIX: Explicitly update the local state so the router lets them into the Dashboard
+      const updatedUser = { ...user, has_usable_password: true, is_setup_complete: true };
+      setUser(updatedUser);
+      handleRedirect(updatedUser); 
+      
       return { success: true };
     } catch (error) {
       return { success: false, error: getErrorMessage(error) };

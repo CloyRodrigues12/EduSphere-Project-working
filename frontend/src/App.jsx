@@ -20,9 +20,7 @@ import ECSUploadWizard from "./pages/Upload/ECSView/ECSUploadWizard";
 import SubjectCatalog from "./pages/SubjectCatalog";
 import StudentDirectory from "./pages/StudentDirectory";
 import AllocationMatrix from "./pages/AllocationMatrix";
-
 import AcademicSettings from "./pages/AcademicSettings";
-
 import Attendance from "./pages/Attendance";
 import ClassMentorAssignments from "./pages/ClassMentorAssignments";
 import MyClassDashboard from "./pages/MyClassDashboard";
@@ -67,62 +65,61 @@ const AppLayout = () => {
         <Topbar title="EduSphere" onMenuClick={() => setMobileOpen(true)} />
         <div style={{ flex: 1, paddingBottom: "2rem" }}>
           <Routes>
+            {/* Accessible by everyone, including students */}
             <Route path="/" element={<DashboardHome />} />
-            <Route path="/welcome" element={<WelcomeGuide />} />{" "}
-            {/* <--- ADD THIS */}
-            <Route
-              path="/fees"
-              element={<Placeholder title="Fees Collection" />}
+            <Route path="/welcome" element={<WelcomeGuide />} />
+            <Route path="/fees" element={<Placeholder title="Fees Collection" />} />
+
+            {/* Admin & Faculty Only Routes */}
+            <Route 
+              path="/upload" 
+              element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD"]}><ECSUploadWizard /></ProtectedRoute>} 
             />
-            <Route path="/upload" element={<ECSUploadWizard />} />
-            <Route path="/docusense" element={<DocuSense />} />
-            <Route path="/staff" element={<StaffManagement />} />
-            <Route path="/subjects" element={<SubjectCatalog />} />
-            <Route path="/students" element={<StudentDirectory />} />
-            <Route path="/allocations" element={<AllocationMatrix />} />
-            <Route path="/academic-settings" element={<AcademicSettings />} />
-            {/* Base Attendance Route (Class Selector) */}
+            <Route 
+              path="/docusense" 
+              element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD", "FACULTY", "STAFF"]}><DocuSense /></ProtectedRoute>} 
+            />
+            <Route 
+              path="/staff" 
+              element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD"]}><StaffManagement /></ProtectedRoute>} 
+            />
+            <Route 
+              path="/subjects" 
+              element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD", "FACULTY"]}><SubjectCatalog /></ProtectedRoute>} 
+            />
+            <Route 
+              path="/students" 
+              element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD", "FACULTY"]}><StudentDirectory /></ProtectedRoute>} 
+            />
+            <Route 
+              path="/allocations" 
+              element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD"]}><AllocationMatrix /></ProtectedRoute>} 
+            />
+            <Route 
+              path="/academic-settings" 
+              element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN"]}><AcademicSettings /></ProtectedRoute>} 
+            />
+
+            {/* Attendance & Faculty Hub */}
             <Route
               path="/attendance"
-              element={
-                <ProtectedRoute>
-                  <Attendance />
-                </ProtectedRoute>
-              }
+              element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD", "FACULTY"]}><Attendance /></ProtectedRoute>}
+            />
+            <Route
+              path="/attendance/:allocationId"
+              element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD", "FACULTY"]}><Attendance /></ProtectedRoute>}
             />
             <Route
               path="/assignments"
-              element={
-                <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD"]}>
-                  <ClassMentorAssignments />
-                </ProtectedRoute>
-              }
+              element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD"]}><ClassMentorAssignments /></ProtectedRoute>}
             />
             <Route
               path="/my-class"
-              element={
-                <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD", "FACULTY"]}>
-                  <MyClassDashboard />
-                </ProtectedRoute>
-
-              }
+              element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD", "FACULTY"]}><MyClassDashboard /></ProtectedRoute>}
             />
             <Route
               path="/my-mentees"
-              element={
-                <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD", "FACULTY"]}>
-                  <MyMenteesDashboard />
-                </ProtectedRoute>
-              }
-            />
-            {/* Specific Class Attendance Route */}
-            <Route
-              path="/attendance/:allocationId"
-              element={
-                <ProtectedRoute>
-                  <Attendance />
-                </ProtectedRoute>
-              }
+              element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD", "FACULTY"]}><MyMenteesDashboard /></ProtectedRoute>}
             />
           </Routes>
         </div>
