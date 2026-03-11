@@ -140,10 +140,11 @@ class FacultySerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source='user.email', read_only=True)
     full_name = serializers.CharField(source='user.first_name', read_only=True) # Using first_name as full name container for now
     department_name = serializers.CharField(source='department.name', read_only=True)
-
+    role_code = serializers.CharField(source='role')
     class Meta:
         model = UserProfile
         fields = [
+            
             'id', 
             'email', 
             'full_name', 
@@ -151,7 +152,7 @@ class FacultySerializer(serializers.ModelSerializer):
             'department_name',
             'designation', 
             'phone_number', 
-            'role',
+            'role','role_code',
             'is_setup_complete',
             'profile_picture'
         ]

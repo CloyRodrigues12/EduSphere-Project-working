@@ -79,47 +79,38 @@ export const AuthProvider = ({ children }) => {
     };
   }, [navigate]);
 
-  // --- ROUTING LOGIC ---
-  const handleRedirect = (userData) => {
-    if (!userData) return;
+const handleRedirect = (userData) => {
+  if (!userData) return;
 
-    // 1. Explicitly check the Database Flag for password status (Google Login first-timers)
-    if (userData.has_usable_password === false) {
-      setRequiresGoogleSetup(true);
-      if (location.pathname !== "/login") navigate("/login");
-      return;
-    } else {
-      setRequiresGoogleSetup(false);
-    }
+  // 1. Password Reset Guard (Google/Students)
+  if (userData.has_usable_password === false) {
+    setRequiresGoogleSetup(true);
+    if (location.pathname !== "/login") navigate("/login");
+    return;
+  }
 
-    // 2. Setup Profile check
+// 2. Setup Profile check
     if (!userData.is_setup_complete) {
       if (userData.role_code === "STUDENT") {
-        // Keep students on the login page so they can change their default password
         if (location.pathname !== "/login") navigate("/login");
         return;
       } else {
-        // Staff and Admins go to the organization setup wizard
-        if (location.pathname !== "/setup") {
-          navigate("/setup");
-        }
+        // Staff and HODs who haven't finished setup MUST go to /setup
+        // If they are redirected to '/', verify their profile in the DB
+        if (location.pathname !== "/setup") navigate("/setup");
         return;
       }
     }
 
-    // 3. Welcome screen check
-    // This ensures users see the WelcomeGuide once before entering the main dashboard
-    const hasSeenWelcome = localStorage.getItem(`has_seen_welcome_${userData.id}`);
-    
-    if (!hasSeenWelcome) {
-      localStorage.setItem(`has_seen_welcome_${userData.id}`, "true");
-      if (location.pathname !== "/welcome") navigate("/welcome");
-    } 
-    // Final redirect to dashboard if they are on an auth page but fully set up
-    else if (location.pathname === "/login" || location.pathname === "/setup") {
-      navigate("/");
-    }
-  };
+  // 3. Welcome screen check (Only for fully set-up users)
+  const hasSeenWelcome = localStorage.getItem(`has_seen_welcome_${userData.id}`);
+  if (!hasSeenWelcome) {
+    localStorage.setItem(`has_seen_welcome_${userData.id}`, "true");
+    if (location.pathname !== "/welcome") navigate("/welcome");
+  } else if (location.pathname === "/login" || location.pathname === "/setup") {
+    navigate("/");
+  }
+};
 
   // --- CRITICAL FIX: Fetch Fresh Profile on Login ---
   const handleAuthResponse = async (res) => {

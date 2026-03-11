@@ -830,6 +830,11 @@ class FacultyManagementView(APIView):
                 profile.profile_picture = request.FILES['profile_picture']
             elif 'remove_picture' in request.data and request.data['remove_picture'] == 'true':
                 profile.profile_picture = None
+                
+            if 'role' in request.data:
+                if user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']:
+                    profile.role = request.data['role']
+    # If role isn't in request.data, it remains unchanged in the DB
 
             profile.save()
             from core.serializers import FacultySerializer
