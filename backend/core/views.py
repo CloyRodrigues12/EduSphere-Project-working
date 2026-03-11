@@ -189,6 +189,14 @@ class VerifyRegistrationOTPView(APIView):
                 first_name=first_name,
                 last_name=last_name
             )
+            # --- FIX: Explicitly set the role to Admin for new registrations ---
+            if hasattr(user, 'profile'):
+                user.profile.role = 'SUPER_ADMIN'  # Initial registrant is always the Super Admin
+                user.profile.is_setup_complete = False
+                user.profile.save()
+        # ------------------------------------------------------------------
+            
+            
             
             otp_record.delete()
             tokens = get_tokens_for_user(user)

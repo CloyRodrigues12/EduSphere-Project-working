@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'core',
     'attendance', #------------------attendance-----------------
     'faculty_assignments',
+    'student_portal',
 
     # --- 3rd Party Auth Apps ---
     'rest_framework.authtoken',

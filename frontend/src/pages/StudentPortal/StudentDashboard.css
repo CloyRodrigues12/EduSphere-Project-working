@@ -1,0 +1,102 @@
+.student-dashboard-container {
+  padding: 1.5rem 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.student-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+
+.support-card, .radar-card {
+  padding: 1.5rem;
+  border-radius: 20px;
+}
+
+.support-card h3, .radar-card h3 {
+  font-size: 1.1rem;
+  margin-bottom: 1.5rem;
+  color: var(--text-primary);
+}
+
+.support-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.icon-box {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-box.primary { background: rgba(79, 70, 229, 0.1); color: var(--primary-color); }
+.icon-box.secondary { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+
+.support-item .label { font-size: 0.8rem; color: var(--text-secondary); margin: 0; }
+.support-item .value { font-weight: 600; color: var(--text-primary); margin: 0; }
+
+.radar-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.percentage-display h2 {
+  font-size: 2.5rem;
+  margin: 0;
+  font-weight: 800;
+}
+
+.status-pill {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.status-pill.safe { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+.status-pill.at-risk { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+.status-pill.defaulter { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+
+.mini-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  text-align: right;
+}
+
+.warning-banner {
+  margin-top: 1.5rem;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  padding: 0.75rem;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.action-strip {
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  border-radius: 15px;
+}
+
+.action-text {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-secondary);
+}

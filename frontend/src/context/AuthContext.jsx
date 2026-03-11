@@ -83,7 +83,7 @@ export const AuthProvider = ({ children }) => {
   const handleRedirect = (userData) => {
     if (!userData) return;
 
-    // 1. Explicitly check the Database Flag for password status
+    // 1. Explicitly check the Database Flag for password status (Google Login first-timers)
     if (userData.has_usable_password === false) {
       setRequiresGoogleSetup(true);
       if (location.pathname !== "/login") navigate("/login");
@@ -95,22 +95,28 @@ export const AuthProvider = ({ children }) => {
     // 2. Setup Profile check
     if (!userData.is_setup_complete) {
       if (userData.role_code === "STUDENT") {
-        // ---> FIX: Keep students on the login page so they can change their password!
+        // Keep students on the login page so they can change their default password
         if (location.pathname !== "/login") navigate("/login");
         return;
       } else {
-        // ---> Staff go to the setup wizard
-        if (location.pathname !== "/setup") navigate("/setup");
+        // Staff and Admins go to the organization setup wizard
+        if (location.pathname !== "/setup") {
+          navigate("/setup");
+        }
         return;
       }
     }
 
     // 3. Welcome screen check
+    // This ensures users see the WelcomeGuide once before entering the main dashboard
     const hasSeenWelcome = localStorage.getItem(`has_seen_welcome_${userData.id}`);
+    
     if (!hasSeenWelcome) {
       localStorage.setItem(`has_seen_welcome_${userData.id}`, "true");
       if (location.pathname !== "/welcome") navigate("/welcome");
-    } else if (location.pathname === "/login" || location.pathname === "/setup") {
+    } 
+    // Final redirect to dashboard if they are on an auth page but fully set up
+    else if (location.pathname === "/login" || location.pathname === "/setup") {
       navigate("/");
     }
   };

@@ -118,6 +118,8 @@ urlpatterns = [
     # Class and Mentor assignment
      path('api/assignments/', include('faculty_assignments.urls')),
 
+
+     path('api/student-portal/', include('student_portal.urls')),
     
 ]
 

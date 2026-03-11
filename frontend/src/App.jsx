@@ -1,6 +1,6 @@
 import React from "react";
 import { Routes, Route } from "react-router-dom";
-import { AuthProvider } from "./context/AuthContext";
+import { AuthProvider, useAuth } from "./context/AuthContext"; // Import useAuth to access user state
 import { AcademicProvider } from "./context/AcademicContext";
 
 // Components
@@ -11,6 +11,7 @@ import ProtectedRoute from "./components/layout/ProtectedRoute";
 // Pages
 import WelcomeGuide from "./pages/WelcomeGuide";
 import DashboardHome from "./pages/DashboardHome";
+import StudentDashboard from "./pages/StudentPortal/StudentDashboard"; // Import the new StudentDashboard
 import Login from "./pages/Login";
 import SetupWizard from "./pages/SetupWizard";
 import StaffManagement from "./pages/StaffManagement";
@@ -45,6 +46,7 @@ const Placeholder = ({ title }) => (
 const AppLayout = () => {
   const [collapsed, setCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const { user } = useAuth(); // Access current user role
 
   return (
     <div
@@ -65,8 +67,12 @@ const AppLayout = () => {
         <Topbar title="EduSphere" onMenuClick={() => setMobileOpen(true)} />
         <div style={{ flex: 1, paddingBottom: "2rem" }}>
           <Routes>
-            {/* Accessible by everyone, including students */}
-            <Route path="/" element={<DashboardHome />} />
+            {/* 2. UPDATE: Conditional Home Route based on role */}
+            <Route 
+              path="/" 
+              element={user?.role_code === "STUDENT" ? <StudentDashboard /> : <DashboardHome />} 
+            />
+            
             <Route path="/welcome" element={<WelcomeGuide />} />
             <Route path="/fees" element={<Placeholder title="Fees Collection" />} />
 
