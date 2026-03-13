@@ -131,13 +131,12 @@ const MyClassDashboard = () => {
       s.ta,
       s.tc,
       `${s.percentage}%`,
-      s.status,
       s.mentor_name
     ]);
 
     autoTable(doc, {
       startY: 52,
-      head: [["Sr No", "Roll No", "Student Name", "TA", "TC", "%", "Status", "Mentor"]],
+      head: [["Sr No", "Roll No", "Student Name", "TA", "TC", "%", "Mentor"]],
       body: tableData,
       theme: "grid",
       headStyles: { fillColor: [59, 130, 246] },
@@ -320,8 +319,9 @@ const MyClassDashboard = () => {
                   <th style={{ textAlign: "center" }} title="Total Attended">TA</th>
                   <th style={{ textAlign: "center" }} title="Total Conducted">TC</th>
                   <th style={{ textAlign: "center" }}>Overall %</th>
-                  <th>Mentor</th>
                   <th>Status</th>
+                  <th>Mentor</th>
+                  
                 </tr>
               </thead>
               <tbody>
@@ -344,18 +344,20 @@ const MyClassDashboard = () => {
                       <td style={{ textAlign: "center" }}>{s.ta}</td>
                       <td style={{ textAlign: "center" }}>{s.tc}</td>
                       <td style={{ textAlign: "center", fontWeight: "bold", color: s.percentage < 75 ? "#ef4444" : s.percentage < 80 ? "#f59e0b" : "#10b981" }}>
-                        {s.percentage}%
+                        {s.percentage}
                       </td>
-                      <td><span className={`badge ${s.mentor_name === 'Unassigned' ? 'badge-role' : 'badge-designation'}`} style={{ fontSize: "0.75rem" }}>{s.mentor_name}</span></td>
+                      
                       <td>
                         <span className="badge premium-status-badge" style={{
                           background: s.status === "Defaulter" ? "rgba(239, 68, 68, 0.1)" : s.status === "At Risk" ? "rgba(245, 158, 11, 0.1)" : "rgba(16, 185, 129, 0.1)",
                           color: s.status === "Defaulter" ? "#ef4444" : s.status === "At Risk" ? "#f59e0b" : "#10b981",
-                          border: `1px solid ${s.status === "Defaulter" ? "rgba(239, 68, 68, 0.3)" : s.status === "At Risk" ? "rgba(245, 158, 11, 0.3)" : "rgba(16, 185, 129, 0.3)"}`
+                          border: `1px solid ${s.status === "Defaulter" ? "rgba(239, 68, 68, 0.3)" : s.status === "At Risk" ? "rgba(245, 158, 11, 0.3)" : "rgba(16, 185, 129, 0.3)"}`,
+                          width: "fit-content",
                         }}>
                           {s.status}
                         </span>
                       </td>
+                      <td><span className={`badge ${s.mentor_name === 'Unassigned' ? 'badge-role' : 'badge-designation'}`} style={{ fontSize: "0.75rem",width: "fit-content" }}>{s.mentor_name}</span></td>
                     </motion.tr>
                   )) : (
                     <tr><td colSpan="7" className="text-center text-muted py-8">No students match the current filters.</td></tr>
