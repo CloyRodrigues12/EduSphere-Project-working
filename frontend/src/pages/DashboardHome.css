@@ -1,66 +1,137 @@
 .dashboard-home {
-  padding: 2rem;
-  padding-bottom: 4rem;
+  padding: 1.5rem 2.5rem 4rem;
+  max-width: 1600px;
+  margin: 0 auto;
 }
 
-.stats-grid {
+/* --- HEADER & GLOBAL FILTERS --- */
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2rem;
+  border-radius: 16px;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.welcome-section h1 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem 0;
+  color: var(--text-primary);
+}
+
+.welcome-section h1 span {
+  color: var(--primary-color);
+}
+
+.welcome-section p {
+  color: var(--text-secondary);
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.premium-select, .in-chart-select {
+  padding: 0.6rem 1.2rem;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.85rem;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2364748b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  background-size: 1rem;
+  padding-right: 2.5rem;
+  transition: all 0.2s;
+}
+
+.premium-select:hover, .in-chart-select:hover {
+  border-color: var(--primary-color);
+}
+
+/* --- SLEEK COMPACT KPIs --- */
+.kpi-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 1.5rem;
   margin-bottom: 2rem;
 }
 
-.stat-card {
-  padding: 1.5rem;
-  border-radius: 24px;
+.sleek-stat-card {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
-  background: var(--bg-card);
-  cursor: pointer;
+  gap: 1.25rem;
+  padding: 1.25rem 1.5rem;
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
 }
 
-.stat-icon {
-  width: 60px;
-  height: 60px;
-  border-radius: 20px;
+.stat-icon-wrap {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
-.stat-content h3 {
-  font-size: 1.8rem;
+.stat-info { display: flex; flex-direction: column; }
+
+.stat-title {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
   font-weight: 700;
-  margin: 0;
+  margin: 0 0 4px 0;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0 0 2px 0;
   line-height: 1;
 }
 
-.stat-content p {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  margin: 4px 0;
+.stat-subtext {
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
-.stat-content .subtext {
-  font-size: 0.8rem;
-  color: #10b981;
-  font-weight: 500;
-}
-
-/* Content Grid */
-.content-grid {
+/* --- ADVANCED BENTO GRID --- */
+.bento-grid {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: repeat(12, 1fr);
   gap: 1.5rem;
 }
 
-.chart-section,
-.recent-activity {
-  border-radius: 24px;
-  padding: 2rem;
-  min-height: 400px;
+.bento-card {
+  background: var(--bg-card);
+  border-radius: 20px;
+  padding: 1.5rem;
+  border: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  min-height: 320px;
+  position: relative;
+  transition: all 0.4s ease;
+  order: 1;
+}
+
+.col-span-8 { grid-column: span 8; }
+.col-span-6 { grid-column: span 6; }
+.col-span-4 { grid-column: span 4; }
+
+@media (max-width: 1024px) {
+  .col-span-8, .col-span-6, .col-span-4 { grid-column: span 12; }
 }
 
 .card-header {
@@ -70,49 +141,222 @@
   margin-bottom: 1.5rem;
 }
 
-.placeholder-chart {
-  height: 300px;
-  border: 2px dashed var(--text-secondary);
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0.3;
-}
-
-.activity-list {
-  list-style: none;
-  padding: 0;
-  margin-top: 1rem;
-}
-
-.activity-item {
-  display: flex;
-  gap: 15px;
-  padding: 15px 0;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-.activity-item .dot {
-  width: 10px;
-  height: 10px;
-  background: var(--primary);
-  border-radius: 50%;
-  margin-top: 6px;
-}
-
-.activity-text {
+.card-header h3 {
   margin: 0;
-  font-weight: 500;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
 }
-.activity-time {
-  font-size: 0.8rem;
+
+.badge {
+  background: var(--bg-input);
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
   color: var(--text-secondary);
 }
 
-/* Mobile Fix */
-@media (max-width: 1024px) {
-  .content-grid {
-    grid-template-columns: 1fr; /* Stack vertically on tablet/mobile */
-  }
+.in-chart-select {
+  padding: 0.4rem 2rem 0.4rem 0.8rem;
+  font-size: 0.75rem;
+  background-color: transparent;
+  border-color: transparent;
 }
+.in-chart-select:hover { border-color: var(--border-color); }
+
+.chart-wrapper {
+  flex: 1;
+  width: 100%;
+  position: relative;
+}
+
+/* --- RECHARTS CUSTOM TOOLTIP (Theme Adaptive) --- */
+.custom-tooltip {
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--bg-card); /* Automatically switches light/dark */
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-color); /* Automatically switches */
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  z-index: 1000;
+}
+
+.custom-tooltip .label {
+  font-weight: 700;
+  color: var(--text-secondary); /* Adapts to theme */
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  margin: 0 0 8px 0;
+}
+
+.custom-tooltip .value {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 4px 0;
+  color: var(--text-primary); /* Adapts to theme */
+}
+
+.custom-tooltip .value span {
+  font-weight: 800;
+  /* The color of the number itself is injected via React inline styles to match the chart slice */
+}
+
+.tooltip-hint {
+  margin-top: 8px;
+  font-size: 0.7rem;
+  color: var(--text-secondary); /* Adapts to theme */
+  font-style: italic;
+  border-top: 1px solid var(--border-color);
+  padding-top: 6px;
+  opacity: 0.8;
+}
+
+/* --- EMPTY STATE MAGIC --- */
+.empty-widget {
+  order: 99 !important;
+  opacity: 0.4;
+  filter: grayscale(100%);
+  pointer-events: none;
+  background: var(--bg-main);
+  border: 1px dashed var(--border-color);
+}
+
+.no-data-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  gap: 10px;
+}
+
+.no-data-overlay p { margin: 0; font-size: 0.9rem; font-weight: 600; }
+
+/* --- DRILL DOWN MODAL --- */
+.drill-down-modal {
+  width: 90%;
+  max-width: 450px;
+  background: var(--bg-card);
+  border-radius: 20px;
+  padding: 2rem;
+  position: relative;
+}
+
+.drill-header { margin-bottom: 2rem; }
+.drill-header h2 { margin: 0 0 0.5rem 0; font-size: 1.5rem; color: var(--text-primary); }
+
+.drill-stat-box {
+  background: rgba(79, 70, 229, 0.05);
+  border: 1px solid rgba(79, 70, 229, 0.2);
+  border-radius: 16px;
+  padding: 2rem;
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.drill-stat-box h3 { margin: 0; font-size: 3rem; color: var(--primary-color); line-height: 1; }
+.drill-stat-box p { margin: 8px 0 0 0; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; font-size: 0.85rem; }
+
+/* --- 5-COLUMN KPIs --- */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.cursor-pointer { cursor: pointer; }
+
+/* --- DRILL DOWN LIST STYLES (THE ACTUAL DATA) --- */
+.drill-list-container {
+  max-height: 300px;
+  overflow-y: auto;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-main);
+}
+
+/* Custom Scrollbar for Modal */
+.drill-list-container::-webkit-scrollbar { width: 6px; }
+.drill-list-container::-webkit-scrollbar-thumb { background: rgba(140, 140, 160, 0.3); border-radius: 10px; }
+
+.drill-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.drill-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.8rem 1.2rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.drill-list li:last-child { border-bottom: none; }
+
+.drill-list li .item-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.drill-list li .item-value {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+}
+
+/* --- DRILL DOWN SEARCH BAR --- */
+.drill-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-input);
+  padding: 0.8rem 1rem;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+  border: 1px solid var(--border-color);
+  transition: all 0.2s ease;
+}
+
+.drill-search-bar:focus-within {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  background: var(--bg-card);
+}
+
+.drill-search-bar input {
+  border: none;
+  background: transparent;
+  width: 100%;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  outline: none;
+}
+
+.drill-search-bar input::placeholder {
+  color: var(--text-secondary);
+}
+
+.no-results {
+  justify-content: center !important;
+  color: var(--text-secondary) !important;
+  padding: 2rem !important;
+  font-style: italic;
+}
+
+/* Tooltip dark mode override */
+.custom-tooltip .label {
+  color: var(--text-primary) !important;
+  opacity: 0.8;
+}
+.custom-tooltip p { margin: 4px 0; }
+.custom-tooltip span { font-weight: 800; }

@@ -182,7 +182,9 @@
   background: var(--bg-input);
   border-radius: 8px;
 }
-
+.modal-overlay{
+  overflow: visible;
+}
 .allocation-container .pill-btn {
   padding: 4px 10px;
   border-radius: 12px;

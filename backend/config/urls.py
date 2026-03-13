@@ -25,6 +25,8 @@ from core.views import ToggleTeachingRoleView
 
 from core.views import StudentDirectoryView, StudentGroupView, StudentToggleStatusView
 
+from core.dashboard import AdvancedDashboardView
+
 from core.views import (
     RequestRegistrationOTPView,
     VerifyRegistrationOTPView,
@@ -87,6 +89,12 @@ urlpatterns = [
     
    
     path('api/student-accounts/', StudentAccountManagementView.as_view(), name='student_accounts'),
+
+
+
+
+
+path('api/dashboard/advanced/', AdvancedDashboardView.as_view(), name='advanced_dashboard'),
 
     
     ## --- STUDENT DATA ---

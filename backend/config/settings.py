@@ -2,6 +2,7 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 from datetime import timedelta
+from corsheaders.defaults import default_headers
 
 
 
@@ -174,6 +175,12 @@ CORS_ALLOW_HEADERS = [
     'x-csrftoken',
     'x-requested-with',
     'x-department-id', 
+]
+
+# Allow our custom context headers through CORS
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    'x-academic-year-id',
+    'x-department-id',
 ]
 
 # --- AUTHENTICATION CONFIG ---

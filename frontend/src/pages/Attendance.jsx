@@ -406,7 +406,7 @@ const Attendance = () => {
         s.ta,
         s.absent,
         s.duty,
-        `${s.percentage}%`,
+        `${s.percentage}`,
       ]);
 
       autoTable(doc, {
