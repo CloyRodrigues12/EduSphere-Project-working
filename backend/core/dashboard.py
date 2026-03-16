@@ -14,12 +14,21 @@ class AdvancedDashboardView(APIView):
         ay_id = request.headers.get('X-Academic-Year-Id')
         study_year = request.query_params.get('year', 'ALL')
 
-        # 1. Base Querysets
-        students = Student.objects.filter(is_active=True)
-        faculty = UserProfile.objects.filter(role__in=['FACULTY', 'HOD'], user__is_active=True)
-        courses = Course.objects.all()
-        allocations = TeachingAllocation.objects.all()
-        departments = Department.objects.all()
+        # ==========================================
+        # 0. STRICT MULTI-TENANT ISOLATION (THE FIX)
+        # ==========================================
+        org = user_profile.organization
+        
+        # Safety catch: If user has no org, return empty structure to prevent leaks
+        if not org:
+            return Response({"error": "User does not belong to any organization."}, status=403)
+
+        # 1. Base Querysets (Locked to the User's Organization)
+        students = Student.objects.filter(organization=org, is_active=True)
+        faculty = UserProfile.objects.filter(organization=org, role__in=['FACULTY', 'HOD'], user__is_active=True)
+        courses = Course.objects.filter(department__organization=org)
+        allocations = TeachingAllocation.objects.filter(academic_year__organization=org)
+        departments = Department.objects.filter(organization=org)
 
         if ay_id:
             students = students.filter(academic_year_id=ay_id)

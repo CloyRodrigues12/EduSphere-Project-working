@@ -38,10 +38,14 @@ class CustomUserDetailsSerializer(UserDetailsSerializer):
 
     def get_requires_password_setup(self, obj):
         """
-        If the user logged in via Google for the first time, or was added by an admin,
-        Django sets an "unusable password". This flag tells React to intercept them 
-        and force a password setup.
+        If the user logged in via Google, they DO NOT need a password.
+        If they were invited by an Admin (no social account + no password), they DO need one.
         """
+        # 1. Check if they have a Google/Social account linked
+        if hasattr(obj, 'socialaccount_set') and obj.socialaccount_set.exists():
+            return False
+            
+        # 2. Otherwise, check if they have a usable password
         return not obj.has_usable_password()
 
 # 2. Password Reset Request (Sending the Email)

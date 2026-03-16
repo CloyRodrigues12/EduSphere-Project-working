@@ -32,8 +32,14 @@ class Department(models.Model):
     """ The Functional Unit (e.g., 'ECS', 'IT', 'Exam Cell') """
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='departments')
     name = models.CharField(max_length=100) # e.g., "Electronics & Computer Science"
-    code = models.CharField(max_length=20, unique=True) # e.g., "ECS", "IT"
     
+    # 1. REMOVE unique=True from here
+    code = models.CharField(max_length=20) 
+    
+    class Meta:
+        # 2. ADD THIS: Code is only unique PER organization
+        unique_together = ('organization', 'code')
+        
     def __str__(self):
         return self.name
 

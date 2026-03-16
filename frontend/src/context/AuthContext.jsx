@@ -79,47 +79,44 @@ export const AuthProvider = ({ children }) => {
     };
   }, [navigate]);
 
-const handleRedirect = (userData) => {
-  if (!userData) return;
+  const handleRedirect = (userData) => {
+    if (!userData) return;
 
-  // 1. Password Reset Guard (Google/Students)
-  if (userData.has_usable_password === false) {
-    setRequiresGoogleSetup(true);
-    if (location.pathname !== "/login") navigate("/login");
-    return;
-  }
+    // 1. Password Setup Guard (Corrected backend variable map)
+    if (userData.requires_password_setup === true) {
+      setRequiresGoogleSetup(true);
+      if (location.pathname !== "/login") navigate("/login");
+      return;
+    }
 
-// 2. Setup Profile check
+    // 2. Setup Profile check (Corrected role check to userData.role)
     if (!userData.is_setup_complete) {
-      if (userData.role_code === "STUDENT") {
+      if (userData.role === "STUDENT") {
         if (location.pathname !== "/login") navigate("/login");
         return;
       } else {
-        // Staff and HODs who haven't finished setup MUST go to /setup
-        // If they are redirected to '/', verify their profile in the DB
+        // Staff, HODs, Admins MUST go to setup
         if (location.pathname !== "/setup") navigate("/setup");
         return;
       }
     }
 
-  // 3. Welcome screen check (Only for fully set-up users)
-  const hasSeenWelcome = localStorage.getItem(`has_seen_welcome_${userData.id}`);
-  if (!hasSeenWelcome) {
-    localStorage.setItem(`has_seen_welcome_${userData.id}`, "true");
-    if (location.pathname !== "/welcome") navigate("/welcome");
-  } else if (location.pathname === "/login" || location.pathname === "/setup") {
-    navigate("/");
-  }
-};
+    // 3. Welcome screen check (Only for fully set-up users)
+    const hasSeenWelcome = localStorage.getItem(`has_seen_welcome_${userData.id}`);
+    if (!hasSeenWelcome) {
+      localStorage.setItem(`has_seen_welcome_${userData.id}`, "true");
+      if (location.pathname !== "/welcome") navigate("/welcome");
+    } else if (location.pathname === "/login" || location.pathname === "/setup") {
+      navigate("/");
+    }
+  };
 
-  // --- CRITICAL FIX: Fetch Fresh Profile on Login ---
   const handleAuthResponse = async (res) => {
     const { access, refresh } = res.data;
     localStorage.setItem("access_token", access);
     localStorage.setItem("refresh_token", refresh);
     
     try {
-      // Always fetch the true CurrentUser payload which includes our custom flags
       const userRes = await axios.get(`${import.meta.env.VITE_API_URL}/api/user/me/`, {
         headers: { Authorization: `Bearer ${access}` }
       });
@@ -127,7 +124,6 @@ const handleRedirect = (userData) => {
       handleRedirect(userRes.data);
     } catch (err) {
       console.error("Failed to sync profile context", err);
-      // Fallback if the profile fetch fails
       if (res.data.user) {
         setUser(res.data.user);
         handleRedirect(res.data.user);
@@ -135,7 +131,6 @@ const handleRedirect = (userData) => {
     }
   };
 
-  // --- INITIAL AUTH CHECK ---
   useEffect(() => {
     const checkLoggedIn = async () => {
       const performAuthCheck = async () => {
@@ -161,11 +156,6 @@ const handleRedirect = (userData) => {
     checkLoggedIn();
   }, [location.pathname]);
 
-
-  // ==========================================
-  // AUTHENTICATION METHODS
-  // ==========================================
-
   const googleLogin = async (googleData) => {
     try {
       const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/google/`, { 
@@ -188,7 +178,6 @@ const handleRedirect = (userData) => {
     }
   };
 
-  // --- SIGN UP WITH OTP ---
   const requestSignUpOTP = async (email) => {
     try {
       await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/register/request-otp/`, { email });
@@ -205,11 +194,7 @@ const handleRedirect = (userData) => {
       const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
 
       const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/register/verify-otp/`, {
-        email, 
-        otp, 
-        password, 
-        first_name: firstName, 
-        last_name: lastName
+        email, otp, password, first_name: firstName, last_name: lastName
       });
       await handleAuthResponse(res);
       return { success: true };
@@ -218,7 +203,6 @@ const handleRedirect = (userData) => {
     }
   };
 
-  // --- JOIN TEAM FLOW ---
   const requestJoinTeamOTP = async (email) => {
     try {
       await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/join-team/request-otp/`, { email });
@@ -240,14 +224,13 @@ const handleRedirect = (userData) => {
     }
   };
 
-  // --- GOOGLE SET PASSWORD & STUDENT FIRST LOGIN ---
   const setFirstTimePassword = async (password) => {
     try {
       await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/set-google-password/`, { password });
       setRequiresGoogleSetup(false);
       
-      // ---> FIX: Explicitly update the local state so the router lets them into the Dashboard
-      const updatedUser = { ...user, has_usable_password: true, is_setup_complete: true };
+      // Only clear the password flag, do NOT assume setup is complete yet.
+      const updatedUser = { ...user, requires_password_setup: false };
       setUser(updatedUser);
       handleRedirect(updatedUser); 
       
@@ -257,7 +240,6 @@ const handleRedirect = (userData) => {
     }
   };
 
-  // --- PASSWORD RESET FLOW ---
   const resetPassword = async (email) => {
     try {
       await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/password/reset/`, { email });
@@ -271,12 +253,7 @@ const handleRedirect = (userData) => {
     try {
       await axios.post(
         `${import.meta.env.VITE_API_URL}/api/auth/password/reset/confirm/`,
-        {
-          uid,
-          token,
-          new_password1: newPassword,
-          new_password2: newPassword,
-        },
+        { uid, token, new_password1: newPassword, new_password2: newPassword },
       );
       return { success: true };
     } catch (error) {
@@ -287,19 +264,9 @@ const handleRedirect = (userData) => {
   return (
     <AuthContext.Provider
       value={{
-        user,
-        loading,
-        requiresGoogleSetup,
-        googleLogin,
-        login,
-        requestSignUpOTP,
-        verifySignUpOTP,
-        requestJoinTeamOTP,
-        completeJoinTeam,
-        setFirstTimePassword,
-        resetPassword,
-        resetPasswordConfirm, 
-        logout,
+        user, loading, requiresGoogleSetup, googleLogin, login, requestSignUpOTP,
+        verifySignUpOTP, requestJoinTeamOTP, completeJoinTeam, setFirstTimePassword,
+        resetPassword, resetPasswordConfirm, logout,
       }}
     >
       {loading ? <LoadingScreen /> : children}
