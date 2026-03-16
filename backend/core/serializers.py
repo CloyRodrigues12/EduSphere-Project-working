@@ -38,14 +38,9 @@ class CustomUserDetailsSerializer(UserDetailsSerializer):
 
     def get_requires_password_setup(self, obj):
         """
-        If the user logged in via Google, they DO NOT need a password.
-        If they were invited by an Admin (no social account + no password), they DO need one.
+        Forces ALL users without a local password (including fresh Google sign-ups 
+        and invited faculty) to set a local password before proceeding to Setup.
         """
-        # 1. Check if they have a Google/Social account linked
-        if hasattr(obj, 'socialaccount_set') and obj.socialaccount_set.exists():
-            return False
-            
-        # 2. Otherwise, check if they have a usable password
         return not obj.has_usable_password()
 
 # 2. Password Reset Request (Sending the Email)

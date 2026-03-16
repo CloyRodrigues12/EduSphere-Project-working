@@ -229,8 +229,15 @@ export const AuthProvider = ({ children }) => {
       await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/set-google-password/`, { password });
       setRequiresGoogleSetup(false);
       
-      // Only clear the password flag, do NOT assume setup is complete yet.
+      // Clear the password flag
       const updatedUser = { ...user, requires_password_setup: false };
+      
+      // Smart Routing: If it's a student, their setup is now fully done.
+      // If it's an Admin, setup remains false so handleRedirect sends them to /setup
+      if (updatedUser.role === 'STUDENT' || updatedUser.role_code === 'STUDENT') {
+          updatedUser.is_setup_complete = true;
+      }
+      
       setUser(updatedUser);
       handleRedirect(updatedUser); 
       

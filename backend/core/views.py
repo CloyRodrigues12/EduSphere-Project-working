@@ -318,11 +318,11 @@ class SetGooglePasswordView(APIView):
         user.set_password(new_password)
         user.save()
 
-        # ---> Mark setup as complete in the database!
-        if hasattr(user, 'profile'):
+        # 4. FIXED: Only mark setup as complete if they are a STUDENT.
+        # Admins must remain False so they get routed to the Setup Wizard!
+        if hasattr(user, 'profile') and user.profile.role == 'STUDENT':
             user.profile.is_setup_complete = True
             user.profile.save()
-        # ---------------------------------------------------------
 
         return Response({"message": "Password set successfully."})
 
@@ -500,10 +500,10 @@ class CurrentUserView(APIView):
 
     def get(self, request):
         user = request.user
-        if not hasattr(user, 'profile'):
-            return Response({"error": "Profile not found"}, status=404)
+        
+        # 1. Safety net: Guarantee profile exists for fresh Google Logins
+        profile, created = UserProfile.objects.get_or_create(user=user)
             
-        profile = user.profile
         org = profile.organization
         dept = profile.department
 
@@ -511,8 +511,12 @@ class CurrentUserView(APIView):
             "id": user.id,
             "name": user.get_full_name() or user.email.split('@')[0],
             "email": user.email,
-            "role": profile.get_role_display(),
+            
+            # 2. FIXED: Send raw role code so frontend logic doesn't break
+            "role": profile.role, 
+            "role_display": profile.get_role_display(), 
             "role_code": profile.role,
+            
             "organization": org.name if org else "No Campus",
             "location": org.address if org else "",
             "designation": profile.designation or "Staff Member",
@@ -520,6 +524,9 @@ class CurrentUserView(APIView):
             "is_setup_complete": profile.is_setup_complete,
             "is_teaching_faculty": profile.is_teaching_faculty ,
             "has_usable_password": user.has_usable_password(),
+            
+            
+            "requires_password_setup": not user.has_usable_password(),
             
             "department_id": dept.id if dept else None,
             "department_name": dept.name if dept else None,
