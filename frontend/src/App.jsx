@@ -1,6 +1,6 @@
 import React from "react";
-import { Routes, Route } from "react-router-dom";
-import { AuthProvider, useAuth } from "./context/AuthContext"; // Import useAuth to access user state
+import { Routes, Route, useLocation } from "react-router-dom";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 import { AcademicProvider } from "./context/AcademicContext";
 
 // Components
@@ -11,7 +11,7 @@ import ProtectedRoute from "./components/layout/ProtectedRoute";
 // Pages
 import WelcomeGuide from "./pages/WelcomeGuide";
 import DashboardHome from "./pages/DashboardHome";
-import StudentDashboard from "./pages/StudentPortal/StudentDashboard"; // Import the new StudentDashboard
+import StudentDashboard from "./pages/StudentPortal/StudentDashboard";
 import Login from "./pages/Login";
 import SetupWizard from "./pages/SetupWizard";
 import StaffManagement from "./pages/StaffManagement";
@@ -30,14 +30,9 @@ import MyMenteesDashboard from "./pages/MyMenteesDashboard";
 // Placeholder Component
 const Placeholder = ({ title }) => (
   <div style={{ padding: "2rem" }}>
-    <div
-      className="glass-panel"
-      style={{ padding: "3rem", borderRadius: "20px" }}
-    >
+    <div className="glass-panel" style={{ padding: "3rem", borderRadius: "20px" }}>
       <h2 style={{ color: "var(--text-primary)" }}>{title}</h2>
-      <p style={{ color: "var(--text-secondary)" }}>
-        Module under development.
-      </p>
+      <p style={{ color: "var(--text-secondary)" }}>Module under development.</p>
     </div>
   </div>
 );
@@ -46,7 +41,11 @@ const Placeholder = ({ title }) => (
 const AppLayout = () => {
   const [collapsed, setCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
-  const { user } = useAuth(); // Access current user role
+  const { user } = useAuth();
+  const location = useLocation();
+
+  // Hide Sidebar and Topbar if the user is on the setup page
+  const isSetupPage = location.pathname === "/setup";
 
   return (
     <div
@@ -57,20 +56,32 @@ const AppLayout = () => {
         background: "var(--bg-main)",
       }}
     >
-      <Sidebar
-        collapsed={collapsed}
-        setCollapsed={setCollapsed}
-        mobileOpen={mobileOpen}
-        setMobileOpen={setMobileOpen}
-      />
+      {!isSetupPage && (
+        <Sidebar
+          collapsed={collapsed}
+          setCollapsed={setCollapsed}
+          mobileOpen={mobileOpen}
+          setMobileOpen={setMobileOpen}
+        />
+      )}
+      
       <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-        <Topbar title="EduSphere" onMenuClick={() => setMobileOpen(true)} />
+        {!isSetupPage && (
+          <Topbar title="EduSphere" onMenuClick={() => setMobileOpen(true)} />
+        )}
+        
         <div style={{ flex: 1, paddingBottom: "2rem" }}>
           <Routes>
-            {/* 2. UPDATE: Conditional Home Route based on role */}
+            {/* Conditional Home Route */}
             <Route 
               path="/" 
-              element={user?.role_code === "STUDENT" ? <StudentDashboard /> : <DashboardHome />} 
+              element={user?.role === "STUDENT" ? <StudentDashboard /> : <DashboardHome />} 
+            />
+            
+            {/* The Setup Page is now part of the main routing system */}
+            <Route 
+              path="/setup" 
+              element={<ProtectedRoute><SetupWizard /></ProtectedRoute>} 
             />
             
             <Route path="/welcome" element={<WelcomeGuide />} />
@@ -144,16 +155,6 @@ function App() {
           <Route
             path="/password-reset/confirm/:uid/:token"
             element={<PasswordResetConfirm />}
-          />
-
-          {/* Protected Routes (Requires Login) */}
-          <Route
-            path="/setup"
-            element={
-              <ProtectedRoute>
-                <SetupWizard />
-              </ProtectedRoute>
-            }
           />
 
           {/* The Catch-All for Dashboard (Protected) */}
