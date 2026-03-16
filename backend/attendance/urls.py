@@ -1,10 +1,24 @@
 from django.urls import path
-from .views import ClassSessionView, BulkAttendanceUpdateView, AttendanceReportView, CumulativeReportView,AnalyticsRadarView
+from .views import (
+    ClassSessionView, 
+    BulkAttendanceUpdateView, 
+    AttendanceReportView, 
+    CumulativeReportView,
+    AnalyticsRadarView,
+    FacultyAllocationsView,
+    ClassRosterView,
+    MarkAttendanceView
+)
 
-# Add it to the urlpatterns:
 urlpatterns = [
+    # New Smart Roster APIs
+    path('allocations/', FacultyAllocationsView.as_view(), name='faculty-allocations'),
+    path('roster/<int:allocation_id>/', ClassRosterView.as_view(), name='class-roster'),
+    path('mark/', MarkAttendanceView.as_view(), name='mark-attendance'),
+
+    # Existing APIs
     path('sessions/', ClassSessionView.as_view(), name='class-sessions'),
-    path('bulk-update/', BulkAttendanceUpdateView.as_view(), name='bulk-attendance'),
+    path('bulk-update/', BulkAttendanceUpdateView.as_view(), name='bulk-attendance-update'),
     path('report/', AttendanceReportView.as_view(), name='attendance-report'),
     path('cumulative-report/', CumulativeReportView.as_view(), name='cumulative-report'),
     path('analytics/', AnalyticsRadarView.as_view(), name='analytics-radar'),

@@ -1,14 +1,14 @@
 /* --- TOPBAR CONTAINER --- */
 .topbar {
   height: 70px;
-  margin: 1.5rem 2rem 0 2rem;
+  margin: 1.5rem 1rem 0 1rem;
   border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 1.5rem;
+  padding: 0 1rem;
   position: sticky;
-  top: 1.5rem;
+  top: 1rem;
   z-index: 100;
   transition: all 0.3s ease;
 
@@ -45,7 +45,7 @@
   padding: 8px 12px;
   display: flex;
   align-items: center;
-  width: 200px;
+  width: 190px;
   border: 1px solid transparent;
   transition: all 0.2s ease;
 }
@@ -55,7 +55,7 @@
 }
 
 .search-container:focus-within {
-  width: 240px;
+  width: 200px;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--primary-glow);
 }

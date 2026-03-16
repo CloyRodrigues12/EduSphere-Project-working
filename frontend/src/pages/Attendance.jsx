@@ -42,7 +42,7 @@ const Attendance = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  const { activeAcademicYear, activeDepartment } = useAcademic();
+  const { activeAcademicYear, activeDepartment, activeTerm } = useAcademic();
 
   const { subjectName, groupName, isMine } = location.state || {
     subjectName: "Class Details",
@@ -56,6 +56,9 @@ const Attendance = () => {
   const [sessions, setSessions] = useState([]);
   const [activeSession, setActiveSession] = useState(null);
   const [loading, setLoading] = useState(true);
+  
+  // --- NEW: For creating a completely new session from the Roster ---
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState("list");
@@ -92,6 +95,7 @@ const Attendance = () => {
     date: new Date().toISOString().split("T")[0],
     lecture_count: 1,
     topics_covered: "",
+    time_slot: "",
   });
 
   const getMonthDates = () => {
@@ -104,6 +108,7 @@ const Attendance = () => {
     return { firstDay, lastDay };
   };
 
+  // Add activeTerm to dependency array so dashboard instantly reloads when toggled
   useEffect(() => {
     if (!allocationId) {
       if (activeAcademicYear) {
@@ -113,24 +118,26 @@ const Attendance = () => {
     } else {
       fetchSessions();
     }
-  }, [allocationId, activeAcademicYear, activeDepartment]);
+  }, [allocationId, activeAcademicYear, activeDepartment, activeTerm]);
 
   const fetchClasses = async () => {
     try {
-      if (["ORG_ADMIN", "SUPER_ADMIN", "HOD"].includes(user?.role_code)) {
-        const res = await academicService.getAllocations(activeAcademicYear.id);
-        const myUserId = user?.pk || user?.id;
-        const sortedClasses = res.data
-          .map((alloc) => ({
-            ...alloc,
-            isMine: alloc.faculty_user_id === myUserId,
-          }))
-          .sort((a, b) => (a.isMine === b.isMine ? 0 : a.isMine ? -1 : 1));
-        setMyClasses(sortedClasses);
-      } else {
-        const res = await academicService.getMyClasses();
-        setMyClasses(res.data.map((alloc) => ({ ...alloc, isMine: true })));
-      }
+      // Pass the academic year ID to ensure it fetches the right year
+      const res = await attendanceService.getFacultyAllocations(activeAcademicYear.id);
+      
+      // Get the logged in user's ID
+      const myUserId = user?.id || user?.pk;
+      
+      const sortedClasses = res.data
+        .map((alloc) => ({
+          ...alloc,
+          // Correctly flag ONLY the classes assigned to this specific user
+          isMine: alloc.faculty_user_id === myUserId, 
+        }))
+        // Sort so "My Classes" (if they have any) float to the very top
+        .sort((a, b) => (a.isMine === b.isMine ? 0 : a.isMine ? -1 : 1));
+        
+      setMyClasses(sortedClasses);
     } catch (err) {
       console.error("Failed to load classes", err);
     }
@@ -163,15 +170,36 @@ const Attendance = () => {
   const handleCreateSession = async (e) => {
     e.preventDefault();
     try {
-      const res = await attendanceService.createSession({
-        allocation_id: allocationId,
-        ...newSessionData,
-      });
-      setSessions([res.data, ...sessions]);
+      // 1. Fetch the blank roster of students for this class
+      const rosterRes = await attendanceService.getClassRoster(allocationId);
+      
+      // 2. Build a temporary 'Session' object in memory with everyone marked PRESENT by default
+      const blankRecords = rosterRes.data.students.map(s => ({
+        id: `new_${s.id}`, // Temporary ID
+        student_id: s.id,
+        roll_number: s.roll_number,
+        student_name: s.name,
+        status: "PRESENT"
+      }));
+
+      const newSession = {
+        isNew: true, // Flag to tell the Save function this is a new insert, not an update
+        date: newSessionData.date,
+        lecture_count: newSessionData.lecture_count,
+        topics_covered: newSessionData.topics_covered,
+        time_slot: newSessionData.time_slot,
+        subject_name: subjectName,
+        group_name: groupName,
+        records: blankRecords
+      };
+
+      // 3. Open the grid
+      setActiveSession(newSession);
+      setIsCreatingNew(true);
       setShowNewModal(false);
-      setActiveSession(res.data);
+      
     } catch (err) {
-      alert("Failed to create session.");
+      alert("Failed to load class roster.");
     }
   };
 
@@ -202,10 +230,33 @@ const Attendance = () => {
 
   const handleSaveAttendance = async () => {
     try {
-      await attendanceService.updateAttendance(activeSession.records);
+      if (activeSession.isNew) {
+        // --- NEW: Transform temp records into the exact format expected by MarkAttendanceView ---
+        const attendanceData = {};
+        activeSession.records.forEach(r => {
+           attendanceData[r.student_id] = r.status;
+        });
+
+        await attendanceService.markClassAttendance({
+          allocation_id: allocationId,
+          date: activeSession.date,
+          time_slot: activeSession.time_slot,
+          lecture_count: activeSession.lecture_count,
+          topic: activeSession.topics_covered,
+          attendance_data: attendanceData
+        });
+      } else {
+        // Old: Update existing session
+        await attendanceService.updateAttendance(activeSession.records);
+      }
+      
       setActiveSession(null);
+      setIsCreatingNew(false);
+      
+      // Refresh the lists to show the new/updated session
       if (!allocationId) fetchGlobalSessions();
       else fetchSessions();
+      
     } catch (err) {
       alert("Failed to save attendance.");
     }
@@ -278,7 +329,6 @@ const Attendance = () => {
     doc.text(`Duration: ${durationText}`, 40, 60);
     if (analyticsFilter.semester) doc.text(`Semester: ${analyticsFilter.semester}`, 40, 75);
     
-    // NEW: Include Class Teacher
     doc.text(`Class Teacher: ${analyticsData.class_teacher_name || "N/A"}`, 300, 60);
     doc.text(`Generated on: ${new Date().toLocaleDateString("en-GB")}`, 300, 75);
 
@@ -287,17 +337,14 @@ const Attendance = () => {
     const tableRows = [];
     let i = 0;
 
-    // ALGORITHM: Group consecutive rows by Mentor Name
     while (i < defaulters.length) {
       const currentMentor = defaulters[i].mentor_name || "Unassigned";
       let span = 1;
       
-      // Count how many consecutive students have the exact same mentor
       while (i + span < defaulters.length && (defaulters[i + span].mentor_name || "Unassigned") === currentMentor) {
         span++;
       }
 
-      // 1. Push the first student of the group (includes the Mentor cell with rowSpan)
       tableRows.push([
         defaulters[i].roll_number,
         defaulters[i].name,
@@ -312,7 +359,6 @@ const Attendance = () => {
         }
       ]);
 
-      // 2. Push the remaining students of this group (omitting the Mentor cell entirely)
       for (let j = 1; j < span; j++) {
         tableRows.push([
           defaulters[i + j].roll_number,
@@ -323,7 +369,7 @@ const Attendance = () => {
           `${defaulters[i + j].percentage}%`
         ]);
       }
-      i += span; // Jump to the next group
+      i += span; 
     }
 
     autoTable(doc, {
@@ -339,7 +385,7 @@ const Attendance = () => {
       alternateRowStyles: { fillColor: [255, 250, 250] },
       columnStyles: { 
         5: { fontStyle: "bold", textColor: [239, 68, 68] },
-        6: { fillColor: [248, 250, 252] } // Light background for Mentor column to make grouping clear
+        6: { fillColor: [248, 250, 252] } 
       },
     });
     
@@ -944,6 +990,7 @@ const Attendance = () => {
 
         {viewMode === "calendar" && renderCalendar(sessions)}
 
+        {/* ... MODALS FOR DASHBOARD ... */}
         <AnimatePresence>
           {showCumulModal && (
             <div className="att-modal-overlay">
@@ -1451,7 +1498,10 @@ const Attendance = () => {
                   <p>{activeSession.group_name}</p>
                 </div>
                 <button
-                  onClick={() => setActiveSession(null)}
+                  onClick={() => {
+                    setActiveSession(null);
+                    setIsCreatingNew(false);
+                  }}
                   className="att-close-btn"
                 >
                   &times;
@@ -1463,6 +1513,7 @@ const Attendance = () => {
                 onBulkStatusChange={handleBulkStatusChange}
                 onSave={handleSaveAttendance}
                 canEdit={canEdit}
+                isCreatingNew={isCreatingNew}
               />
             </div>
           </div>
@@ -1476,9 +1527,14 @@ const Attendance = () => {
       <div className="att-header-section with-back">
         <button
           className="att-back-btn"
-          onClick={() =>
-            activeSession ? setActiveSession(null) : navigate("/attendance")
-          }
+          onClick={() => {
+            if (activeSession) {
+              setActiveSession(null);
+              setIsCreatingNew(false);
+            } else {
+              navigate("/attendance");
+            }
+          }}
         >
           <ArrowLeft size={24} />
         </button>
@@ -1495,6 +1551,7 @@ const Attendance = () => {
           onBulkStatusChange={handleBulkStatusChange}
           onSave={handleSaveAttendance}
           canEdit={canEdit}
+          isCreatingNew={isCreatingNew}
         />
       ) : (
         <div className="att-history-view slide-up-fade">
@@ -1647,6 +1704,22 @@ const Attendance = () => {
                     }
                   />
                 </div>
+                
+                <div className="att-input-group">
+                  <label>Time Slot / Lecture Num (Optional)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g., 9:00 AM - 10:00 AM"
+                    value={newSessionData.time_slot}
+                    onChange={(e) =>
+                      setNewSessionData({
+                        ...newSessionData,
+                        time_slot: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+
                 <div className="att-input-group">
                   <label>Duration (Multiplier)</label>
                   <select
@@ -2106,6 +2179,7 @@ const RollCallGrid = ({
   onBulkStatusChange,
   onSave,
   canEdit,
+  isCreatingNew
 }) => (
   <div className="att-roll-call slide-up-fade">
     <div
@@ -2122,6 +2196,7 @@ const RollCallGrid = ({
         <div>
           <h3 style={{ margin: "0 0 4px 0" }}>
             Date: {new Date(session.date).toLocaleDateString("en-GB")}
+            {isCreatingNew && <span style={{ fontSize: '0.8rem', backgroundColor: 'var(--primary-color)', color: 'white', padding: '2px 8px', borderRadius: '12px', marginLeft: '10px', verticalAlign: 'middle'}}>New Session</span>}
           </h3>
           <p style={{ margin: 0, color: "var(--text-secondary)" }}>
             {canEdit ? "Tap a student's status to change it." : "Viewing Attendance Record (Read-Only)"}
@@ -2129,7 +2204,7 @@ const RollCallGrid = ({
         </div>
         {canEdit && (
           <button className="att-btn att-btn-primary" onClick={onSave}>
-            <Save size={18} /> Save Attendance
+            <Save size={18} /> {isCreatingNew ? "Save New Record" : "Update Record"}
           </button>
         )}
       </div>

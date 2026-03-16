@@ -16,10 +16,16 @@ api.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
-  // NEW: Automatically attach the target department to the request
+  // Automatically attach the target department to the request
   const savedDeptId = localStorage.getItem("edusphere_saved_dept");
   if (savedDeptId) {
     config.headers["X-Department-ID"] = savedDeptId;
+  }
+
+  // --- NEW: Automatically attach the target Term (Odd/Even) ---
+  const savedTerm = localStorage.getItem("edusphere_saved_term");
+  if (savedTerm) {
+    config.headers["X-Term"] = savedTerm;
   }
 
   return config;
@@ -44,7 +50,6 @@ export const staffService = {
     }),
   editFaculty: (id, formData) =>
     api.patch(`/faculty/?id=${id}`, formData, {
-      // NEW
       headers: { "Content-Type": "multipart/form-data" },
     }),
   deleteFaculty: (id) => api.delete(`/faculty/?id=${id}`),
@@ -52,8 +57,6 @@ export const staffService = {
   // --->Student Accounts API <---
   getStudentAccounts: () => api.get("/student-accounts/"),
   manageStudentAccounts: (data) => api.post("/student-accounts/", data),
-
-
 };
 
 export const academicService = {
@@ -77,7 +80,7 @@ export const academicService = {
   // --- Faculty Dashboard ---
   getMyClasses: () => api.get("/faculty/my-classes/"),
 
-  // --- NEW: Academic Years ---
+  // --- Academic Years ---
   getAcademicYears: () => api.get("/academic-years/"),
   createAcademicYear: (data) => api.post("/academic-years/", data),
   updateAcademicYear: (data) => api.put("/academic-years/", data),
@@ -114,8 +117,14 @@ export const studentService = {
       action: action,
     }),
 };
+
 export const attendanceService = {
-  // If no ID is passed, it fetches ALL sessions for the global calendar
+  // --- NEW: Faculty Smart Roster APIs ---
+  getFacultyAllocations: () => api.get("/attendance/allocations/"),
+  getClassRoster: (allocationId) => api.get(`/attendance/roster/${allocationId}/`),
+  markClassAttendance: (data) => api.post("/attendance/mark/", data),
+
+  // --- Existing Session APIs ---
   getSessions: (allocationId = "") =>
     api.get(
       `/attendance/sessions/${allocationId ? `?allocation_id=${allocationId}` : ""}`,
@@ -125,11 +134,12 @@ export const attendanceService = {
     api.put("/attendance/bulk-update/", { records }),
   deleteSession: (sessionId) =>
     api.delete(`/attendance/sessions/?session_id=${sessionId}`),
+    
   getReport: (allocationId, startDate, endDate, mergeShared = false) => {
     let url = `/attendance/report/?allocation_id=${allocationId}`;
     if (startDate) url += `&start_date=${startDate}`;
     if (endDate) url += `&end_date=${endDate}`;
-    if (mergeShared) url += `&merge_shared=true`; // NEW
+    if (mergeShared) url += `&merge_shared=true`; 
     return api.get(url);
   },
   getCumulativeReport: (
@@ -178,7 +188,7 @@ export const assignmentService = {
   assignMentors: (data) => api.post("/assignments/mentors/students/", data),
   removeMentee: (studentId) => api.delete(`/assignments/mentors/students/?student_id=${studentId}`),
 
-  // MENTOR DASHBOARD CALLS <---
+  // MENTOR DASHBOARD CALLS 
   getMyMenteesDashboard: (ayId) => api.get(`/assignments/my-mentees/?academic_year=${ayId}`),
   getMenteeSubjectAttendance: (studentId, ayId) => api.get(`/assignments/my-mentees/subjects/?student_id=${studentId}&academic_year=${ayId}`),
 };

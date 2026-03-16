@@ -71,6 +71,21 @@ class SetupOrganizationView(APIView):
         if not all([org_name, org_type, dept_name, academic_year_name]):
             return Response({"error": "Organization, Department, and Academic Year are all required."}, status=status.HTTP_400_BAD_REQUEST)
 
+        # ==========================================
+        # DYNAMIC YEAR CALCULATION
+        # ==========================================
+        from django.utils import timezone
+        
+        try:
+            # If they type "2024-2025", this grabs the "2024"
+            start_year = int(academic_year_name.split('-')[0].strip())
+        except (ValueError, AttributeError, IndexError):
+            # Fallback: Calculate based on current month (Assuming June start)
+            today = timezone.now().date()
+            start_year = today.year if today.month >= 6 else today.year - 1
+            
+        end_year = start_year + 1
+
         try:
             with transaction.atomic():
                 org = Organization.objects.create(name=org_name, type=org_type)
@@ -82,8 +97,13 @@ class SetupOrganizationView(APIView):
                 ay = AcademicYear.objects.create(
                     organization=org,
                     name=academic_year_name,
-                    start_date="2025-06-01", 
-                    end_date="2026-05-31",
+                    # --- Dynamically Inject the Years ---
+                    start_date=f"{start_year}-06-01", 
+                    end_date=f"{end_year}-05-31",
+                    odd_term_start_date=f"{start_year}-07-01",
+                    odd_term_end_date=f"{start_year}-12-15",
+                    even_term_start_date=f"{end_year}-01-01",
+                    even_term_end_date=f"{end_year}-05-15",
                     is_active=True
                 )
 

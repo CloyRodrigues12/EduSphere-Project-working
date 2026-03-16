@@ -2,11 +2,160 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
 from django.db import transaction
+from django.db.models import Q, F
+from django.utils import timezone
 from .models import ClassSession, AttendanceRecord
 from core.models import TeachingAllocation
 from .serializers import ClassSessionSerializer
-from django.db.models import Q
 from faculty_assignments.models import Mentorship, ClassTeacher
+
+
+# ====================================================================
+# NEW: SMART ROSTER APIs (Used by the new React Attendance Interface)
+# ====================================================================
+
+class FacultyAllocationsView(APIView):
+    """ Fetches allocations filtered by Role, Year, and Term """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user_profile = request.user.profile
+        ay_id = request.GET.get('academic_year')
+        term = request.headers.get('X-Term', 'ODD')
+        target_dept_id = request.headers.get('X-Department-Id')
+
+        # 1. Base Query
+        allocations = TeachingAllocation.objects.select_related('subject', 'student_group', 'faculty__user')
+        
+        # Filter by Academic Year
+        if ay_id:
+            allocations = allocations.filter(academic_year_id=ay_id)
+
+        # 2. Role-Based Sandboxing
+        is_org_admin = user_profile.role in ['ORG_ADMIN', 'SUPER_ADMIN']
+        is_hod = user_profile.role == 'HOD'
+
+        allocations = allocations.filter(subject__department__organization=user_profile.organization)
+
+        if is_org_admin:
+            if target_dept_id and target_dept_id != 'ALL':
+                allocations = allocations.filter(subject__department_id=target_dept_id)
+        elif is_hod:
+            if user_profile.department:
+                allocations = allocations.filter(
+                    Q(subject__department=user_profile.department) | Q(faculty=user_profile)
+                ).distinct()
+            else:
+                allocations = allocations.filter(faculty=user_profile)
+        else:
+            allocations = allocations.filter(faculty=user_profile)
+
+        # 3. SMART TERM FILTERING
+        allocations = allocations.annotate(sem_parity=F('subject__semester') % 2)
+        if term == 'ODD':
+            allocations = allocations.filter(sem_parity=1)
+        else:
+            allocations = allocations.filter(sem_parity=0)
+
+        # 4. Serialize data
+        data = []
+        for alloc in allocations:
+            data.append({
+                "id": alloc.id,
+                "subject_name": alloc.subject.name,
+                "subject_code": alloc.subject.code,
+                "subject_type": alloc.subject.subject_type,
+                "semester": alloc.subject.semester,
+                "department_code": alloc.subject.department.code if alloc.subject.department else "",
+                "group_name": alloc.student_group.name if alloc.student_group else "N/A",
+                "student_count": alloc.student_group.students.filter(is_active=True).count() if alloc.student_group else 0,
+                "faculty_name": f"{alloc.faculty.user.first_name} {alloc.faculty.user.last_name}".strip() if alloc.faculty and alloc.faculty.user else "Unassigned",
+                "faculty_user_id": alloc.faculty.user.id if alloc.faculty and alloc.faculty.user else None
+            })
+
+        return Response(data, status=status.HTTP_200_OK)
+
+
+class ClassRosterView(APIView):
+    """ Fetches the list of active students for a specific allocation """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, allocation_id):
+        try:
+            allocation = TeachingAllocation.objects.get(id=allocation_id)
+            students = allocation.student_group.students.filter(is_active=True).order_by('roll_number')
+            
+            data = [{
+                "id": s.id,
+                "roll_number": s.roll_number,
+                "name": s.full_name,
+            } for s in students]
+            
+            return Response({
+                "allocation_id": allocation.id,
+                "subject": allocation.subject.name,
+                "batch": allocation.student_group.name,
+                "students": data
+            }, status=status.HTTP_200_OK)
+            
+        except TeachingAllocation.DoesNotExist:
+            return Response({"error": "Allocation not found."}, status=status.HTTP_404_NOT_FOUND)
+
+
+class MarkAttendanceView(APIView):
+    """ Receives the bulk attendance submission and creates Session + Records """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        allocation_id = request.data.get('allocation_id')
+        date = request.data.get('date', timezone.now().date())
+        time_slot = request.data.get('time_slot', '')
+        lecture_count = request.data.get('lecture_count', 1)
+        topic = request.data.get('topic', '')
+        attendance_data = request.data.get('attendance_data') # Expected: dict of {student_id: status}
+
+        if not allocation_id or not attendance_data:
+            return Response({"error": "Missing allocation ID or attendance data."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            allocation = TeachingAllocation.objects.get(id=allocation_id)
+
+            with transaction.atomic():
+                # 1. Create the Master Session Record
+                session = ClassSession.objects.create(
+                    allocation=allocation,
+                    date=date,
+                    lecture_count=lecture_count,
+                    topics_covered=topic,
+                )
+
+                # 2. Bulk create the individual student records
+                records_to_create = []
+                for student_id, att_status in attendance_data.items():
+                    records_to_create.append(
+                        AttendanceRecord(
+                            session=session,
+                            student_id=student_id,
+                            status=att_status
+                        )
+                    )
+                
+                AttendanceRecord.objects.bulk_create(records_to_create)
+
+            return Response({
+                "message": "Attendance marked successfully!",
+                "session_id": session.id
+            }, status=status.HTTP_201_CREATED)
+
+        except TeachingAllocation.DoesNotExist:
+            return Response({"error": "Unauthorized or invalid allocation."}, status=status.HTTP_403_FORBIDDEN)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ====================================================================
+# EXISTING: CALENDAR, UPDATES, AND ANALYTICS
+# ====================================================================
 
 class ClassSessionView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -21,12 +170,20 @@ class ClassSessionView(APIView):
             sessions = ClassSession.objects.filter(allocation_id=allocation_id).order_by('-date', '-updated_at')
             return Response(ClassSessionSerializer(sessions, many=True).data)
 
-        # Global Calendar Logic: Fetch ALL sessions
+        # --- GLOBAL CALENDAR LOGIC WITH TERM FILTERING ---
         is_org_admin = user_profile.role in ['ORG_ADMIN', 'SUPER_ADMIN']
         is_hod = user_profile.role == 'HOD'
         target_dept_id = request.headers.get('X-Department-Id')
+        
+        # Determine valid semesters based on Term
+        term = request.headers.get('X-Term', 'ODD')
+        valid_sems = [1, 3, 5, 7, 9] if term == 'ODD' else [2, 4, 6, 8, 10]
 
-        sessions = ClassSession.objects.filter(allocation__subject__department__organization=user_profile.organization)
+        # Base filter: Org + Term
+        sessions = ClassSession.objects.filter(
+            allocation__subject__department__organization=user_profile.organization,
+            allocation__subject__semester__in=valid_sems
+        )
 
         if is_org_admin:
             if target_dept_id and target_dept_id != 'ALL':
@@ -262,11 +419,16 @@ class CumulativeReportView(APIView):
             return Response({"error": "Missing parameters"}, status=400)
 
         try:
+            # --- APPLY TERM FILTERING HERE ---
+            term = request.headers.get('X-Term', 'ODD')
+            valid_sems = [1, 3, 5, 7, 9] if term == 'ODD' else [2, 4, 6, 8, 10]
+
             subject_id_list = [int(sid) for sid in subject_ids.split(',') if sid.strip()]
             
             allocations = TeachingAllocation.objects.filter(
                 academic_year_id=academic_year_id,
-                subject_id__in=subject_id_list
+                subject_id__in=subject_id_list,
+                subject__semester__in=valid_sems
             ).select_related('subject', 'subject__department', 'student_group')
 
             user_profile = request.user.profile
@@ -275,14 +437,13 @@ class CumulativeReportView(APIView):
             # --- UPDATED SANDBOX: Both HOD and Faculty see the whole department ---
             if not is_org_admin:
                 if user_profile.department:
-                    # Strictly department subjects for overall cumulative reports.
                     allocations = allocations.filter(subject__department=user_profile.department)
                 else:
                     allocations = allocations.filter(faculty=user_profile)
             # ---------------------------------------------------------------------
 
             if not allocations.exists():
-                return Response({"error": "No recorded classes found for these subjects."}, status=404)
+                return Response({"error": "No recorded classes found for these subjects in this term."}, status=404)
 
             department_name = allocations.first().subject.department.name
             
@@ -394,9 +555,14 @@ class AnalyticsRadarView(APIView):
             is_org_admin = user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']
             target_dept_id = request.headers.get('X-Department-Id')
             
+            # --- APPLY TERM FILTERING HERE ---
+            term = request.headers.get('X-Term', 'ODD')
+            valid_sems = [1, 3, 5, 7, 9] if term == 'ODD' else [2, 4, 6, 8, 10]
+
             allocations = TeachingAllocation.objects.filter(
                 academic_year_id=academic_year_id,
-                subject__department__organization=user_profile.organization
+                subject__department__organization=user_profile.organization,
+                subject__semester__in=valid_sems
             ).select_related('subject', 'student_group')
             
             if is_org_admin:
@@ -424,17 +590,15 @@ class AnalyticsRadarView(APIView):
             if not allocations.exists():
                 return Response({"safe": [], "atRisk": [], "defaulters": [], "chartData": [], "totalStudents": 0})
 
-            # --- NEW: Fetch Class Teacher Name (Only accurate if filtering by a specific class/semester) ---
+            # --- Fetch Class Teacher Name ---
             class_teacher_name = "N/A"
             if semester:
-                # Deduce year_level from semester (1-2=FE, 3-4=SE, 5-6=TE, 7-8=BE)
                 sem_int = int(semester)
                 if sem_int <= 2: yl = 'FE'
                 elif sem_int <= 4: yl = 'SE'
                 elif sem_int <= 6: yl = 'TE'
                 else: yl = 'BE'
                 
-                # Assume first allocation's department is the target
                 first_alloc = allocations.first()
                 if first_alloc:
                     ct = ClassTeacher.objects.filter(
@@ -449,13 +613,11 @@ class AnalyticsRadarView(APIView):
             global_first_date = None
             global_last_date = None
 
-            # --- NEW: Prefetch Mentorships for all students in these allocations ---
-            # Collect all student IDs first to minimize DB hits
+            # --- Prefetch Mentorships ---
             all_student_ids = set()
             for alloc in allocations:
                 all_student_ids.update(alloc.student_group.students.values_list('id', flat=True))
             
-            # Create a lookup dictionary mapping Student ID -> Mentor Name
             mentor_lookup = {}
             mentorships = Mentorship.objects.filter(student_id__in=all_student_ids).select_related('mentor__user')
             for m in mentorships:
@@ -489,7 +651,6 @@ class AnalyticsRadarView(APIView):
                             "semester": str(alloc.subject.semester) if hasattr(alloc.subject, 'semester') else "N/A", 
                             "ta": 0,
                             "tc": 0,
-                            # --- NEW: Attach the mentor name from our lookup ---
                             "mentor_name": mentor_lookup.get(student.id, "Unassigned")
                         }
                     student_stats[student.id]["tc"] += tc
@@ -516,7 +677,6 @@ class AnalyticsRadarView(APIView):
                 else:
                     safe.append(s)
                         
-            # --- NEW: Sort primarily by Mentor Name (to group them in PDF), then by Roll No ---
             defaulters.sort(key=lambda x: (x.get('mentor_name', 'Unassigned'), x['roll_number']))
             at_risk.sort(key=lambda x: (x.get('mentor_name', 'Unassigned'), x['roll_number']))
             safe.sort(key=lambda x: (x.get('mentor_name', 'Unassigned'), x['roll_number']))
@@ -535,7 +695,7 @@ class AnalyticsRadarView(APIView):
                 "totalStudents": len(student_stats),
                 "first_session_date": global_first_date,
                 "last_session_date": global_last_date,
-                "class_teacher_name": class_teacher_name # --- NEW: Included in payload
+                "class_teacher_name": class_teacher_name
             })
             
         except Exception as e:

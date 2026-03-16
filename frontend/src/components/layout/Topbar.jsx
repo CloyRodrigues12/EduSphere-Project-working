@@ -19,6 +19,7 @@ import {
   Calendar,
   Info,
   GraduationCap,
+  Layers, // <-- ADDED FOR TERM ICON
 } from "lucide-react";
 import "./Topbar.css";
 import { useAuth } from "../../context/AuthContext";
@@ -65,6 +66,8 @@ const Topbar = ({ title, onMenuClick }) => {
     departments,
     activeDepartment,
     setActiveDepartment,
+    activeTerm,         // <-- NEW
+    setActiveTerm,      // <-- NEW
   } = useAcademic();
 
   const [theme, setTheme] = useState(() => {
@@ -194,7 +197,6 @@ const Topbar = ({ title, onMenuClick }) => {
   const isOrgAdmin = ["ORG_ADMIN", "SUPER_ADMIN"].includes(user?.role_code);
   const isStudent = user?.role_code === "STUDENT";
   
-  // Clean Display Role (Forces "Student" if code is STUDENT, otherwise uses designation/role)
   const displayRole = isStudent ? "Student" : (user.designation || user.role);
 
   return (
@@ -301,32 +303,64 @@ const Topbar = ({ title, onMenuClick }) => {
           <input type="text" placeholder="Search..." />
         </div>
 
-        {/* --- Global Academic Year Selector/Badge --- */}
+        {/* --- COMPACT YEAR & TERM BADGE (For Admins/Faculty) --- */}
         {activeAcademicYear && !isStudent && (
-          <div className="academic-year-badge">
-            <Calendar size={16} className="text-primary" />
-            <select
-              className="year-selector"
-              value={activeAcademicYear.id}
-              onChange={handleYearSelect}
-              title="Change Viewing Context"
-            >
-              {academicYears.map((ay) => (
-                <option key={ay.id} value={ay.id}>
-                  {ay.name} {ay.is_active ? "(Current)" : ""}
-                </option>
-              ))}
-            </select>
+          <div className="academic-year-badge" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0.4rem 0.8rem' }}>
+            {/* Year Segment */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <Calendar size={16} className="text-primary" />
+              <select
+                className="year-selector"
+                value={activeAcademicYear.id}
+                onChange={handleYearSelect}
+                title="Change Academic Year"
+              >
+                {academicYears.map((ay) => (
+                  <option key={ay.id} value={ay.id}>
+                    {ay.name} {ay.is_active ? "(Current)" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            {/* Divider */}
+            <div style={{ height: '14px', width: '1px', backgroundColor: 'var(--border-color)', opacity: 0.8 }}></div>
+            
+            {/* Term Segment */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <Layers size={15} className="text-primary" />
+              <select
+                className="year-selector"
+                value={activeTerm}
+                onChange={(e) => setActiveTerm(e.target.value)}
+                title="Change Term"
+                style={{ width: 'auto', paddingRight: '12px' }}
+              >
+                <option value="ODD">Odd Term</option>
+                <option value="EVEN">Even Term</option>
+              </select>
+            </div>
           </div>
         )}
         
-        {/* Read-only badge for students */}
+        {/* --- COMPACT YEAR & TERM BADGE (Read-Only for Students) --- */}
         {activeAcademicYear && isStudent && (
-           <div className="academic-year-badge" style={{ cursor: "default", opacity: 0.9 }}>
-             <Calendar size={16} className="text-primary" />
-             <span style={{ fontSize: "0.85rem", fontWeight: "600", marginLeft: "6px", color: "var(--text-primary)" }}>
-               {activeAcademicYear.name}
-             </span>
+           <div className="academic-year-badge" style={{ cursor: "default", opacity: 0.9, display: 'flex', alignItems: 'center', gap: '8px' }}>
+             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+               <Calendar size={16} className="text-primary" />
+               <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--text-primary)" }}>
+                 {activeAcademicYear.name}
+               </span>
+             </div>
+             
+             <div style={{ height: '14px', width: '1px', backgroundColor: 'var(--border-color)', opacity: 0.8 }}></div>
+             
+             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+               <Layers size={15} className="text-primary" />
+               <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--text-primary)", textTransform: 'capitalize' }}>
+                 {activeTerm.toLowerCase()} Term
+               </span>
+             </div>
            </div>
         )}
 
@@ -353,9 +387,7 @@ const Topbar = ({ title, onMenuClick }) => {
               alt="Profile"
             />
             <div className="profile-info">
-              {/* --- TRUNCATED NAME LOGIC APPLIED HERE --- */}
               <span className="name" title={user.name}>{getFirstAndLastName(user.name)}</span>
-              {/* --- FIXED STUDENT ROLE LABEL --- */}
               <span className="role">{displayRole}</span> 
             </div>
             <ChevronDown
@@ -369,7 +401,6 @@ const Topbar = ({ title, onMenuClick }) => {
               <div className="dropdown-header">
                 <img src={user.avatarUrl} alt="User" className="large-avatar" />
                 <div className="header-info">
-                  {/* Expanded dropdown shows the FULL name */}
                   <h4>{user.name}</h4>
                   <p>{user.email}</p>
                   <div className="org-info">
@@ -387,7 +418,6 @@ const Topbar = ({ title, onMenuClick }) => {
               <div className="dropdown-divider"></div>
 
               <ul className="dropdown-menu">
-                {/* --- ADMIN TEACHING TOGGLE --- */}
                 {isOrgAdmin && (
                   <li
                     className="info-item"

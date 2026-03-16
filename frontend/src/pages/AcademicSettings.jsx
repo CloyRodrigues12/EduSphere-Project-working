@@ -24,10 +24,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import "./AcademicSettings.css";
 
 const AcademicSettings = () => {
-  // Use refreshContext from the newly updated AcademicContext
   const { refreshContext } = useAcademic();
 
-  const [activeTab, setActiveTab] = useState("years"); // 'years' or 'departments'
+  const [activeTab, setActiveTab] = useState("years"); 
 
   // Data States
   const [academicYears, setAcademicYears] = useState([]);
@@ -74,6 +73,7 @@ const AcademicSettings = () => {
 
   useEffect(() => {
     fetchData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
   const confirmSetActive = async () => {
@@ -85,7 +85,7 @@ const AcademicSettings = () => {
       });
       showToast(`${pendingActiveYear.name} is now the active system year!`);
       fetchData();
-      if (refreshContext) refreshContext(); // Update Global Topbar
+      if (refreshContext) refreshContext(); 
     } catch (err) {
       showToast("Failed to update active year.", "error");
     } finally {
@@ -100,7 +100,7 @@ const AcademicSettings = () => {
       await staffService.deleteDepartment(id);
       showToast("Department deleted successfully.");
       fetchData();
-      if (refreshContext) refreshContext(); // Update Global Topbar
+      if (refreshContext) refreshContext(); 
     } catch (err) {
       showToast(
         err.response?.data?.error || "Failed to delete department.",
@@ -761,12 +761,20 @@ const YearSummaryModal = ({ year, onClose }) => {
   );
 };
 
-// --- CREATE NEW YEAR MODAL ---
+// --- CREATE NEW YEAR MODAL (WITH TERMS) ---
 const NewYearModal = ({ onClose, onRefresh, showToast }) => {
   const currentYear = new Date().getFullYear();
   const [baseYear, setBaseYear] = useState(currentYear);
   const [startDate, setStartDate] = useState(`${currentYear}-07-01`);
   const [endDate, setEndDate] = useState(`${currentYear + 1}-06-30`);
+  
+  // Odd Term
+  const [oddStartDate, setOddStartDate] = useState(`${currentYear}-07-01`);
+  const [oddEndDate, setOddEndDate] = useState(`${currentYear}-12-15`);
+  // Even Term
+  const [evenStartDate, setEvenStartDate] = useState(`${currentYear + 1}-01-01`);
+  const [evenEndDate, setEvenEndDate] = useState(`${currentYear + 1}-05-15`);
+  
   const [isActive, setIsActive] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -774,6 +782,10 @@ const NewYearModal = ({ onClose, onRefresh, showToast }) => {
     setBaseYear(newBase);
     setStartDate(`${newBase}-07-01`);
     setEndDate(`${newBase + 1}-06-30`);
+    setOddStartDate(`${newBase}-07-01`);
+    setOddEndDate(`${newBase}-12-15`);
+    setEvenStartDate(`${newBase + 1}-01-01`);
+    setEvenEndDate(`${newBase + 1}-05-15`);
   };
 
   const handleSubmit = async (e) => {
@@ -784,6 +796,10 @@ const NewYearModal = ({ onClose, onRefresh, showToast }) => {
         name: `${baseYear}-${baseYear + 1}`,
         start_date: startDate,
         end_date: endDate,
+        odd_term_start_date: oddStartDate,
+        odd_term_end_date: oddEndDate,
+        even_term_start_date: evenStartDate,
+        even_term_end_date: evenEndDate,
         is_active: isActive,
       });
       showToast("New Academic Year created!");
@@ -814,80 +830,110 @@ const NewYearModal = ({ onClose, onRefresh, showToast }) => {
         </div>
 
         <form onSubmit={handleSubmit} className="premium-form">
-          <div className="input-group">
-            <label>Select Academic Year</label>
-            <div className="custom-year-stepper">
-              <button
-                type="button"
-                className="stepper-btn"
-                onClick={() => handleYearChange(baseYear - 1)}
-              >
-                <ChevronDown size={20} />
-              </button>
-              <div className="stepper-display">
-                <span className="stepper-main">
-                  {baseYear} - {baseYear + 1}
-                </span>
+          <div style={{ maxHeight: "60vh", overflowY: "auto", paddingRight: "10px" }}>
+            <div className="input-group">
+              <label>Select Academic Year</label>
+              <div className="custom-year-stepper">
+                <button
+                  type="button"
+                  className="stepper-btn"
+                  onClick={() => handleYearChange(baseYear - 1)}
+                >
+                  <ChevronDown size={20} />
+                </button>
+                <div className="stepper-display">
+                  <span className="stepper-main">
+                    {baseYear} - {baseYear + 1}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="stepper-btn"
+                  onClick={() => handleYearChange(baseYear + 1)}
+                >
+                  <ChevronUp size={20} />
+                </button>
               </div>
-              <button
-                type="button"
-                className="stepper-btn"
-                onClick={() => handleYearChange(baseYear + 1)}
-              >
-                <ChevronUp size={20} />
-              </button>
             </div>
-          </div>
 
-          <div
-            className="grid-2"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "1rem",
-              marginTop: "1.5rem",
-            }}
-          >
-            <div className="input-group">
-              <label>Start Date</label>
-              <input
-                required
-                type="date"
-                className="standard-input"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
+            <div
+              className="grid-2"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "1rem",
+                marginTop: "1.5rem",
+              }}
+            >
+              <div className="input-group">
+                <label>Year Start Date</label>
+                <input
+                  required
+                  type="date"
+                  className="standard-input"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </div>
+              <div className="input-group">
+                <label>Year End Date</label>
+                <input
+                  required
+                  type="date"
+                  className="standard-input"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
+              </div>
             </div>
-            <div className="input-group">
-              <label>End Date</label>
-              <input
-                required
-                type="date"
-                className="standard-input"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
-            </div>
-          </div>
 
-          <div
-            className="checkbox-group"
-            style={{
-              marginTop: "1.5rem",
-              display: "flex",
-              gap: "10px",
-              alignItems: "center",
-            }}
-          >
-            <input
-              type="checkbox"
-              id="makeActive"
-              checked={isActive}
-              onChange={(e) => setIsActive(e.target.checked)}
-            />
-            <label htmlFor="makeActive" style={{ margin: 0 }}>
-              Set as Active System Year immediately
-            </label>
+            <div className="divider" style={{ margin: '1.5rem 0', opacity: 0.5, borderTop: '1px solid var(--border-color)' }}></div>
+            <h4 style={{ fontSize: '0.85rem', marginBottom: '1rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Odd Term Dates</h4>
+            
+            <div className="grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+              <div className="input-group">
+                <label>Odd Term Start</label>
+                <input type="date" className="standard-input" value={oddStartDate} onChange={(e) => setOddStartDate(e.target.value)} />
+              </div>
+              <div className="input-group">
+                <label>Odd Term End</label>
+                <input type="date" className="standard-input" value={oddEndDate} onChange={(e) => setOddEndDate(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="divider" style={{ margin: '1.5rem 0', opacity: 0.5, borderTop: '1px solid var(--border-color)' }}></div>
+            <h4 style={{ fontSize: '0.85rem', marginBottom: '1rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Even Term Dates</h4>
+
+            <div className="grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+              <div className="input-group">
+                <label>Even Term Start</label>
+                <input type="date" className="standard-input" value={evenStartDate} onChange={(e) => setEvenStartDate(e.target.value)} />
+              </div>
+              <div className="input-group">
+                <label>Even Term End</label>
+                <input type="date" className="standard-input" value={evenEndDate} onChange={(e) => setEvenEndDate(e.target.value)} />
+              </div>
+            </div>
+
+            <div
+              className="checkbox-group"
+              style={{
+                marginTop: "1.5rem",
+                display: "flex",
+                gap: "10px",
+                alignItems: "center",
+              }}
+            >
+              <input
+                type="checkbox"
+                id="makeActive"
+                checked={isActive}
+                onChange={(e) => setIsActive(e.target.checked)}
+              />
+              <label htmlFor="makeActive" style={{ margin: 0 }}>
+                Set as Active System Year immediately
+              </label>
+            </div>
           </div>
 
           <div className="modal-actions" style={{ marginTop: "2rem" }}>
@@ -904,10 +950,17 @@ const NewYearModal = ({ onClose, onRefresh, showToast }) => {
   );
 };
 
-// --- EDIT DATES MODAL ---
+// --- EDIT DATES MODAL (WITH TERMS) ---
 const EditYearModal = ({ year, onClose, onRefresh, showToast }) => {
-  const [startDate, setStartDate] = useState(year.start_date);
-  const [endDate, setEndDate] = useState(year.end_date);
+  const [startDate, setStartDate] = useState(year.start_date || "");
+  const [endDate, setEndDate] = useState(year.end_date || "");
+  
+  const [oddStartDate, setOddStartDate] = useState(year.odd_term_start_date || "");
+  const [oddEndDate, setOddEndDate] = useState(year.odd_term_end_date || "");
+  
+  const [evenStartDate, setEvenStartDate] = useState(year.even_term_start_date || "");
+  const [evenEndDate, setEvenEndDate] = useState(year.even_term_end_date || "");
+
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -918,6 +971,10 @@ const EditYearModal = ({ year, onClose, onRefresh, showToast }) => {
         id: year.id,
         start_date: startDate,
         end_date: endDate,
+        odd_term_start_date: oddStartDate || null,
+        odd_term_end_date: oddEndDate || null,
+        even_term_start_date: evenStartDate || null,
+        even_term_end_date: evenEndDate || null,
       });
       showToast("Term dates updated successfully!");
       onRefresh();
@@ -987,35 +1044,71 @@ const EditYearModal = ({ year, onClose, onRefresh, showToast }) => {
           </div>
         ) : (
           <div className="premium-form" style={{ marginTop: "1rem" }}>
-            <div
-              className="grid-2"
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "1rem",
-              }}
-            >
-              <div className="input-group">
-                <label>Start Date</label>
-                <input
-                  required
-                  type="date"
-                  className="standard-input"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                />
+            <div style={{ maxHeight: "60vh", overflowY: "auto", paddingRight: "10px" }}>
+              
+              {/* YEAR DATES */}
+              <div
+                className="grid-2"
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "1rem",
+                }}
+              >
+                <div className="input-group">
+                  <label>Year Start Date</label>
+                  <input
+                    required
+                    type="date"
+                    className="standard-input"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                  />
+                </div>
+                <div className="input-group">
+                  <label>Year End Date</label>
+                  <input
+                    required
+                    type="date"
+                    className="standard-input"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                  />
+                </div>
               </div>
-              <div className="input-group">
-                <label>End Date</label>
-                <input
-                  required
-                  type="date"
-                  className="standard-input"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                />
+
+              <div className="divider" style={{ margin: '1.5rem 0', opacity: 0.5, borderTop: '1px solid var(--border-color)' }}></div>
+              <h4 style={{ fontSize: '0.85rem', marginBottom: '1rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Odd Term Dates</h4>
+              
+              {/* ODD TERM */}
+              <div className="grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                <div className="input-group">
+                  <label>Odd Term Start</label>
+                  <input type="date" className="standard-input" value={oddStartDate} onChange={(e) => setOddStartDate(e.target.value)} />
+                </div>
+                <div className="input-group">
+                  <label>Odd Term End</label>
+                  <input type="date" className="standard-input" value={oddEndDate} onChange={(e) => setOddEndDate(e.target.value)} />
+                </div>
               </div>
+
+              <div className="divider" style={{ margin: '1.5rem 0', opacity: 0.5, borderTop: '1px solid var(--border-color)' }}></div>
+              <h4 style={{ fontSize: '0.85rem', marginBottom: '1rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Even Term Dates</h4>
+
+              {/* EVEN TERM */}
+              <div className="grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                <div className="input-group">
+                  <label>Even Term Start</label>
+                  <input type="date" className="standard-input" value={evenStartDate} onChange={(e) => setEvenStartDate(e.target.value)} />
+                </div>
+                <div className="input-group">
+                  <label>Even Term End</label>
+                  <input type="date" className="standard-input" value={evenEndDate} onChange={(e) => setEvenEndDate(e.target.value)} />
+                </div>
+              </div>
+
             </div>
+
             <div className="modal-actions" style={{ marginTop: "2rem" }}>
               <button type="button" onClick={onClose} className="btn-secondary">
                 Cancel

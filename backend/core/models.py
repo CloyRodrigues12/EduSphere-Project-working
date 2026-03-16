@@ -48,15 +48,21 @@ class Department(models.Model):
 # ==========================================
 
 class AcademicYear(models.Model):
-    """ 
-    The Master Filter. 
-    Everything (Attendance, Marks, Workload) belongs to ONE year.
-    """
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='academic_years')
     name = models.CharField(max_length=20) # e.g., "2025-2026"
     start_date = models.DateField()
     end_date = models.DateField()
-    is_active = models.BooleanField(default=False) 
+    
+    # --- NEW TERM FIELDS ---
+    odd_term_start_date = models.DateField(null=True, blank=True)
+    odd_term_end_date = models.DateField(null=True, blank=True)
+    even_term_start_date = models.DateField(null=True, blank=True)
+    even_term_end_date = models.DateField(null=True, blank=True)
+
+    is_active = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.name} ({self.organization.name})"
 
     class Meta:
         unique_together = ('organization', 'name')

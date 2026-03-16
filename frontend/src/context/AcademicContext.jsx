@@ -1,5 +1,4 @@
 /* eslint-disable  */
-
 import React, { createContext, useState, useEffect, useContext } from "react";
 import { academicService, staffService } from "../services/api";
 import { useAuth } from "./AuthContext";
@@ -17,6 +16,9 @@ export const AcademicProvider = ({ children }) => {
   const [departments, setDepartments] = useState([]);
   const [activeDepartmentState, setActiveDepartmentState] = useState(null);
 
+  // --- NEW: TERM STATE ---
+  const [activeTermState, setActiveTermState] = useState(localStorage.getItem("edusphere_saved_term") || "ODD");
+
   const [loading, setLoading] = useState(true);
 
   // --- MEMORY WRAPPERS ---
@@ -25,6 +27,8 @@ export const AcademicProvider = ({ children }) => {
     setActiveDepartmentState(dept);
     if (dept) {
       localStorage.setItem("edusphere_saved_dept", dept.id);
+    } else {
+      localStorage.setItem("edusphere_saved_dept", "ALL");
     }
   };
 
@@ -35,8 +39,18 @@ export const AcademicProvider = ({ children }) => {
     }
   };
 
+  // --- NEW: TERM WRAPPER ---
+  const setActiveTerm = (term) => {
+    setActiveTermState(term);
+    localStorage.setItem("edusphere_saved_term", term);
+  };
+
   const fetchGlobalContext = async () => {
-    if (!user) return;
+    if (!user || !user.is_setup_complete) {
+        setLoading(false);
+        return;
+    }
+    
     try {
       // Fetch both Years and Departments simultaneously
       const [yearsRes, deptsRes] = await Promise.all([
@@ -73,31 +87,31 @@ export const AcademicProvider = ({ children }) => {
       if (deptsRes.data && deptsRes.data.length > 0) {
         setDepartments(deptsRes.data);
 
-        // Replace the isAdmin check inside fetchGlobalContext:
-const isOrgAdmin = ["SUPER_ADMIN", "ORG_ADMIN"].includes(user?.role_code);
+        // Support both user.role_code and user.role just to be safe
+        const isOrgAdmin = ["SUPER_ADMIN", "ORG_ADMIN"].includes(user?.role_code || user?.role);
 
-// Check Memory First
-const savedDeptId = localStorage.getItem("edusphere_saved_dept");
-let initialDept = null;
+        // Check Memory First
+        const savedDeptId = localStorage.getItem("edusphere_saved_dept");
+        let initialDept = null;
 
-if (savedDeptId) {
-  if (savedDeptId === "ALL" && isOrgAdmin) {
-    initialDept = { id: "ALL", name: "All Departments" };
-  } else {
-    initialDept = deptsRes.data.find((d) => String(d.id) === String(savedDeptId));
-  }
-}
+        if (savedDeptId) {
+          if (savedDeptId === "ALL" && isOrgAdmin) {
+            initialDept = { id: "ALL", name: "All Departments" };
+          } else {
+            initialDept = deptsRes.data.find((d) => String(d.id) === String(savedDeptId));
+          }
+        }
 
-// Fallback to default logic if memory is empty
-if (!initialDept) {
-  if (isOrgAdmin) {
-    initialDept = { id: "ALL", name: "All Departments" };
-  } else {
-    // MATCH BY EXACT ID from the backend
-    initialDept = deptsRes.data.find((d) => d.id === user.department_id) || deptsRes.data[0];
-  }
-}
-setActiveDepartment(initialDept);
+        // Fallback to default logic if memory is empty
+        if (!initialDept) {
+          if (isOrgAdmin) {
+            initialDept = { id: "ALL", name: "All Departments" };
+          } else {
+            // MATCH BY EXACT ID from the backend
+            initialDept = deptsRes.data.find((d) => d.id === user.department_id) || deptsRes.data[0];
+          }
+        }
+        setActiveDepartment(initialDept);
       } else {
         setDepartments([]);
         setActiveDepartmentState(null);
@@ -111,6 +125,7 @@ setActiveDepartment(initialDept);
 
   useEffect(() => {
     fetchGlobalContext();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   return (
@@ -119,14 +134,19 @@ setActiveDepartment(initialDept);
         // Year Data
         academicYears,
         activeAcademicYear: activeAcademicYearState,
-        setActiveAcademicYear, // Passes our memory wrapper
+        setActiveAcademicYear, 
 
         // Department Data
         departments,
         activeDepartment: activeDepartmentState,
-        setActiveDepartment, // Passes our memory wrapper
+        setActiveDepartment, 
+
+        // --- NEW: Term Data ---
+        activeTerm: activeTermState,
+        setActiveTerm,
 
         refreshContext: fetchGlobalContext,
+        refreshAcademicData: fetchGlobalContext, // Alias to ensure compatibility with other components
         loading,
       }}
     >
