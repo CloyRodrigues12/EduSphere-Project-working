@@ -90,11 +90,15 @@ const BentoChart = ({ title, spanClass, data, children, delay, icon: Icon }) => 
 
 const DashboardHome = () => {
   const { user } = useAuth();
-  const { activeAcademicYear, activeDepartment } = useAcademic();
+  
+  // Notice we grab activeTerm here too so the dashboard auto-refreshes if Topbar changes!
+  const { activeAcademicYear, activeDepartment, activeTerm } = useAcademic();
+  
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   
   const [studyYearFilter, setStudyYearFilter] = useState("ALL");
+  const [termFilter, setTermFilter] = useState("CURRENT"); // <-- NEW TERM STATE
   const [defaulterView, setDefaulterView] = useState("class");
   
   // Drill Down State & Search
@@ -104,7 +108,7 @@ const DashboardHome = () => {
   useEffect(() => {
     if (activeAcademicYear) fetchDashboardData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeAcademicYear, activeDepartment, studyYearFilter]);
+  }, [activeAcademicYear, activeDepartment, studyYearFilter, termFilter, activeTerm]);
 
   // Reset search query when modal opens
   useEffect(() => { if (drillDown) setSearchQuery(""); }, [drillDown]);
@@ -112,7 +116,10 @@ const DashboardHome = () => {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/dashboard/advanced/?year=${studyYearFilter}`, {
+      // --- THE FIX: Let React resolve "CURRENT" to the actual active term ---
+      const effectiveTerm = termFilter === "CURRENT" ? (activeTerm || "ODD") : termFilter;
+
+      const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/dashboard/advanced/?year=${studyYearFilter}&term=${effectiveTerm}`, {
         headers: {
           'X-Academic-Year-Id': activeAcademicYear?.id || '',
           'X-Department-Id': activeDepartment?.id || 'ALL'
@@ -140,13 +147,11 @@ const DashboardHome = () => {
   if (!data) return null;
   const { kpis, charts, user_name } = data;
 
-  // Filter Drill Down Data based on Search
   const filteredDrillDown = drillDown?.details.filter(item => 
     item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
     String(item.value).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Add colors to Top Classes for Radial Chart
   const topClassesData = charts.top_classes?.map((item, index) => ({
     ...item, fill: COLORS[index % COLORS.length]
   })) || [];
@@ -160,7 +165,15 @@ const DashboardHome = () => {
           <h1>Welcome back, <span>{user_name}</span> 👋</h1>
           <p>Here's a breakdown of your institution's real-time performance.</p>
         </div>
-        <div className="global-filters">
+        <div className="global-filters" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {/* --- NEW TERM DROPDOWN --- */}
+          <select className="premium-select" value={termFilter} onChange={(e) => setTermFilter(e.target.value)}>
+            <option value="CURRENT">Current Term (Auto)</option>
+            <option value="ODD">Odd Term Only</option>
+            <option value="EVEN">Even Term Only</option>
+            <option value="BOTH">Both Terms (Full Year)</option>
+          </select>
+          {/* ------------------------- */}
           <select className="premium-select" value={studyYearFilter} onChange={(e) => setStudyYearFilter(e.target.value)}>
             <option value="ALL">All Study Years</option>
             <option value="FE">First Year (FE)</option>
@@ -183,18 +196,16 @@ const DashboardHome = () => {
       {/* ADVANCED BENTO GRID */}
       <div className="bento-grid">
         
-        {/* ATTENDANCE TREND (ComposedChart ensures 100% clickability via invisible bars) */}
+        {/* ATTENDANCE TREND */}
         <BentoChart title="Attendance Trend (Last 7 Days)" spanClass="col-span-8" data={charts.attendance_trend} delay={0.6}>
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={charts.attendance_trend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} onClick={(e) => { if (e?.activePayload) handleChartClick('Trend Date', e.activePayload[0].payload); }} style={{ cursor: 'pointer' }}>
               <defs><linearGradient id="colorAtt" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={COLORS[0]} stopOpacity={0.4}/><stop offset="95%" stopColor={COLORS[0]} stopOpacity={0}/></linearGradient></defs>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" opacity={0.5} />
-              {/* Force text-secondary for dark mode */}
               <XAxis dataKey="date" tick={{ fill: "var(--text-secondary)" }} axisLine={false} tickLine={false} fontSize={12} />
               <YAxis tick={{ fill: "var(--text-secondary)" }} axisLine={false} tickLine={false} fontSize={12} domain={[0, 100]} />
               <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--bg-input)', opacity: 0.4 }} />
               <Area type="monotone" dataKey="attendance" stroke={COLORS[0]} strokeWidth={3} fill="url(#colorAtt)" activeDot={{ r: 6, fill: COLORS[0], strokeWidth: 0 }} />
-              {/* Invisible bar to catch clicks over the entire column */}
               <Bar dataKey="attendance" fill="transparent" />
             </ComposedChart>
           </ResponsiveContainer>
@@ -248,7 +259,7 @@ const DashboardHome = () => {
           </ResponsiveContainer>
         </BentoChart>
 
-        {/* TOP PERFORMING CLASSES (Beautiful RadialBar) */}
+        {/* TOP PERFORMING CLASSES */}
         <BentoChart title="Top Performing Classes" spanClass="col-span-6" data={topClassesData} icon={Activity} delay={0.85}>
           <ResponsiveContainer width="100%" height="100%">
             <RadialBarChart cx="40%" cy="50%" innerRadius="20%" outerRadius="100%" barSize={16} data={topClassesData}>
@@ -259,7 +270,7 @@ const DashboardHome = () => {
           </ResponsiveContainer>
         </BentoChart>
 
-        {/* FACULTY WORKLOAD (Stylized Bar with Background Track) */}
+        {/* FACULTY WORKLOAD */}
         <BentoChart title="Faculty Workload (Allocations)" spanClass="col-span-6" data={charts.workload} icon={BarChart2} delay={0.9}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart layout="vertical" data={charts.workload} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
