@@ -9,22 +9,25 @@ import autoTable from "jspdf-autotable";
 import "./MyClassDashboard.css";
 
 const MyClassDashboard = () => {
-  const { activeAcademicYear } = useAcademic();
+  // --- ADDED: activeTerm ---
+  const { activeAcademicYear, activeTerm } = useAcademic();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [search, setSearch] = useState("");
   
   const [activeFilter, setActiveFilter] = useState(null);
   
-  // --- NEW: State for clicking a student to view drilldown ---
   const [selectedStudent, setSelectedStudent] = useState(null);
 
+  // --- UPDATED: Refetches whenever Academic Year OR Term changes ---
   useEffect(() => {
     if (activeAcademicYear) fetchDashboard();
-  }, [activeAcademicYear]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeAcademicYear, activeTerm]);
 
   const fetchDashboard = async () => {
     setLoading(true);
+    setSelectedStudent(null); // Clear any open modals when term switches
     try {
       const res = await assignmentService.getMyClassDashboard(activeAcademicYear.id);
       setData(res.data);
@@ -49,7 +52,7 @@ const MyClassDashboard = () => {
 
     doc.setFontSize(11);
     doc.setTextColor(100);
-    doc.text(`Academic Year: ${activeAcademicYear.name}`, 14, 28);
+    doc.text(`Academic Year: ${activeAcademicYear.name} (${activeTerm} Term)`, 14, 28);
     doc.text(`Class: ${data.class_info.year_level} ${data.class_info.division ? `Div ${data.class_info.division}` : ""}`, 14, 34);
     doc.text(`Department: ${data.class_info.department}`, 14, 40);
     doc.text(`Class Teacher: ${data.class_info.class_teacher_name}`, 14, 46);
@@ -58,10 +61,8 @@ const MyClassDashboard = () => {
     const tableRows = [];
     let i = 0;
 
-    // Sort defaulters by Mentor Name so identical mentors group together natively
     defaulters.sort((a, b) => (a.mentor_name || "").localeCompare(b.mentor_name || ""));
 
-    // ALGORITHM: Group consecutive rows by Mentor Name
     while (i < defaulters.length) {
       const currentMentor = defaulters[i].mentor_name || "Unassigned";
       let span = 1;
@@ -111,6 +112,7 @@ const MyClassDashboard = () => {
   };
 
   const downloadFullReportPDF = () => {
+    if (!data) return;
     const doc = new jsPDF();
     
     doc.setFontSize(18);
@@ -119,7 +121,7 @@ const MyClassDashboard = () => {
 
     doc.setFontSize(11);
     doc.setTextColor(100);
-    doc.text(`Academic Year: ${activeAcademicYear.name}`, 14, 28);
+    doc.text(`Academic Year: ${activeAcademicYear.name} (${activeTerm} Term)`, 14, 28);
     doc.text(`Class: ${data.class_info.year_level} ${data.class_info.division ? `Div ${data.class_info.division}` : ""}`, 14, 34);
     doc.text(`Department: ${data.class_info.department}`, 14, 40);
     doc.text(`Class Teacher: ${data.class_info.class_teacher_name}`, 14, 46);
@@ -335,8 +337,8 @@ const MyClassDashboard = () => {
                       exit={{ opacity: 0, x: -10 }}
                       transition={{ duration: 0.2 }}
                       className="premium-row"
-                      onClick={() => setSelectedStudent(s)} // <-- NEW: Click to view details
-                      style={{ cursor: "pointer" }}         // <-- NEW: Pointer cursor
+                      onClick={() => setSelectedStudent(s)} 
+                      style={{ cursor: "pointer" }}         
                       title="Click to view subject-wise attendance"
                     >
                       <td className="font-medium text-muted">{s.roll_number}</td>
@@ -369,7 +371,7 @@ const MyClassDashboard = () => {
         </motion.div>
       </motion.div>
 
-      {/* --- NEW: Student Drilldown Modal --- */}
+      {/* --- Student Drilldown Modal --- */}
       <AnimatePresence>
         {selectedStudent && (
           <StudentDrilldownModal 
@@ -384,13 +386,13 @@ const MyClassDashboard = () => {
 };
 
 
-// --- NEW: Reusable Component for Drilldown ---
+// --- Reusable Component for Drilldown ---
 const StudentDrilldownModal = ({ student, ayId, onClose }) => {
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // We can reuse the exact same API endpoint that mentors use!
+    // Relying on the global Axios interceptor to send the X-Term header!
     assignmentService.getMenteeSubjectAttendance(student.id, ayId)
       .then(res => { setSubjects(res.data); setLoading(false); })
       .catch(err => { console.error(err); setLoading(false); });
@@ -431,7 +433,7 @@ const StudentDrilldownModal = ({ student, ayId, onClose }) => {
           {loading ? (
              <div className="spinner" style={{ margin: "3rem auto" }}></div>
           ) : subjects.length === 0 ? (
-            <p className="text-center text-muted py-8">No attendance recorded yet for this academic year.</p>
+            <p className="text-center text-muted py-8">No attendance recorded yet for this academic term.</p>
           ) : (
             <table className="data-table" style={{ fontSize: "0.9rem", width: "100%", tableLayout: "fixed" }}>
               <thead style={{ position: "sticky", top: 0, zIndex: 1, background: "var(--bg-card)" }}>

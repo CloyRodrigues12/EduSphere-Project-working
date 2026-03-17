@@ -32,7 +32,7 @@ class ClassTeacherManagerView(APIView):
         faculty_id = request.data.get('faculty_id')
         ay_id = request.data.get('academic_year')
         year_level = request.data.get('year_level')
-        division = request.data.get('division', '') # <-- Made optional
+        division = request.data.get('division', '') 
         
         dept_id = request.data.get('department_id', user_profile.department.id if user_profile.department else None)
 
@@ -85,7 +85,7 @@ class MentorSummaryView(APIView):
                 "name": m.student.full_name,
                 "roll_number": m.student.roll_number,
                 "semester": m.student.current_semester,
-                "is_active": m.student.is_active, # <-- NEW: Pass active status
+                "is_active": m.student.is_active, 
             })
         
         return Response(list(summary.values()))
@@ -118,7 +118,6 @@ class MentorStudentListView(APIView):
         return Response(data)
 
     def post(self, request):
-        """ Bulk Assign Mentors """
         user_profile = request.user.profile
         if user_profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
             return Response({"error": "Permission denied"}, status=403)
@@ -139,7 +138,6 @@ class MentorStudentListView(APIView):
         return Response({"message": "Mentors assigned successfully."})
 
     def delete(self, request):
-        """ Safely Remove a Mentee """
         user_profile = request.user.profile
         if user_profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
             return Response({"error": "Permission denied"}, status=403)
@@ -171,18 +169,22 @@ class ClassTeacherStudentListView(APIView):
             user_profile = request.user.profile
             is_org_admin = user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']
             
-            # Security: HOD can only view students from their own department
             if not is_org_admin and ct.department != user_profile.department:
                 return Response({"error": "Unauthorized to view this class's students."}, status=403)
 
-            # Map the year level to actual semesters
+            # --- SMART TERM FILTERING ---
+            term = request.headers.get('X-Term', 'ODD')
+            valid_sems = [1, 3, 5, 7, 9] if term == 'ODD' else [2, 4, 6, 8, 10]
+            
             sem_map = {'FE': [1, 2], 'SE': [3, 4], 'TE': [5, 6], 'BE': [7, 8]}
             sems = sem_map.get(ct.year_level, [])
             
-            # Fetch the students!
+            # Intersect Year Level with the Active Term
+            active_sems = list(set(sems) & set(valid_sems))
+            
             students = Student.objects.filter(
                 department=ct.department,
-                current_semester__in=sems,
+                current_semester__in=active_sems,
                 is_active=True
             ).order_by('roll_number')
 
@@ -197,6 +199,7 @@ class ClassTeacherStudentListView(APIView):
 
         except ClassTeacher.DoesNotExist:
             return Response({"error": "Class Teacher assignment not found."}, status=404)
+
 class MyClassDashboardView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -212,19 +215,27 @@ class MyClassDashboardView(APIView):
         if not ct:
             return Response({"is_class_teacher": False})
 
+        # --- SMART TERM FILTERING ---
+        term = request.headers.get('X-Term', 'ODD')
+        valid_sems = [1, 3, 5, 7, 9] if term == 'ODD' else [2, 4, 6, 8, 10]
+
         sem_map = {'FE': [1, 2], 'SE': [3, 4], 'TE': [5, 6], 'BE': [7, 8]}
         sems = sem_map.get(ct.year_level, [])
         
-        # --- FIX: Prefetch Mentorship to get Mentor Names efficiently ---
+        # Intersect the Year Level with the Term (e.g. SE + ODD = Semester 3)
+        active_sems = list(set(sems) & set(valid_sems))
+
         students = Student.objects.filter(
             department=ct.department,
-            current_semester__in=sems,
+            current_semester__in=active_sems,
             is_active=True
         ).prefetch_related('mentorship__mentor__user').order_by('roll_number')
 
+        # ONLY fetch attendance for subjects in the current term
         records = AttendanceRecord.objects.filter(
             student__in=students,
-            session__allocation__academic_year_id=ay_id
+            session__allocation__academic_year_id=ay_id,
+            session__allocation__subject__semester__in=valid_sems
         ).select_related('session')
 
         student_stats = {s.id: {"ta": 0, "tc": 0} for s in students}
@@ -253,7 +264,6 @@ class MyClassDashboardView(APIView):
                 safe += 1
                 status_label = "Safe"
 
-            # --- FIX: Extract Mentor Name ---
             mentor_name = "Unassigned"
             mentorship = student.mentorship.first()
             if mentorship:
@@ -282,7 +292,6 @@ class MyClassDashboardView(APIView):
                 "department": ct.department.name,
                 "year_level": ct.year_level,
                 "division": ct.division,
-                # --- FIX: Pass Class Teacher Name for PDF Header ---
                 "class_teacher_name": ct.faculty.user.get_full_name() or ct.faculty.user.username
             },
             "stats": {
@@ -294,7 +303,6 @@ class MyClassDashboardView(APIView):
             "chartData": chart_data,
             "students": student_data
         })
-        
         
         
 class MyMenteesDashboardView(APIView):
@@ -312,12 +320,17 @@ class MyMenteesDashboardView(APIView):
         if not mentorships.exists():
             return Response({"has_mentees": False})
 
+        # --- SMART TERM FILTERING ---
+        term = request.headers.get('X-Term', 'ODD')
+        valid_sems = [1, 3, 5, 7, 9] if term == 'ODD' else [2, 4, 6, 8, 10]
+
         student_ids = [m.student.id for m in mentorships]
 
-        # Fetch aggregate attendance for the CURRENT year
+        # Fetch aggregate attendance strictly for subjects in the current term
         records = AttendanceRecord.objects.filter(
             student_id__in=student_ids,
-            session__allocation__academic_year_id=ay_id
+            session__allocation__academic_year_id=ay_id,
+            session__allocation__subject__semester__in=valid_sems
         ).select_related('session')
 
         student_stats = {sid: {"ta": 0, "tc": 0} for sid in student_ids}
@@ -371,14 +384,9 @@ class MenteeSubjectAttendanceView(APIView):
         if not student_id or not ay_id:
             return Response({"error": "Student ID and Academic Year required"}, status=400)
 
-        # SECURITY CHECK: Who is allowed to see this student's granular data?
-        # 1. Admins
+        # SECURITY CHECK
         is_admin = user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']
-        
-        # 2. Their assigned Mentor
         is_mentor = Mentorship.objects.filter(mentor=user_profile, student_id=student_id).exists()
-        
-        # 3. Their Class Teacher
         try:
             student = Student.objects.get(id=student_id)
             sem_map = {1: 'FE', 2: 'FE', 3: 'SE', 4: 'SE', 5: 'TE', 6: 'TE', 7: 'BE', 8: 'BE'}
@@ -395,9 +403,14 @@ class MenteeSubjectAttendanceView(APIView):
         if not (is_admin or is_mentor or is_class_teacher):
             return Response({"error": "Unauthorized. You are not the assigned mentor or class teacher for this student."}, status=403)
 
+        # --- SMART TERM FILTERING ---
+        term = request.headers.get('X-Term', 'ODD')
+        valid_sems = [1, 3, 5, 7, 9] if term == 'ODD' else [2, 4, 6, 8, 10]
+
         records = AttendanceRecord.objects.filter(
             student_id=student_id,
-            session__allocation__academic_year_id=ay_id
+            session__allocation__academic_year_id=ay_id,
+            session__allocation__subject__semester__in=valid_sems
         ).select_related('session__allocation__subject', 'session__allocation__faculty__user')
 
         subject_stats = {}

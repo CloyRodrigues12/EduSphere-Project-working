@@ -17,19 +17,21 @@ const getYearLevel = (sem) => {
 };
 
 const MyMenteesDashboard = () => {
-  const { activeAcademicYear } = useAcademic();
+  // --- ADDED activeTerm HERE ---
+  const { activeAcademicYear, activeTerm } = useAcademic();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [search, setSearch] = useState("");
   const [selectedMentee, setSelectedMentee] = useState(null);
   
-  // --- NEW: Tab State ---
   const [activeTab, setActiveTab] = useState("attendance");
   const [yearFilter, setYearFilter] = useState("ALL");
 
+  // --- TRIGGER RE-FETCH WHEN TERM CHANGES ---
   useEffect(() => {
     if (activeAcademicYear) fetchDashboard();
-  }, [activeAcademicYear]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeAcademicYear, activeTerm]);
 
   const fetchDashboard = async () => {
     setLoading(true);
@@ -78,7 +80,6 @@ const MyMenteesDashboard = () => {
           <p className="page-subtitle" style={{ fontSize: "0.95rem" }}>Comprehensive 360° tracking for your assigned students.</p>
         </div>
         
-        {/* --- ADDED: Filter & Search Wrapper --- */}
         <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "center" }}>
           <select 
             className="premium-select" 
@@ -100,7 +101,7 @@ const MyMenteesDashboard = () => {
         </div>
       </div>
 
-      {/* --- NEW: TABS NAVIGATION --- */}
+      {/* TABS NAVIGATION */}
       <div className="mentee-tabs-container">
         <button className={`mentee-tab-btn ${activeTab === "attendance" ? "active" : ""}`} onClick={() => setActiveTab("attendance")}>
           <ClipboardCheck size={18} /> Attendance
@@ -123,9 +124,7 @@ const MyMenteesDashboard = () => {
         {activeTab === "attendance" && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
             {["FE", "SE", "TE", "BE", "Alumni"].map(year => {
-              // --- NEW: Skip rendering if the section doesn't match the selected filter ---
               if (yearFilter !== "ALL" && yearFilter !== year) return null;
-              
               if (!groupedMentees[year] || groupedMentees[year].length === 0) return null;
               
               return (
@@ -260,7 +259,7 @@ const MenteeDrilldownModal = ({ student, ayId, onClose }) => {
           {loading ? (
              <div className="spinner" style={{ margin: "3rem auto" }}></div>
           ) : subjects.length === 0 ? (
-            <p className="text-center text-muted py-8">No attendance recorded yet for this academic year.</p>
+            <p className="text-center text-muted py-8">No attendance recorded yet for this academic term.</p>
           ) : (
             <table className="data-table drilldown-table" style={{ fontSize: "0.9rem" }}>
               <thead style={{ position: "sticky", top: 0, zIndex: 1, background: "var(--bg-card)" }}>
