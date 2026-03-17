@@ -15,14 +15,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import { academicService } from "../services/api";
 import "./SubjectCatalog.css";
 import { useAuth } from "../context/AuthContext";
+import { useAcademic } from "../context/AcademicContext"; // <-- IMPORT ACADEMIC CONTEXT
 
 const SubjectCatalog = () => {
+  const { user } = useAuth();
+  const { activeTerm } = useAcademic(); // <-- GET GLOBAL TERM
 
-const { user } = useAuth();
-
-  // Filters
-  const [term, setTerm] = useState("odd"); // 'odd' or 'even'
-  const [activeSem, setActiveSem] = useState(1);
+  // Filters (Initialize based on the global active term)
+  const [term, setTerm] = useState(activeTerm ? activeTerm.toLowerCase() : "odd"); 
+  const [activeSem, setActiveSem] = useState(term === "odd" ? 1 : 2);
   const [searchTerm, setSearchTerm] = useState("");
 
   // Data
@@ -43,13 +44,21 @@ const { user } = useAuth();
   const evenSems = [2, 4, 6, 8];
   const currentSems = term === "odd" ? oddSems : evenSems;
 
-  // Handle Term Switch
+  // --- NEW: Sync local term when global Topbar term changes ---
+  useEffect(() => {
+    if (activeTerm) {
+      setTerm(activeTerm.toLowerCase());
+    }
+  }, [activeTerm]);
+
+  // Handle Term Switch (Updates the active semester pill)
   useEffect(() => {
     setActiveSem(term === "odd" ? 1 : 2);
   }, [term]);
 
   useEffect(() => {
     fetchSubjects();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSem]);
 
   const showToast = (message, type = "success") => {
@@ -112,11 +121,11 @@ const { user } = useAuth();
           </p>
         </div>
         {/* Wrap the Add Subject button */}
-           {isAuthorizedToEdit && (
-              <button className="btn-primary" onClick={() => setShowModal(true)}>
-                <Plus size={18} /> Add Subject
-              </button>
-           )}
+        {isAuthorizedToEdit && (
+          <button className="btn-primary" onClick={() => setShowModal(true)}>
+            <Plus size={18} /> Add Subject
+          </button>
+        )}
       </div>
 
       {/* Term & Semester Controls */}
@@ -205,32 +214,31 @@ const { user } = useAuth();
                           {sub.subject_type.replace("_", " ")}
                         </span>
                       </td>
-                      {/* Wrap the Edit/Delete actions */}
-         
                       <td>
                         <div className="credit-bubble">{sub.credits}</div>
-                        
-                      </td>{isAuthorizedToEdit && (
-           <>
-                      <td style={{ textAlign: "right" }}>
-                        
-                        <button
-                          className="btn-icon action-edit"
-                          onClick={() => setEditTarget(sub)}
-                          title="Edit Subject"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          className="btn-icon action-delete"
-                          onClick={() => setDeleteTarget(sub)}
-                          title="Delete Subject"
-                        >
-                          <Trash2 size={16} />
-                        </button>
                       </td>
-                      </>
-         )}
+                      {isAuthorizedToEdit ? (
+                        <td style={{ textAlign: "right" }}>
+                          <button
+                            className="btn-icon action-edit"
+                            onClick={() => setEditTarget(sub)}
+                            title="Edit Subject"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button
+                            className="btn-icon action-delete"
+                            onClick={() => setDeleteTarget(sub)}
+                            title="Delete Subject"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
+                      ) : (
+                        <td style={{ textAlign: "right" }}>
+                           <span className="text-muted" style={{ fontSize: "0.8rem" }}>Read Only</span>
+                        </td>
+                      )}
                     </motion.tr>
                   ))
                 ) : (
@@ -249,8 +257,6 @@ const { user } = useAuth();
           </table>
         )}
       </div>
-
-      
 
       {/* Add / Edit Modal */}
       <AnimatePresence>
