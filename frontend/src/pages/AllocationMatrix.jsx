@@ -20,7 +20,8 @@ import { useAcademic } from "../context/AcademicContext";
 import { useAuth } from "../context/AuthContext";
 
 const AllocationMatrix = () => {
-  const { activeAcademicYear, activeDepartment } = useAcademic();
+  // --- ADDED activeTerm ---
+  const { activeAcademicYear, activeDepartment, activeTerm } = useAcademic();
   const { user } = useAuth();
 
   const [facultyList, setFacultyList] = useState([]);
@@ -51,9 +52,10 @@ const AllocationMatrix = () => {
     fetchFaculty();
   }, []);
 
+  // --- TRIGGER RE-FETCH WHEN TERM CHANGES ---
   useEffect(() => {
     if (selectedFaculty) fetchAllocations(selectedFaculty.id);
-  }, [selectedFaculty]);
+  }, [selectedFaculty, activeTerm, activeAcademicYear, activeDepartment]);
 
   const showToast = (message, type = "success") => {
     setToast({ show: true, message, type });
@@ -167,7 +169,7 @@ const AllocationMatrix = () => {
         <div>
           <h1 className="page-title">Teaching Allocation Matrix</h1>
           <p className="page-subtitle">
-            Assign subjects and batches to faculty for {activeAcademicYear.name}
+            Assign subjects and batches to faculty for {activeAcademicYear.name} ({activeTerm} Term)
           </p>
         </div>
       </div>
@@ -225,7 +227,7 @@ const AllocationMatrix = () => {
                     Workload
                   </h2>
                   <p className="text-muted">
-                    {allocations.length} Classes Assigned
+                    {allocations.length} Classes Assigned in {activeTerm} Term
                   </p>
                 </div>
                 <button
@@ -283,7 +285,7 @@ const AllocationMatrix = () => {
                       size={48}
                       className="text-muted opacity-20 mb-2"
                     />
-                    <p>No classes assigned to this teacher yet.</p>
+                    <p>No {activeTerm} Term classes assigned to this teacher yet.</p>
                   </div>
                 )}
               </div>
@@ -371,6 +373,7 @@ const AllocationMatrix = () => {
           <AllocationModal
             faculty={selectedFaculty}
             ayId={activeAcademicYear.id}
+            activeTerm={activeTerm} // PASSING THE TERM PROP
             onClose={() => setShowModal(false)}
             onRefresh={() => fetchAllocations(selectedFaculty.id)}
             showToast={showToast}
@@ -435,8 +438,12 @@ const AllocationMatrix = () => {
   );
 };
 
-const AllocationModal = ({ faculty, ayId, onClose, onRefresh, showToast }) => {
-  const [filterSem, setFilterSem] = useState(1);
+// --- MODAL UPDATED WITH DYNAMIC TERM SEMESTERS ---
+const AllocationModal = ({ faculty, ayId, activeTerm, onClose, onRefresh, showToast }) => {
+  // Determine allowed semesters based on Odd/Even Term
+  const availableSemesters = activeTerm === "ODD" ? [1, 3, 5, 7] : [2, 4, 6, 8];
+  
+  const [filterSem, setFilterSem] = useState(availableSemesters[0]);
   const [subjects, setSubjects] = useState([]);
   const [groups, setGroups] = useState([]);
 
@@ -551,9 +558,9 @@ const AllocationModal = ({ faculty, ayId, onClose, onRefresh, showToast }) => {
 
         <div className="filter-pill-bar">
           <span className="text-sm font-medium text-muted mr-2">
-            Curriculum:
+            {activeTerm} Term:
           </span>
-          {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
+          {availableSemesters.map((sem) => (
             <button
               key={sem}
               type="button"

@@ -1219,6 +1219,9 @@ class AllocationManagerView(APIView):
         is_hod = user_profile.role == 'HOD'
         target_dept_id = request.headers.get('X-Department-Id')
         
+        # --- NEW: Catch the Term Header ---
+        term = request.headers.get('X-Term', 'ODD')
+        
         ay_id = request.GET.get('academic_year')
         faculty_id = request.GET.get('faculty_id') 
         
@@ -1236,17 +1239,13 @@ class AllocationManagerView(APIView):
         elif is_hod:
             if user_profile.department:
                 if faculty_id:
-                     # Check if the requested faculty is internal or external
                      try:
                          target_faculty = UserProfile.objects.get(id=faculty_id)
                          if target_faculty.department != user_profile.department:
-                             # External faculty: HOD only sees what they teach in the HOD's dept
                              allocations = allocations.filter(subject__department=user_profile.department)
-                         # If internal, we apply no department filter, revealing their full cross-department workload
                      except UserProfile.DoesNotExist:
                          pass
                 else:
-                    # General view
                     allocations = allocations.filter(
                         Q(subject__department=user_profile.department) | Q(faculty=user_profile)
                     ).distinct()
@@ -1257,6 +1256,14 @@ class AllocationManagerView(APIView):
             
         if faculty_id: 
             allocations = allocations.filter(faculty_id=faculty_id)
+            
+        # --- NEW: SMART TERM FILTERING ---
+        from django.db.models import F
+        allocations = allocations.annotate(sem_parity=F('subject__semester') % 2)
+        if term == 'ODD':
+            allocations = allocations.filter(sem_parity=1)
+        else:
+            allocations = allocations.filter(sem_parity=0)
             
         return Response(TeachingAllocationSerializer(allocations, many=True).data)
 
