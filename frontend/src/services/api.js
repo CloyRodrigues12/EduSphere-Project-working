@@ -116,6 +116,10 @@ export const studentService = {
       student_ids: studentIds,
       action: action,
     }),
+    
+  // --- NEW: SMART BATCHING ENGINES ---
+  autoGenerateClassGroup: (data) => api.post("/student-groups/auto-generate/", data),
+  autoSplitBatches: (data) => api.post("/student-groups/auto-split/", data),
 };
 
 export const attendanceService = {

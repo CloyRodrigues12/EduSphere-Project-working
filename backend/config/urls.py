@@ -23,7 +23,7 @@ from core.views import AcademicYearView
 from core.views import AcademicYearSummaryView
 from core.views import ToggleTeachingRoleView
 
-from core.views import StudentDirectoryView, StudentGroupView, StudentToggleStatusView
+from core.views import StudentDirectoryView, StudentGroupView, StudentToggleStatusView,AutoGenerateClassGroupView, AutoSplitLabBatchesView
 
 from core.dashboard import AdvancedDashboardView
 
@@ -114,10 +114,15 @@ path('api/dashboard/advanced/', AdvancedDashboardView.as_view(), name='advanced_
     path('api/students/toggle-status/<int:pk>/', StudentToggleStatusView.as_view(), name='student-toggle-status'),
     
     path('api/student-groups/', StudentGroupView.as_view(), name='student-groups'),
+    path('api/student-groups/auto-generate/', AutoGenerateClassGroupView.as_view(), name='auto-generate-class'),
+    path('api/student-groups/auto-split/', AutoSplitLabBatchesView.as_view(), name='auto-split-batches'),
+
     
     # --- PHASE 3: ALLOCATIONS & DASHBOARDS ---
     path('api/allocations/', AllocationManagerView.as_view(), name='allocation-manager'),
     path('api/faculty/my-classes/', MyClassesView.as_view(), name='my-classes'),
+    
+    
 
 
     # --- PHASE 4: ATTENDANCE ---
