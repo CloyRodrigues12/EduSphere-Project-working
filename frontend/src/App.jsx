@@ -26,6 +26,7 @@ import Attendance from "./pages/Attendance";
 import ClassMentorAssignments from "./pages/ClassMentorAssignments";
 import MyClassDashboard from "./pages/MyClassDashboard";
 import MyMenteesDashboard from "./pages/MyMenteesDashboard";
+import TimetableManager from "./pages/TimetableManager";
 
 // Placeholder Component
 const Placeholder = ({ title }) => (
@@ -138,6 +139,7 @@ const AppLayout = () => {
               path="/my-mentees"
               element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD", "FACULTY"]}><MyMenteesDashboard /></ProtectedRoute>}
             />
+            <Route path="/timetable" element={<ProtectedRoute><TimetableManager /></ProtectedRoute>} />
           </Routes>
         </div>
       </div>

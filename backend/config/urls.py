@@ -7,6 +7,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.views.generic import TemplateView
 from django.shortcuts import redirect
+from django.conf.urls.static import static
 from core.views import GoogleLogin 
 from core.views import GoogleLogin, SetupOrganizationView
 from core.views import GoogleLogin, SetupOrganizationView, StaffManagementView

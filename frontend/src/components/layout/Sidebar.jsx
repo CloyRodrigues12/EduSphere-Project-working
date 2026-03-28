@@ -21,6 +21,7 @@ import {
   UserStar,
   Presentation,
   HeartHandshake,
+  CalendarDays,
 } from "lucide-react";
 import "./Sidebar.css";
 
@@ -54,6 +55,7 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
       { icon: Presentation, label: "My Class", path: "/my-class" },
       { icon: HeartHandshake, label: "My Mentees", path: "/my-mentees" },
       { icon: ClipboardCheck, label: "Attendance", path: "/attendance" },
+      { icon: CalendarDays, label: "Timetables", path: "/timetable" }, // <--- ADDED HERE
       { icon: Library, label: "Subject Catalog", path: "/subjects" },
       { icon: Users, label: "Dir & Batches", path: "/students" },
       { icon: Banknote, label: "Fees", path: "/fees" },
@@ -67,16 +69,17 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
     }
 
     if (isHODOrAdmin) {
-      navItems.splice(4, 0, {
+      // Adjusted index numbers (+1) to account for the new Timetable item
+      navItems.splice(5, 0, {
         icon: Shield, label: "Team & Perms", path: "/staff",
       });
-      navItems.splice(6, 0, {
+      navItems.splice(7, 0, {
         icon: Layers, label: "Allocation Matrix", path: "/allocations",
       });
-      navItems.splice(8, 0, {
+      navItems.splice(9, 0, {
         icon: UploadCloud, label: "Upload Data", path: "/upload",
       });
-      navItems.splice(10, 0, {
+      navItems.splice(11, 0, {
         icon: UserStar, label: "Faculty Assign.", path: "/assignments",
       });
     }

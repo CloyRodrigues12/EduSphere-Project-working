@@ -230,9 +230,8 @@ REST_AUTH = {
 }
 
 # --- ALLAUTH CONFIG ---
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_USERNAME_REQUIRED = False
-ACCOUNT_AUTHENTICATION_METHOD = 'email'
+ACCOUNT_LOGIN_METHODS = {'email'}
+ACCOUNT_SIGNUP_FIELDS = ['email'] # This handles the email required requirement
 ACCOUNT_EMAIL_VERIFICATION = 'none' 
 
 # --- GOOGLE CONFIG  ---
