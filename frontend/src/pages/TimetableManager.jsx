@@ -28,10 +28,16 @@ export default function TimetableManager() {
         </h2>
         
         <p style={{ color: "var(--text-secondary)", fontSize: "1.1rem", lineHeight: "1.6" }}>
-          This module is currently under development. Soon, you will be able to seamlessly drag-and-drop teaching allocations into an interactive grid and automatically generate Excel-ready timetables.
-        </p>
+          This module is currently under development. </p>
 
-    
+        <div style={{ 
+          marginTop: "2rem", 
+          padding: "1rem 2rem", 
+          backgroundColor: "var(--bg-main)", 
+          borderRadius: "10px",
+          border: "1px dashed var(--border)" 
+        }}>
+        </div>
       </div>
     </div>
   );

@@ -8,12 +8,9 @@ from django.urls import path, include
 from django.views.generic import TemplateView
 from django.shortcuts import redirect
 from django.conf.urls.static import static
-from core.views import GoogleLogin 
-from core.views import GoogleLogin, SetupOrganizationView
 from core.views import GoogleLogin, SetupOrganizationView, StaffManagementView
 from core.views import GoogleLogin, SetupOrganizationView, StaffManagementView, CurrentUserView
 from django.urls import path, include
-from core.views import StudentUploadView
 from core.views import CheckDuplicateUploadView
 from core.views import CheckDuplicateUploadView, StudentUploadView
 from core.views import UploadPreviewView, commit_upload, CheckDuplicateUploadView 
@@ -134,7 +131,6 @@ path('api/dashboard/advanced/', AdvancedDashboardView.as_view(), name='advanced_
 
 
      path('api/student-portal/', include('student_portal.urls')),
-    
 ]
 
 # This allows Django to serve uploaded images during development
