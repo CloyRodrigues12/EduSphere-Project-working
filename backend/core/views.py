@@ -708,9 +708,16 @@ class UploadPreviewView(APIView):
 def commit_upload(request):
     log_id = request.data.get('log_id')
     mode = request.data.get('mode') 
+    dept_id = request.data.get('department_id') # <-- NEW
+    semester = request.data.get('semester')     # <-- NEW
     
     try:
-        service = StudentIngestionService(log_id)
+        # Pass the UI context directly into the ingestion engine
+        service = StudentIngestionService(
+            import_log_id=log_id, 
+            target_department_id=dept_id, 
+            target_semester=semester
+        )
         
         if mode == 'PARTIAL':
             count = service.commit_data(partial=True)

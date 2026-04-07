@@ -20,14 +20,21 @@ ECS_STUDENT_MAPPING = {
 }
 
 class StudentIngestionService:
-    def __init__(self, import_log_id):
+    def __init__(self, import_log_id, target_department_id=None, target_semester=None):
         self.log = DataImportLog.objects.get(id=import_log_id)
         self.file_path = self.log.file.path
         self.organization = self.log.organization
-        
-        # Pulling the newly required relational data
         self.academic_year = self.log.academic_year 
-        self.department = self.log.uploaded_by.department if self.log.uploaded_by else None
+        
+        # Override department if provided by the UI
+        if target_department_id:
+            from core.models import Department
+            self.department = Department.objects.get(id=target_department_id)
+        else:
+            self.department = self.log.uploaded_by.department if self.log.uploaded_by else None
+            
+        # Override semester
+        self.semester = int(target_semester) if target_semester else 1
         
         self.df = None
         self.validation_report = {
@@ -65,17 +72,14 @@ class StudentIngestionService:
         if not self.validation_report["schema_valid"]:
             return self.validation_report
 
-        # Sanitize for JSON Preview
-        preview_df = self.df.fillna('')
-        self.validation_report["preview_data"] = preview_df.head(5).to_dict(orient='records')
-
         # DB Duplicates check
         existing_enrollments = set(Student.objects.filter(
             organization=self.organization
         ).values_list('enrollment_number', flat=True))
 
-        # In-File Duplicate Check
         seen_in_file = set()
+        
+        valid_preview_data = [] # <-- FIX: Dynamic list to hold only valid preview rows
 
         for index, row in self.df.iterrows():
             row_data = row.to_dict()
@@ -84,32 +88,30 @@ class StudentIngestionService:
             enrollment_no = str(row.get('ENROLLMENT NO', '')).strip()
             name = str(row.get('NAME OF THE STUDENT', '')).strip()
 
-            # 1. Mandatory Fields
             if not enrollment_no or enrollment_no.lower() == 'nan':
                 errors.append("Missing Enrollment No")
             if not name or name.lower() == 'nan':
                 errors.append("Missing Student Name")
 
-            # 2. Check DB Duplicates
             if enrollment_no in existing_enrollments:
                 errors.append(f"Already in Database (Enrollment: {enrollment_no})")
 
-            # 3. Check In-File Duplicates 
             if enrollment_no in seen_in_file:
                 errors.append(f"Duplicate in this file (Enrollment: {enrollment_no})")
             elif enrollment_no and enrollment_no.lower() != 'nan':
                 seen_in_file.add(enrollment_no)
 
-            # 4. Date Validation
             dob_val = row.get('DOB')
             parsed_dob = self.clean_date(dob_val)
             if dob_val and not parsed_dob and not pd.isna(dob_val):
                  errors.append(f"Invalid Date Format: {dob_val}")
 
-            # Note: Changing keys to 'row' and 'error' to match your React UI mapping
+            # Format data safely for JSON
+            safe_data = {k: str(v) if not pd.isna(v) else "" for k, v in row_data.items()}
+
             record = {
                 "row": index + 2,
-                "data": {k: str(v) if not pd.isna(v) else "" for k, v in row_data.items()},
+                "data": safe_data,
                 "cleaned_dob": parsed_dob
             }
 
@@ -118,6 +120,10 @@ class StudentIngestionService:
                 self.validation_report["error_rows"].append(record)
             else:
                 self.validation_report["valid_rows"].append(record)
+                valid_preview_data.append(safe_data) # <-- Add ONLY valid rows to preview
+
+        # --- FIX: Send the purely valid rows to the frontend ---
+        self.validation_report["preview_data"] = valid_preview_data
 
         return self.validation_report
 
@@ -140,7 +146,7 @@ class StudentIngestionService:
                     organization=self.organization,
                     enrollment_number=str(data.get('ENROLLMENT NO')).strip(),
                     defaults={
-                        'department': self.department,  # Added new relation
+                        'department': self.department,  # Uses the dynamic department
                         'roll_number': str(data.get('ROLL NO', '')).strip(),
                         'full_name': str(data.get('NAME OF THE STUDENT', '')).strip(),
                         'dob': row["cleaned_dob"],
@@ -151,8 +157,8 @@ class StudentIngestionService:
                         'name_on_aadhar': str(data.get('NAME AS PER AADHAR CARD', '')).strip(),
                         'signature_status': str(data.get('SIGN', '')).strip(),
                         'remarks': str(data.get('REMARK', '')).strip(),
-                        'academic_year': self.academic_year, # Converted to dynamic object
-                        'current_semester': 1 # Defaulting to 1 for generic import
+                        'academic_year': self.academic_year, 
+                        'current_semester': self.semester # Uses the dynamic semester
                     }
                 )
                 saved_count += 1
