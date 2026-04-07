@@ -21,6 +21,8 @@ import {
   Globe,
   Lock,
   Zap,
+  HeartHandshake,
+  Trophy,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -72,7 +74,7 @@ const StaffManagement = () => {
   const [showDomainModal, setShowDomainModal] = useState(false);
   const [generatingAccounts, setGeneratingAccounts] = useState(false);
 
-  // --- NEW: Filters ---
+  // --- Filters ---
   const [yearFilter, setYearFilter] = useState("ALL");
   const [deptFilter, setDeptFilter] = useState("ALL");
 
@@ -118,10 +120,12 @@ const StaffManagement = () => {
         setStudentAccounts(res.data.students);
         setStudentStats(res.data.stats);
         setStudentDomain(res.data.domain);
-      } else if (activeTab === "staff") {
+      } else if (["staff", "counsellor", "sports_staff"].includes(activeTab)) {
+        // Fetch all non-teaching staff (Admin, Staff, Counsellor, Sports)
         const response = await staffService.getStaff();
         setMembers(response.data);
       } else {
+        // Fetch Teaching Faculty
         const response = await staffService.getFaculty();
         setMembers(response.data);
       }
@@ -160,9 +164,11 @@ const StaffManagement = () => {
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     try {
-      if (activeTab === "staff")
+      if (activeTab === "faculty")
+        await staffService.deleteFaculty(deleteTarget.id);
+      else 
         await staffService.deleteStaff(deleteTarget.id);
-      else await staffService.deleteFaculty(deleteTarget.id);
+      
       showToast("User removed successfully", "success");
       fetchMembers();
     } catch (err) {
@@ -189,7 +195,7 @@ const StaffManagement = () => {
     }
   };
 
-  // --- NEW: Applying the filters dynamically ---
+  // --- Filter and sort data based on the active tab ---
   const displayedData = activeTab === "student_accounts" 
     ? studentAccounts.filter(s => {
         const matchSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) || s.roll_number.toLowerCase().includes(searchTerm.toLowerCase());
@@ -199,10 +205,19 @@ const StaffManagement = () => {
       })
     : members.filter((m) => {
         const displayName = m.full_name || m.name || "";
-        return (
-          displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          m.email?.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+        const matchSearch = displayName.toLowerCase().includes(searchTerm.toLowerCase()) || m.email?.toLowerCase().includes(searchTerm.toLowerCase());
+        
+        let matchTab = true;
+        if (activeTab === "staff") {
+          matchTab = ["STAFF", "ORG_ADMIN", "SUPER_ADMIN"].includes(m.role_code);
+        } else if (activeTab === "counsellor") {
+          matchTab = m.role_code === "COUNSELLOR";
+        } else if (activeTab === "sports_staff") {
+          matchTab = m.role_code === "SPORTS_STAFF";
+        }
+        // If activeTab === "faculty", the backend already filtered it to only Faculty/HOD.
+        
+        return matchSearch && matchTab;
       });
 
   return (
@@ -233,29 +248,33 @@ const StaffManagement = () => {
             onClick={() => setShowAddModal(true)}
           >
             <UserPlus size={18} />{" "}
-            {activeTab === "staff" ? "Invite Staff" : "Add Faculty"}
+            {activeTab === "faculty" ? "Add Faculty" : "Invite Team Member"}
           </motion.button>
         )}
       </div>
 
-      <div className="tabs-container">
-        {["faculty", "staff", "student_accounts"].map((tab) => {
-          if (isHOD && tab === "staff") return null;
+      <div className="tabs-container" style={{ overflowX: "auto", display: "flex", gap: "10px", paddingBottom: "5px" }}>
+        {["faculty", "staff", "counsellor", "sports_staff", "student_accounts"].map((tab) => {
+          // Hide non-academic tabs from HODs
+          if (isHOD && tab !== "faculty" && tab !== "student_accounts") return null;
+
+          let Icon = Users;
+          let label = "";
+          if (tab === "faculty") { Icon = GraduationCap; label = "Faculty Registry"; }
+          else if (tab === "staff") { Icon = Users; label = "Office Staff"; }
+          else if (tab === "counsellor") { Icon = HeartHandshake; label = "Counselling Dept"; }
+          else if (tab === "sports_staff") { Icon = Trophy; label = "Sports Dept"; }
+          else if (tab === "student_accounts") { Icon = UserIcon; label = "Student Accounts"; }
 
           return (
             <button
               key={tab}
               className={`tab-btn ${activeTab === tab ? "active" : ""}`}
+              style={{ whiteSpace: "nowrap" }}
               onClick={() => setActiveTab(tab)}
             >
-              {tab === "faculty" ? (
-                <GraduationCap size={18} />
-              ) : tab === "staff" ? (
-                <Users size={18} />
-              ) : (
-                <UserIcon size={18} />
-              )}
-              {tab === "faculty" ? "Faculty Registry" : tab === "staff" ? "Office Staff" : "Student Accounts"}
+              <Icon size={18} />
+              {label}
               {activeTab === tab && (
                 <motion.div
                   className="active-tab-indicator"
@@ -308,7 +327,6 @@ const StaffManagement = () => {
                 </button>
               </div>
 
-              {/* NEW: Department-wise Breakdown Labels */}
               <div className="dept-breakdown-row">
                 <span className="text-sm text-muted" style={{ fontWeight: 'bold', marginRight: '8px' }}>Dept Overview:</span>
                 {Object.entries(studentStats.departments).map(([dept, data]) => (
@@ -333,7 +351,6 @@ const StaffManagement = () => {
           />
         </div>
         
-        {/* --- NEW: Filters for Student Accounts --- */}
         {activeTab === "student_accounts" && (
           <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
             {!isHOD && (
@@ -476,11 +493,10 @@ const StaffManagement = () => {
                               {member.designation || "Faculty"}
                             </span>
                           ) : (
-                            <span className="badge badge-role">
-                              {member.role_code === "ORG_ADMIN" ||
-                              member.role_code === "SUPER_ADMIN"
+                            <span className="badge badge-role" style={{ textTransform: 'capitalize' }}>
+                              {member.role_code === "ORG_ADMIN" || member.role_code === "SUPER_ADMIN"
                                 ? "Admin"
-                                : "Staff"}
+                                : member.role_code.replace('_', ' ').toLowerCase()}
                             </span>
                           )}
                         </td>
@@ -532,7 +548,8 @@ const StaffManagement = () => {
                                 <Edit2 size={16} />
                               </button>
                             )}
-                            {activeTab === "staff" &&
+                            
+                            {["staff", "counsellor", "sports_staff"].includes(activeTab) &&
                               member.status === "Invited" && (
                                 <button
                                   className="btn-icon action-edit"
@@ -548,7 +565,7 @@ const StaffManagement = () => {
                                 </button>
                               )}
                               
-                            {member.role_code !== "ORG_ADMIN" && !(isHOD && isSelf) && !isExternal && (
+                            {member.role_code !== "ORG_ADMIN" && member.role_code !== "SUPER_ADMIN" && !(isHOD && isSelf) && !isExternal && (
                               <button
                                 className="btn-icon action-delete"
                                 onClick={() => setDeleteTarget(member)}
@@ -588,13 +605,7 @@ const StaffManagement = () => {
         )}
 
         {showAddModal &&
-          (activeTab === "staff" ? (
-            <InviteStaffModal
-              onClose={() => setShowAddModal(false)}
-              onRefresh={fetchMembers}
-              showToast={showToast}
-            />
-          ) : (
+          (activeTab === "faculty" ? (
             <FacultyFormModal
               onClose={() => setShowAddModal(false)}
               onRefresh={fetchMembers}
@@ -602,6 +613,13 @@ const StaffManagement = () => {
               departments={departments}
               isHOD={isHOD}
               activeDepartment={activeDepartment}
+            />
+          ) : (
+            <InviteStaffModal
+              onClose={() => setShowAddModal(false)}
+              onRefresh={fetchMembers}
+              showToast={showToast}
+              defaultRole={activeTab === 'counsellor' ? 'COUNSELLOR' : activeTab === 'sports_staff' ? 'SPORTS_STAFF' : 'STAFF'}
             />
           ))}
 
@@ -1133,17 +1151,18 @@ const FacultyFormModal = ({
     </div>
   );
 };
-
-const InviteStaffModal = ({ onClose, onRefresh, showToast }) => {
+const InviteStaffModal = ({ onClose, onRefresh, showToast, defaultRole }) => {
+  const [fullName, setFullName] = useState(""); // <--- NEW: State for Full Name
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState("STAFF");
+  const [role, setRole] = useState(defaultRole || "STAFF");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await staffService.inviteStaff({ email, role });
+      // --- NEW: Pass the full_name to the API ---
+      await staffService.inviteStaff({ email, full_name: fullName, role });
       showToast(`Invite sent to ${email}`);
       onRefresh();
       onClose();
@@ -1164,14 +1183,30 @@ const InviteStaffModal = ({ onClose, onRefresh, showToast }) => {
       >
         <div className="modal-header">
           <div>
-            <h3>Invite Staff</h3>
-            <p className="modal-subtitle">Send an invitation to join.</p>
+            <h3>Invite Staff / Member</h3>
+            <p className="modal-subtitle">Send an invitation to join the platform.</p>
           </div>
           <button onClick={onClose} className="close-btn">
             <X size={20} />
           </button>
         </div>
         <form onSubmit={handleSubmit} className="premium-form">
+          
+          {/* --- NEW: Full Name Input Field --- */}
+          <div className="sinput-group">
+            <label>Full Name</label>
+            <div className="input-wrapper">
+              <UserIcon size={18} className="input-icon" />
+              <input
+                type="text"
+                required
+                placeholder="Enter member's full name"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+              />
+            </div>
+          </div>
+
           <div className="sinput-group">
             <label>Email Address</label>
             <div className="input-wrapper">
@@ -1179,18 +1214,21 @@ const InviteStaffModal = ({ onClose, onRefresh, showToast }) => {
               <input
                 type="email"
                 required
+                placeholder="Enter email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
           </div>
           <div className="sinput-group">
-            <label>Access Level</label>
+            <label>Access Level / Department</label>
             <div className="input-wrapper">
               <Briefcase size={18} className="input-icon" />
               <select value={role} onChange={(e) => setRole(e.target.value)}>
-                <option value="STAFF">Viewer (Read Only)</option>
-                <option value="ORG_ADMIN">Admin</option>
+                <option value="STAFF">Office Staff / Viewer</option>
+                <option value="ORG_ADMIN">Organization Admin</option>
+                <option value="COUNSELLOR">Counselling Dept</option>
+                <option value="SPORTS_STAFF">Sports Dept</option>
               </select>
             </div>
           </div>

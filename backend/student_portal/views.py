@@ -3,7 +3,8 @@ from rest_framework.response import Response
 from rest_framework import permissions
 from core.models import Student, TeachingAllocation, Course, UserProfile
 from attendance.models import ClassSession, AttendanceRecord
-from faculty_assignments.models import ClassTeacher, Mentorship
+from faculty_assignments.models import ClassTeacher
+from counselling.models import Mentorship 
 from django.db.models import Q
 
 class MyStudentDashboardView(APIView):

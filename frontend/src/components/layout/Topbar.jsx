@@ -19,7 +19,7 @@ import {
   Calendar,
   Info,
   GraduationCap,
-  Layers, // <-- ADDED FOR TERM ICON
+  Layers, 
 } from "lucide-react";
 import "./Topbar.css";
 import { useAuth } from "../../context/AuthContext";
@@ -48,7 +48,7 @@ const getSmartAbbreviation = (name) => {
   return initials.length > 1 ? initials : cleanName;
 };
 
-// --- NEW: FIRST AND LAST NAME HELPER ---
+// --- FIRST AND LAST NAME HELPER ---
 const getFirstAndLastName = (fullName) => {
   if (!fullName) return "";
   const parts = fullName.trim().split(/\s+/);
@@ -66,8 +66,8 @@ const Topbar = ({ title, onMenuClick }) => {
     departments,
     activeDepartment,
     setActiveDepartment,
-    activeTerm,         // <-- NEW
-    setActiveTerm,      // <-- NEW
+    activeTerm,         
+    setActiveTerm,      
   } = useAcademic();
 
   const [theme, setTheme] = useState(() => {
@@ -194,11 +194,37 @@ const Topbar = ({ title, onMenuClick }) => {
     window.location.reload();
   };
 
+  // --- DYNAMIC ROLE DISPLAY LOGIC ---
+  let displayRole = user.designation;
+  if (user?.role_code === "STUDENT") {
+    displayRole = "Student";
+  } else if (user?.role_code === "COUNSELLOR") {
+    displayRole = "Counsellor";
+  } else if (user?.role_code === "SPORTS_STAFF") {
+    displayRole = "Sports Dept";
+  } else if (displayRole === "Staff Member" && user.role) {
+    displayRole = user.role;
+  } else if (!displayRole) {
+    displayRole = "Staff Member";
+  }
+
+  // --- DYNAMIC DEPARTMENT DISPLAY LOGIC ---
+  let displayDepartment = activeDepartment?.name;
+  
+  // --- FIX: FORCE OVERRIDE the display name for global roles, 
+  // even if the Context auto-selected the first department ---
+  if (user?.role_code === "COUNSELLOR") {
+    displayDepartment = "Counselling Dept";
+  } else if (user?.role_code === "SPORTS_STAFF") {
+    displayDepartment = "Sports Dept";
+  } else if (!displayDepartment) {
+    // Fallback for regular staff without a department if somehow null
+    displayDepartment = departments && departments.length > 0 ? departments[0].name : "No Department";
+  }
+
   const isOrgAdmin = ["ORG_ADMIN", "SUPER_ADMIN"].includes(user?.role_code);
   const isStudent = user?.role_code === "STUDENT";
   
-  const displayRole = isStudent ? "Student" : (user.designation || user.role);
-
   return (
     <header className="topbar glass-panel">
       {/* Left */}
@@ -286,7 +312,7 @@ const Topbar = ({ title, onMenuClick }) => {
                   color: "var(--text-primary)",
                 }}
               >
-                {activeDepartment?.name || "No Department"}
+                {displayDepartment}
               </span>
             </div>
           )}

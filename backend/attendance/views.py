@@ -7,7 +7,8 @@ from django.utils import timezone
 from .models import ClassSession, AttendanceRecord
 from core.models import TeachingAllocation
 from .serializers import ClassSessionSerializer
-from faculty_assignments.models import Mentorship, ClassTeacher
+from faculty_assignments.models import ClassTeacher
+from counselling.models import Mentorship  
 
 
 # ====================================================================

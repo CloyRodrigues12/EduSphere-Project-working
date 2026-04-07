@@ -46,6 +46,14 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
       { icon: ClipboardCheck, label: "My Attendance", path: "/my-attendance" },
       { icon: Banknote, label: "My Fees", path: "/fees" },
     ];
+  } else if (user?.role === "COUNSELLOR" || user?.role_code === "COUNSELLOR") {
+    // ==========================================
+    // COUNSELLOR SIDEBAR (Strictly Isolated)
+    // ==========================================
+    navItems = [
+      { icon: LayoutDashboard, label: "Dashboard", path: "/" },
+      { icon: HeartHandshake, label: "Mentor Allocation", path: "/counselling/mentor-allocation" },
+    ];
   } else {
     // ==========================================
     // FACULTY / ADMIN SIDEBAR
@@ -62,9 +70,11 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
       { icon: FileSearch, label: "DocuSense AI", path: "/docusense" },
     ];
 
-    if (isOrgAdmin) {
-      navItems.push({
-        icon: Settings, label: "Admin Actions", path: "/academic-settings",
+    if (isOrgAdmin || user?.role_code === "HOD") {
+      navItems.push({ 
+        icon: HeartHandshake, 
+        label: "Counselling Dept", 
+        path: "/counselling/mentor-allocation" 
       });
     }
 
@@ -80,7 +90,7 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
         icon: UploadCloud, label: "Upload Data", path: "/upload",
       });
       navItems.splice(11, 0, {
-        icon: UserStar, label: "Faculty Assign.", path: "/assignments",
+        icon: UserStar, label: "Class Teachers", path: "/assignments",
       });
     }
   }

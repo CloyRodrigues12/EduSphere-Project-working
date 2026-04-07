@@ -128,6 +128,7 @@ path('api/dashboard/advanced/', AdvancedDashboardView.as_view(), name='advanced_
 
     # Class and Mentor assignment
      path('api/assignments/', include('faculty_assignments.urls')),
+     path('api/counselling/', include('counselling.urls')),
 
 
      path('api/student-portal/', include('student_portal.urls')),

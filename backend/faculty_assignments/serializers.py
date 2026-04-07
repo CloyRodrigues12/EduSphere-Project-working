@@ -1,6 +1,7 @@
 from rest_framework import serializers
-from .models import ClassTeacher, Mentorship
 from core.models import Student
+from .models import ClassTeacher
+from counselling.models import Mentorship
 
 class ClassTeacherSerializer(serializers.ModelSerializer):
     faculty_name = serializers.CharField(source='faculty.user.get_full_name', read_only=True)

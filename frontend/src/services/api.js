@@ -186,15 +186,19 @@ export const assignmentService = {
 
   getMyClassDashboard: (ayId) => api.get(`/assignments/my-class/?academic_year=${ayId}`),
   
-  // Mentors
-  getMentorSummary: () => api.get("/assignments/mentors/summary/"),
-  getMentorStudents: () => api.get("/assignments/mentors/students/"),
-  assignMentors: (data) => api.post("/assignments/mentors/students/", data),
-  removeMentee: (studentId) => api.delete(`/assignments/mentors/students/?student_id=${studentId}`),
+  // NOTE: Mentor endpoints were removed from here and moved to counsellingService
 
-  // MENTOR DASHBOARD CALLS 
+  // MENTOR DASHBOARD CALLS (Used by standard faculty to view their mentees)
   getMyMenteesDashboard: (ayId) => api.get(`/assignments/my-mentees/?academic_year=${ayId}`),
   getMenteeSubjectAttendance: (studentId, ayId) => api.get(`/assignments/my-mentees/subjects/?student_id=${studentId}&academic_year=${ayId}`),
+};
+
+// --- NEW: DEDICATED COUNSELLING SERVICE ---
+export const counsellingService = {
+  getMentorSummary: () => api.get("/counselling/mentors/summary/"),
+  getMentorStudents: () => api.get("/counselling/mentors/students/"),
+  assignMentors: (data) => api.post("/counselling/mentors/students/", data),
+  removeMentee: (studentId) => api.delete(`/counselling/mentors/students/?student_id=${studentId}`),
 };
 
 export default api;

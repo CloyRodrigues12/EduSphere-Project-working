@@ -355,36 +355,37 @@ class StaffManagementView(APIView):
         return request.user.profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']
 
     def get(self, request):
-        try:
-            if not self.check_admin_access(request):
-                return Response({"error": "Access Denied: Admins only."}, status=403)
+        user_profile = request.user.profile
+        
+        # Security Check
+        if user_profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
+            return Response({"error": "Permission denied"}, status=403)
 
-            user_profile = request.user.profile
-            members = UserProfile.objects.filter(
-                organization=user_profile.organization,
-                role__in=['STAFF', 'ORG_ADMIN', 'SUPER_ADMIN']
-            )
+        # Fetch all non-teaching staff
+        members = UserProfile.objects.filter(
+            organization=user_profile.organization,
+            role__in=['STAFF', 'ORG_ADMIN', 'SUPER_ADMIN', 'COUNSELLOR', 'SPORTS_STAFF']
+        ).select_related('user', 'department')
+
+        data = []
+        for m in members:
+            # --- THE FIX: Mark as "Active" if they have a password OR if they have logged in at least once! ---
+            is_active = m.user.has_usable_password() or m.user.last_login is not None
             
-            data = []
-            for member in members:
-                u = member.user 
-                status_label = "Active" if u.last_login else "Invited"
-                
-                data.append({
-                    "id": u.id,
-                    "name": u.get_full_name() or u.email.split('@')[0],
-                    "email": u.email,
-                    "role": member.get_role_display(),
-                    "role_code": member.role,
-                    "department": member.department.name if member.department else "-",
-                    "status": status_label,
-                    "last_login": u.last_login
-                })
-            
-            return Response(data)
-        except Exception as e:
-            traceback.print_exc()
-            return Response({"error": str(e)}, status=500)
+            data.append({
+                "id": m.user.id,
+                "name": m.user.get_full_name() or m.user.first_name,
+                "full_name": m.user.get_full_name() or m.user.first_name,
+                "email": m.user.email,
+                "role_code": m.role,
+                "status": "Active" if is_active else "Invited",
+                "is_setup_complete": m.is_setup_complete,
+                "profile_picture": m.profile_picture.url if m.profile_picture else None,
+                "department": m.department.name if m.department else "",
+                "department_name": m.department.name if m.department else ""
+            })
+
+        return Response(data)
 
     def post(self, request):
         if not self.check_admin_access(request):
@@ -393,6 +394,7 @@ class StaffManagementView(APIView):
         email = request.data.get('email')
         role = request.data.get('role', 'STAFF')
         action = request.data.get('action') 
+        full_name = request.data.get('full_name', '').strip() # <--- NEW: Get the name
         
         if not email:
             return Response({"error": "Email is required"}, status=400)
@@ -407,7 +409,13 @@ class StaffManagementView(APIView):
         else:
             if action == 'resend':
                 return Response({"error": "User not found to resend"}, status=404)
-            new_user = User.objects.create(username=email, email=email)
+            
+            # --- FIXED: Save the name when creating the user ---
+            new_user = User.objects.create(
+                username=email, 
+                email=email,
+                first_name=full_name[:30] 
+            )
             new_user.set_unusable_password()
             new_user.save()
 
@@ -426,9 +434,12 @@ class StaffManagementView(APIView):
                 if not sender_name:
                     sender_name = "The Administrator"
 
+                # --- NEW: Personalize the email ---
+                greeting_name = full_name if full_name else "there"
+
                 subject = f"You're invited to join {admin_org.name} on EduSphere"
                 plain_message = (
-                    f"Hello,\n\n"
+                    f"Hello {greeting_name},\n\n"
                     f"{sender_name} has invited you to join the staff at {admin_org.name} as a {role}.\n\n"
                     f"Click here to get started: {login_url}\n\n"
                     f"Welcome to the team!"
@@ -443,7 +454,7 @@ class StaffManagementView(APIView):
                             <h1 style="color: white; margin: 0; font-size: 24px;">Welcome to EduSphere</h1>
                         </div>
                         <div style="padding: 40px 30px; text-align: center; color: #333333;">
-                            <h2 style="color: #1e1b4b; margin-top: 0;">You've been invited!</h2>
+                            <h2 style="color: #1e1b4b; margin-top: 0;">Hello {greeting_name}, you've been invited!</h2>
                             <p style="font-size: 16px; line-height: 1.6; color: #4b5563; margin-bottom: 25px;">
                                 <strong>{sender_name}</strong> has invited you to join the team at <strong>{admin_org.name}</strong>.
                             </p>
@@ -491,7 +502,8 @@ class StaffManagementView(APIView):
                 new_user.delete()
             print("Invite Error:", e)
             return Response({"error": "Failed to create user. Check server logs."}, status=500)
-
+        
+        
     def delete(self, request):
         if not self.check_admin_access(request):
             return Response({"error": "Permission denied"}, status=403)
@@ -742,7 +754,7 @@ class FacultyManagementView(APIView):
 
     def get(self, request):
         user_profile = request.user.profile
-        is_admin = user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']
+        is_admin = user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN', 'COUNSELLOR']
         target_dept_id = request.headers.get('X-Department-Id')
         is_global = request.GET.get('global') == 'true' 
         

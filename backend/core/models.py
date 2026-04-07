@@ -91,6 +91,8 @@ class UserProfile(models.Model):
         ('HOD', 'Head of Department'),      
         ('STAFF', 'Office Staff'),
         ('FACULTY', 'Teaching Faculty'),
+        ('COUNSELLOR', 'Counselling Department'), 
+        ('SPORTS_STAFF', 'Sports Department'),
         ('STUDENT', 'Student'),
     )
 

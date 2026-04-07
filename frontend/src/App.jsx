@@ -23,7 +23,8 @@ import StudentDirectory from "./pages/StudentDirectory";
 import AllocationMatrix from "./pages/AllocationMatrix";
 import AcademicSettings from "./pages/AcademicSettings";
 import Attendance from "./pages/Attendance";
-import ClassMentorAssignments from "./pages/ClassMentorAssignments";
+import ClassTeacherAssignments from "./pages/ClassTeacherAssignments";
+import CounsellorMentorManagement from "./pages/CounsellorMentorManagement";
 import MyClassDashboard from "./pages/MyClassDashboard";
 import MyMenteesDashboard from "./pages/MyMenteesDashboard";
 import TimetableManager from "./pages/TimetableManager";
@@ -127,10 +128,17 @@ const AppLayout = () => {
               path="/attendance/:allocationId"
               element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD", "FACULTY"]}><Attendance /></ProtectedRoute>}
             />
-            <Route
-              path="/assignments"
-              element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD"]}><ClassMentorAssignments /></ProtectedRoute>}
-            />
+            {/* Replace the old Faculty Assignments route with this: */}
+<Route
+  path="/assignments"
+  element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD"]}><ClassTeacherAssignments /></ProtectedRoute>}
+/>
+
+{/* Add the NEW Counselling Route: */}
+<Route
+  path="/counselling/mentor-allocation"
+  element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "COUNSELLOR"]}><CounsellorMentorManagement /></ProtectedRoute>}
+/>
             <Route
               path="/my-class"
               element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD", "FACULTY"]}><MyClassDashboard /></ProtectedRoute>}
