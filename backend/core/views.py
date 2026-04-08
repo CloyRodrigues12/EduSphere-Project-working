@@ -45,6 +45,8 @@ from django.utils import timezone
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import EmailVerificationOTP
 
+from .models import Notification
+
 
 # 1. Google Login
 class GoogleLogin(SocialLoginView):
@@ -1816,3 +1818,34 @@ class StudentAccountManagementView(APIView):
             })
 
         return Response({"error": "Invalid action."}, status=400)
+    
+    
+
+
+from django.utils import timezone 
+
+class NotificationListView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    def get(self, request):
+        notifs = Notification.objects.filter(recipient=request.user).order_by('-created_at')[:20]
+        data = [{
+            "id": n.id,
+            "title": n.title,
+            "message": n.message,
+            "action_url": n.action_url,
+            "is_read": n.is_read,
+            # FIXED: Converts UTC to your system's Local Time Zone
+            "created_at": timezone.localtime(n.created_at).strftime("%b %d, %I:%M %p")
+        } for n in notifs]
+        return Response(data)
+
+class NotificationMarkReadView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    def post(self, request, notif_id):
+        try:
+            notif = Notification.objects.get(id=notif_id, recipient=request.user)
+            notif.is_read = True
+            notif.save()
+            return Response({"success": True})
+        except Notification.DoesNotExist:
+            return Response({"error": "Not found"}, status=404)

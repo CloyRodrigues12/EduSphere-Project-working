@@ -28,6 +28,7 @@ import CounsellorMentorManagement from "./pages/CounsellorMentorManagement";
 import MyClassDashboard from "./pages/MyClassDashboard";
 import MyMenteesDashboard from "./pages/MyMenteesDashboard";
 import TimetableManager from "./pages/TimetableManager";
+import DutyLeaveDashboard from "./pages/DutyLeaveDashboard";
 
 // Placeholder Component
 const Placeholder = ({ title }) => (
@@ -128,8 +129,18 @@ const AppLayout = () => {
               path="/attendance/:allocationId"
               element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD", "FACULTY"]}><Attendance /></ProtectedRoute>}
             />
+            <Route
+  path="/duty-leave"
+  element={
+    <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD", "FACULTY", "TEACHER", "STUDENT", "COUNSELLOR", "SPORTS_STAFF"]}>
+      <DutyLeaveDashboard />
+    </ProtectedRoute>
+  }
+/>
             {/* Replace the old Faculty Assignments route with this: */}
 <Route
+
+
   path="/assignments"
   element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD"]}><ClassTeacherAssignments /></ProtectedRoute>}
 />

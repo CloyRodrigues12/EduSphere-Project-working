@@ -22,6 +22,7 @@ import {
   Presentation,
   HeartHandshake,
   CalendarDays,
+  CalendarClock,
 } from "lucide-react";
 import "./Sidebar.css";
 
@@ -43,6 +44,8 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
     // ==========================================
     navItems = [
       { icon: LayoutDashboard, label: "My Dashboard", path: "/" },
+      
+      { icon: CalendarClock, label: "Duty Leaves (OD)", path: "/duty-leave" },
       { icon: ClipboardCheck, label: "My Attendance", path: "/my-attendance" },
       { icon: Banknote, label: "My Fees", path: "/fees" },
     ];
@@ -63,7 +66,8 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
       { icon: Presentation, label: "My Class", path: "/my-class" },
       { icon: HeartHandshake, label: "My Mentees", path: "/my-mentees" },
       { icon: ClipboardCheck, label: "Attendance", path: "/attendance" },
-      { icon: CalendarDays, label: "Timetables", path: "/timetable" }, // <--- ADDED HERE
+      { icon: CalendarClock, label: "Duty Leaves (OD)", path: "/duty-leave" },
+      { icon: CalendarDays, label: "Timetables", path: "/timetable" },
       { icon: Library, label: "Subject Catalog", path: "/subjects" },
       { icon: Users, label: "Dir & Batches", path: "/students" },
       { icon: Banknote, label: "Fees", path: "/fees" },

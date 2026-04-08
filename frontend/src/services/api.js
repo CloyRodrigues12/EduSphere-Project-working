@@ -32,6 +32,9 @@ api.interceptors.request.use((config) => {
 });
 
 export const staffService = {
+
+  // Inside staffService:
+  getOrganizationFaculties: () => api.get('/core/faculties/'),          
   // --- Departments ---
   getDepartments: () => api.get("/departments/"),
   createDepartment: (data) => api.post("/departments/", data),
@@ -125,7 +128,11 @@ export const studentService = {
 export const attendanceService = {
   // --- NEW: Faculty Smart Roster APIs ---
   getFacultyAllocations: () => api.get("/attendance/allocations/"),
-  getClassRoster: (allocationId) => api.get(`/attendance/roster/${allocationId}/`),
+  getClassRoster: (allocationId, dateStr) => {
+    let url = `/attendance/roster/${allocationId}/`;
+    if (dateStr) url += `?date=${dateStr}`;
+    return api.get(url);
+  },
   markClassAttendance: (data) => api.post("/attendance/mark/", data),
 
   // --- Existing Session APIs ---
@@ -175,6 +182,12 @@ export const attendanceService = {
     if (endDate) url += `&end_date=${endDate}`;
     return api.get(url);
   },
+
+  getDutyLeaves: () => api.get('/attendance/duty-leave/'),
+  submitDutyLeave: (data) => api.post('/attendance/duty-leave/', data),
+  processDutyLeaveAction: (data) => api.post('/attendance/duty-leave/action/', data),
+  getDutyLeaveStudents: () => api.get('/attendance/duty-leave/students/'),
+
 };
 
 export const assignmentService = {

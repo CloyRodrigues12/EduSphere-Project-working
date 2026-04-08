@@ -336,3 +336,19 @@ class DataImportLog(models.Model):
     def __str__(self):
         return f"{self.import_type} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
 
+# ==========================================
+# GLOBAL NOTIFICATION SYSTEM
+# ==========================================
+class Notification(models.Model):
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
+    title = models.CharField(max_length=100)
+    message = models.TextField()
+    action_url = models.CharField(max_length=255, blank=True, null=True) # E.g., '/duty-leave'
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"To {self.recipient.email}: {self.title}"

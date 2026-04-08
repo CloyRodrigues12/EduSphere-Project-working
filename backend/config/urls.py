@@ -30,7 +30,7 @@ from core.views import (
     VerifyRegistrationOTPView,
     JoinTeamRequestOTPView,
     JoinTeamCompleteView,
-    SetGooglePasswordView,StudentAccountManagementView
+    SetGooglePasswordView,StudentAccountManagementView,NotificationMarkReadView,NotificationListView
 )
 
 def password_reset_redirect(request, uidb64, token):
@@ -45,7 +45,9 @@ from core.views import (
     StaffManagementView, 
     CurrentUserView, 
     StudentUploadView,
-    FacultyManagementView 
+    FacultyManagementView, 
+    NotificationListView,         
+    NotificationMarkReadView,        
 )
 
 def password_reset_redirect(request, uidb64, token):
@@ -132,6 +134,10 @@ path('api/dashboard/advanced/', AdvancedDashboardView.as_view(), name='advanced_
 
 
      path('api/student-portal/', include('student_portal.urls')),
+     
+ 
+    path('api/user/notifications/', NotificationListView.as_view(), name='notifications'),
+    path('api/user/notifications/<int:notif_id>/read/', NotificationMarkReadView.as_view(), name='mark-notification-read'),
 ]
 
 # This allows Django to serve uploaded images during development

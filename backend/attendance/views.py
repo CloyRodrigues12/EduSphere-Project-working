@@ -9,6 +9,11 @@ from core.models import TeachingAllocation
 from .serializers import ClassSessionSerializer
 from faculty_assignments.models import ClassTeacher
 from counselling.models import Mentorship  
+from .models import ClassSession, AttendanceRecord, DutyLeaveRequest, DutyLeaveParticipant
+from core.models import Notification, UserProfile, Student
+from .serializers import ClassSessionSerializer, DutyLeaveRequestSerializer
+from datetime import date
+from django.utils.dateparse import parse_date
 
 
 # ====================================================================
@@ -78,7 +83,7 @@ class FacultyAllocationsView(APIView):
 
 
 class ClassRosterView(APIView):
-    """ Fetches the list of active students for a specific allocation """
+    """ Fetches the list of active students for a specific allocation, factoring in Duty Leaves """
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, allocation_id):
@@ -86,10 +91,24 @@ class ClassRosterView(APIView):
             allocation = TeachingAllocation.objects.get(id=allocation_id)
             students = allocation.student_group.students.filter(is_active=True).order_by('roll_number')
             
+            # 1. Determine the target date (Default to today if not provided)
+            date_str = request.GET.get('date')
+            target_date = parse_date(date_str) if date_str else date.today()
+
+            # 2. Check for Approved Duty Leaves for this Date
+            approved_dl_students = set(DutyLeaveParticipant.objects.filter(
+                final_status='APPROVED',
+                request__start_date__lte=target_date,
+                request__end_date__gte=target_date,
+                student__in=students
+            ).values_list('student_id', flat=True))
+            
+            # 3. Build the Roster Data
             data = [{
                 "id": s.id,
                 "roll_number": s.roll_number,
                 "name": s.full_name,
+                "is_duty_leave": s.id in approved_dl_students # <-- Flags React to lock the UI
             } for s in students]
             
             return Response({
@@ -101,8 +120,7 @@ class ClassRosterView(APIView):
             
         except TeachingAllocation.DoesNotExist:
             return Response({"error": "Allocation not found."}, status=status.HTTP_404_NOT_FOUND)
-
-
+        
 class MarkAttendanceView(APIView):
     """ Receives the bulk attendance submission and creates Session + Records """
     permission_classes = [permissions.IsAuthenticated]
@@ -706,3 +724,252 @@ class AnalyticsRadarView(APIView):
                 "safe": [], "atRisk": [], "defaulters": [], 
                 "chartData": [], "totalStudents": 0, "error": str(e)
             })
+            
+
+from django.core.mail import send_mail
+from django.conf import settings
+from django.utils import timezone
+from faculty_assignments.models import ClassTeacher
+from core.models import Notification, UserProfile, Student
+
+# ====================================================================
+# DUTY LEAVE STATE MACHINE APIs
+# ====================================================================
+
+def notify_class_teachers(leave_request):
+    """ Finds the precise Class Teachers for all participants and sends them a bell + email """
+    sem_to_year = {1: 'FE', 2: 'FE', 3: 'SE', 4: 'SE', 5: 'TE', 6: 'TE', 7: 'BE', 8: 'BE'}
+    notified_users = set()
+    
+    for participant in leave_request.participants.all():
+        student = participant.student
+        if student.current_semester in sem_to_year:
+            y_level = sem_to_year[student.current_semester]
+            
+            # Find the designated class teacher for this student's department and year level
+            cts = ClassTeacher.objects.filter(department=student.department, year_level=y_level)
+            
+            for ct in cts:
+                if ct.faculty.user not in notified_users:
+                    notified_users.add(ct.faculty.user)
+                    
+                    # 1. Topbar Bell Notification
+                    Notification.objects.create(
+                        recipient=ct.faculty.user,
+                        title="Action Required: Class Duty Leave",
+                        message=f"Students from your class applied for '{leave_request.title}'. Pending your approval.",
+                        action_url="/duty-leave"
+                    )
+                    
+                    # 2. Email Notification
+                    send_mail(
+                        subject="Action Required: Class Duty Leave Approval",
+                        message=f"Hello Prof. {ct.faculty.user.get_full_name()},\n\nA Duty Leave request ('{leave_request.title}') involving students from your assigned class is awaiting your approval.\n\nPlease log in to EduSphere to review.",
+                        from_email=settings.EMAIL_HOST_USER,
+                        recipient_list=[ct.faculty.user.email],
+                        fail_silently=True
+                    )
+
+
+class DutyLeaveAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user_profile = request.user.profile
+        role = user_profile.role
+
+        # 1. Student View
+        if role == 'STUDENT':
+            student = Student.objects.get(user=request.user)
+            requests = DutyLeaveRequest.objects.filter(participants__student=student).distinct()
+            return Response(DutyLeaveRequestSerializer(requests, many=True).data)
+
+        # To avoid complex Django ORM crashes, we collect IDs cleanly in a Python set
+        request_ids = set()
+
+        # 2. Event In-Charge View
+        in_charge_reqs = DutyLeaveRequest.objects.filter(event_in_charge=user_profile).values_list('id', flat=True)
+        request_ids.update(in_charge_reqs)
+        
+        # 3. Class Teacher View (MIRRORS THE EMAIL LOGIC EXACTLY)
+        ct_qs = ClassTeacher.objects.filter(faculty=user_profile)
+        if ct_qs.exists():
+            sem_to_year = {1: 'FE', 2: 'FE', 3: 'SE', 4: 'SE', 5: 'TE', 6: 'TE', 7: 'BE', 8: 'BE'}
+            
+            # Fetch all active participants that have passed the In-Charge phase
+            active_participants = DutyLeaveParticipant.objects.filter(
+                request__in_charge_status__in=['APPROVED', 'SKIPPED']
+            ).select_related('student', 'request')
+            
+            for part in active_participants:
+                student = part.student
+                y_level = sem_to_year.get(student.current_semester)
+                
+                # If this logged-in user is a Class Teacher for this student's Dept & Year Level...
+                is_their_ct = ct_qs.filter(department=student.department, year_level=y_level).exists()
+                if is_their_ct:
+                    request_ids.add(part.request.id) # ...Add the request to their dashboard!
+
+        # 4. HOD View
+        if role in ['HOD', 'SUPER_ADMIN', 'ORG_ADMIN']:
+            hod_reqs = DutyLeaveParticipant.objects.filter(
+                class_teacher_status='APPROVED',
+                student__department=user_profile.department
+            ).values_list('request_id', flat=True)
+            request_ids.update(hod_reqs)
+
+        # Fetch final combined queryset safely
+        combined = DutyLeaveRequest.objects.filter(id__in=request_ids).distinct().order_by('-created_at')
+        return Response(DutyLeaveRequestSerializer(combined, many=True).data)
+    
+    def post(self, request):
+        user_profile = request.user.profile
+        data = request.data
+
+        leave_request = DutyLeaveRequest.objects.create(
+            title=data.get('title'),
+            reason=data.get('reason'),
+            initiator=user_profile,
+            start_date=data.get('start_date'),
+            end_date=data.get('end_date')
+        )
+
+        student_ids = data.get('student_ids', [])
+        for s_id in student_ids:
+            student = Student.objects.get(id=s_id)
+            DutyLeaveParticipant.objects.create(
+                request=leave_request,
+                student=student
+            )
+
+        in_charge_id = data.get('event_in_charge_id')
+        if in_charge_id:
+            in_charge = UserProfile.objects.get(id=in_charge_id)
+            leave_request.event_in_charge = in_charge
+            leave_request.save()
+            
+            Notification.objects.create(
+                recipient=in_charge.user,
+                title="New Duty Leave Request",
+                message=f"{user_profile.user.get_full_name()} submitted a Duty Leave for {leave_request.title}. Pending your approval.",
+                action_url="/duty-leave"
+            )
+            send_mail(
+                subject="Action Required: Official Duty Approval",
+                message=f"Hello Prof. {in_charge.user.get_full_name()},\n\nA new Official Duty Request '{leave_request.title}' is pending your approval as Event In-Charge.\n\nPlease log in to EduSphere to review.",
+                from_email=settings.EMAIL_HOST_USER,
+                recipient_list=[in_charge.user.email],
+                fail_silently=True
+            )
+        else:
+            leave_request.in_charge_status = 'SKIPPED'
+            leave_request.save()
+            notify_class_teachers(leave_request) # Auto-notify if skipped
+
+        return Response({"message": "Duty Leave Request Submitted Successfully!"}, status=status.HTTP_201_CREATED)
+
+class DutyLeaveActionView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        action = request.data.get('action') 
+        stage = request.data.get('stage')   
+        req_id = request.data.get('request_id')
+        part_id = request.data.get('participant_id', None)
+
+        try:
+            with transaction.atomic():
+                if stage == 'IN_CHARGE':
+                    dl_req = DutyLeaveRequest.objects.get(id=req_id)
+                    dl_req.in_charge_status = action
+                    dl_req.save()
+                    
+                    Notification.objects.create(
+                        recipient=dl_req.initiator.user,
+                        title=f"Event Request {action}",
+                        message=f"The Event In-Charge has {action.lower()} the request for {dl_req.title}.",
+                        action_url="/duty-leave"
+                    )
+                    
+                    if action == 'APPROVED':
+                        notify_class_teachers(dl_req)
+
+                elif stage == 'CLASS_TEACHER':
+                    participant = DutyLeaveParticipant.objects.get(id=part_id)
+                    participant.class_teacher_status = action
+                    participant.save()
+
+                    if action == 'APPROVED':
+                        hod = UserProfile.objects.filter(department=participant.student.department, role='HOD').first()
+                        if hod:
+                            Notification.objects.create(
+                                recipient=hod.user,
+                                title="Duty Leave Pending Final Approval",
+                                message=f"Class Teacher approved Duty Leave for {participant.student.full_name}.",
+                                action_url="/duty-leave"
+                            )
+                            send_mail(
+                                subject="Final Approval Required: Official Duty",
+                                message=f"Hello HOD,\n\nA Duty Leave request for {participant.student.full_name} has passed Class Teacher approval and is awaiting your final sign-off.",
+                                from_email=settings.EMAIL_HOST_USER,
+                                recipient_list=[hod.user.email],
+                                fail_silently=True
+                            )
+
+                elif stage == 'HOD':
+                    participant = DutyLeaveParticipant.objects.get(id=part_id)
+                    participant.hod_status = action
+                    participant.final_status = action
+                    participant.save()
+
+                    # --- NEW: THE RETROACTIVE SWEEPER ---
+                    if action == 'APPROVED':
+                        # Find any existing attendance records for this student during the leave dates
+                        records_to_update = AttendanceRecord.objects.filter(
+                            student=participant.student,
+                            session__date__gte=participant.request.start_date,
+                            session__date__lte=participant.request.end_date
+                        )
+                        # Overwrite them with Duty Leave instantly
+                        records_to_update.update(
+                            status='DUTY_OTHER', 
+                            remarks='Auto-Updated: Official Duty Approved'
+                        )
+                    # ------------------------------------
+
+                    Notification.objects.create(
+                        recipient=participant.student.user,
+                        title=f"Duty Leave {action}",
+                        message=f"Your Duty Leave for {participant.request.title} was {action.lower()} by the HOD.",
+                        action_url="/duty-leave"
+                    )
+                    send_mail(
+                        subject=f"Duty Leave {action.capitalize()}",
+                        message=f"Hello {participant.student.full_name},\n\nYour Duty Leave application for '{participant.request.title}' has been {action.lower()} by the HOD.",
+                        from_email=settings.EMAIL_HOST_USER,
+                        recipient_list=[participant.student.user.email],
+                        fail_silently=True
+                    )
+
+            return Response({"message": f"Successfully marked as {action}"})
+        
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
+        
+class DutyLeaveStudentListView(APIView):
+    """ Fetches a lightweight list of all active students for the Duty Leave Tagging Dropdown """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        # Fetch active students and their basic info
+        students = Student.objects.filter(is_active=True).select_related('department')
+        
+        data = [{
+            "id": s.id,
+            "full_name": s.full_name,
+            "roll_number": s.roll_number,
+            "semester": s.current_semester,
+            "department": {"code": s.department.code if s.department else "N/A"}
+        } for s in students]
+        
+        return Response(data)
