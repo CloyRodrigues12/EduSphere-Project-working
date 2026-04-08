@@ -78,6 +78,14 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
       });
     }
 
+    if (isOrgAdmin) {
+      navItems.push({ 
+        icon: Settings, 
+        label: "Academic Settings", 
+        path: "/academic-settings" 
+      });
+    }
+
     if (isHODOrAdmin) {
       // Adjusted index numbers (+1) to account for the new Timetable item
       navItems.splice(5, 0, {
