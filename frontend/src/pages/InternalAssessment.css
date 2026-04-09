@@ -1,0 +1,271 @@
+.assessment-container{
+padding:30px;
+}
+
+/* Title */
+
+.assessment-title{
+font-size:28px;
+font-weight:700;
+margin-bottom:6px;
+}
+
+/* Subtitle */
+
+.assessment-subtitle{
+color:#6b7280;
+margin-bottom:30px;
+font-size:15px;
+}
+
+/* Cards Grid */
+
+.class-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); 
+  gap: 25px;
+  padding: 10px 0;
+}
+
+/* Card */
+
+class-card {
+  position: relative;
+  padding: 30px; /* Increased padding for that 'spacious' look */
+  border-radius: 20px; /* Rounder corners like Attendance */
+  background: white;
+  
+  /* The "Blue Halo" Border */
+  border: 2px solid #4f46e5; /* Thicker blue border */
+  box-shadow: 0 8px 30px rgba(79, 70, 229, 0.12); /* Soft blue shadow */
+  
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.class-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 15px 35px rgba(79, 70, 229, 0.2);
+}
+
+.class-card:hover{
+box-shadow:0 10px 25px rgba(0,0,0,0.1);
+transform:translateY(-4px);
+}
+
+/* Icon */
+
+.icon-box {
+  width: 50px;
+  height: 50px;
+  background: #eef2ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  font-size: 24px;
+  margin-bottom: 20px;
+  color: #4f46e5;
+}
+/* Tags */
+
+/* Subject Title */
+.class-card h3 {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: #111827;
+}
+
+/* Tags Styling */
+.tags {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.tag {
+  background: #f3f4f6;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.tag.purple {
+  background: #e0e7ff;
+  color: #4f46e5;
+}
+
+/* Group text */
+
+/* "Theory" and "Faculty" styling */
+.group {
+  color: #6b7280;
+  font-size: 14px;
+  font-weight: 500;
+  margin-top: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.faculty-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f9fafb;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  margin: 15px 0 20px 0;
+  color: #374151;
+  border: 1px solid #f3f4f6;
+}
+
+/* Select Button - Fixed at bottom */
+.select-btn {
+  width: 100%;
+  background: #4f46e5;
+  color: white;
+  padding: 12px;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.select-btn:hover {
+  background: #3730a3;
+}
+/* Header */
+
+.marks-header{
+display:flex;
+align-items:center;
+gap:15px;
+margin-bottom:20px;
+}
+
+/* Header buttons */
+
+.header-actions{
+margin-left:auto;
+display:flex;
+gap:10px;
+}
+
+/* Save button */
+
+.save-btn{
+background:#4f46e5;
+color:white;
+padding:8px 16px;
+border:none;
+border-radius:8px;
+display:flex;
+align-items:center;
+gap:6px;
+cursor:pointer;
+}
+
+.save-btn:hover{
+background:#4338ca;
+}
+
+/* Report button */
+
+.report-btn{
+background:#f3f4f6;
+padding:8px 16px;
+border:none;
+border-radius:8px;
+display:flex;
+gap:6px;
+cursor:pointer;
+}
+
+/* Table */
+
+.table-wrapper{
+background:white;
+border-radius:12px;
+overflow:hidden;
+box-shadow:0 6px 18px rgba(0,0,0,0.06);
+}
+
+.marks-table{
+width:100%;
+border-collapse:collapse;
+}
+
+/* Table header */
+
+.marks-table th{
+background:#f9fafb;
+padding:14px;
+text-align:left;
+font-size:14px;
+}
+
+/* Table rows */
+
+.marks-table td{
+padding:12px;
+border-top:1px solid #f3f4f6;
+font-size:14px;
+}
+
+/* Input */
+
+.marks-table input{
+width:70px;
+padding:6px;
+border:1px solid #e5e7eb;
+border-radius:6px;
+text-align:center;
+}
+
+/* Pass / Fail */
+
+.pass{
+color:#059669;
+font-weight:600;
+}
+
+.fail{
+color:#dc2626;
+font-weight:600;
+}
+
+/* Status badge */
+
+.status{
+padding:4px 10px;
+border-radius:20px;
+font-size:12px;
+font-weight:600;
+}
+
+.status.pass{
+background:#d1fae5;
+color:#059669;
+}
+
+.status.fail{
+background:#fee2e2;
+color:#dc2626;
+}
+
+/* Loader */
+
+.loader{
+padding:40px;
+text-align:center;
+font-size:15px;
+color:#6b7280;
+}

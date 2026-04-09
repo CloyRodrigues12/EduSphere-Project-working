@@ -1246,66 +1246,66 @@ class StudentGroupView(APIView):
 # ====================================================================
 # NEW: SMART BATCHING ENGINES
 # ====================================================================
-
 class AutoGenerateClassGroupView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        """ Automatically grabs all active students in a semester and creates a Master Class group """
         user_profile = request.user.profile
         if user_profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
             return Response({"error": "Permission denied"}, status=403)
 
         ay_id = request.data.get('academic_year_id')
-        semester = request.data.get('semester')
-        target_dept_id = request.headers.get('X-Department-Id')
+        semester = int(request.data.get('semester'))
+        subject_id = request.data.get('subject_id')
 
-        if not all([ay_id, semester]):
-            return Response({"error": "Academic Year and Semester are required."}, status=400)
+        if not all([ay_id, semester, subject_id]):
+            return Response({"error": "Academic Year, Semester, and Subject are required."}, status=400)
 
-        # Determine Target Department
+        # ---> FIX: Properly intercept the 'ALL' string before querying the DB
         if user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']:
+            target_dept_id = request.headers.get('X-Department-Id')
             if not target_dept_id or target_dept_id == 'ALL':
-                return Response({"error": "Please select a specific department from the Topbar."}, status=400)
-            dept = Department.objects.get(id=target_dept_id, organization=user_profile.organization)
+                return Response({"error": "Please select a specific department from the Topbar to generate classes."}, status=400)
+            
+            try:
+                dept = Department.objects.get(id=target_dept_id, organization=user_profile.organization)
+            except Department.DoesNotExist:
+                return Response({"error": "Department not found."}, status=404)
         else:
             dept = user_profile.department
 
-        # 1. Find all active students in this semester for this department
-        # We explicitly check for both the global active flag and the year context
-        students = Student.objects.filter(
-            department=dept,
-            current_semester=semester,
-            is_active=True
-        ).filter(
-            Q(academic_year_id=ay_id) | Q(studentgroup__academic_year_id=ay_id)
-        ).distinct()
-
-        if not students.exists():
-            return Response({"error": f"No active students found in Semester {semester} for {dept.code}."}, status=404)
-
         try:
+            subject = Course.objects.get(id=subject_id)
+            
+            students = Student.objects.filter(
+                department=dept, current_semester=semester, is_active=True
+            ).filter(Q(academic_year_id=ay_id) | Q(studentgroup__academic_year_id=ay_id)).distinct()
+
+            if not students.exists():
+                return Response({"error": f"No active students found in Semester {semester}."}, status=404)
+
+            # Calculate Year Level Abbreviation
+            if semester in [1, 2]: yl = "FE"
+            elif semester in [3, 4]: yl = "SE"
+            elif semester in [5, 6]: yl = "TE"
+            elif semester in [7, 8]: yl = "BE"
+            else: yl = f"Sem{semester}"
+
+            # Auto-Generate Name: e.g., "BE ECS: Database Systems"
+            group_name = f"{yl} {dept.code}: {subject.name}"
+
             with transaction.atomic():
-                # 2. Check if a master class already exists to prevent duplicates
-                group_name = f"Semester {semester} - Master Class"
-                
                 group, created = StudentGroup.objects.get_or_create(
                     academic_year_id=ay_id,
                     department=dept,
+                    subject=subject,
                     name=group_name,
                     type='CLASS',
                     semester=semester
                 )
-                
-                # 3. Bulk assign all found students to this group
                 group.students.set(students)
                 
-                status_msg = "Created new Master Class and assigned" if created else "Updated existing Master Class with"
-                
-            return Response({
-                "message": f"{status_msg} {students.count()} students.",
-                "group": StudentGroupSerializer(group).data
-            }, status=201)
+            return Response({"message": f"Created Master Class for {subject.name}", "group": StudentGroupSerializer(group).data}, status=201)
             
         except Exception as e:
             return Response({"error": str(e)}, status=500)
@@ -1315,68 +1315,68 @@ class AutoSplitLabBatchesView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        """ Takes a parent Master Class, and mathematically divides the students alphabetically into N Batches """
         user_profile = request.user.profile
         if user_profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
             return Response({"error": "Permission denied"}, status=403)
 
-        parent_group_id = request.data.get('parent_group_id')
+        semester = int(request.data.get('semester'))
+        ay_id = request.data.get('academic_year_id')
+        subject_id = request.data.get('subject_id') 
         num_batches = int(request.data.get('num_batches', 3))
 
-        if num_batches < 2 or num_batches > 10:
-            return Response({"error": "Please select between 2 and 10 batches."}, status=400)
+        if not all([ay_id, semester, subject_id]):
+            return Response({"error": "Academic Year, Semester, and Subject are required."}, status=400)
+
+        # ---> FIX: Properly intercept the 'ALL' string before querying the DB
+        if user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']:
+            target_dept_id = request.headers.get('X-Department-Id')
+            if not target_dept_id or target_dept_id == 'ALL':
+                return Response({"error": "Please select a specific department from the Topbar to split batches."}, status=400)
+            
+            try:
+                dept = Department.objects.get(id=target_dept_id, organization=user_profile.organization)
+            except Department.DoesNotExist:
+                return Response({"error": "Department not found."}, status=404)
+        else:
+            dept = user_profile.department
 
         try:
-            # 1. Fetch the Parent Group and its students, strictly sorted by Roll Number
-            if user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']:
-                parent_group = StudentGroup.objects.get(id=parent_group_id, department__organization=user_profile.organization)
-            else:
-                parent_group = StudentGroup.objects.get(id=parent_group_id, department=user_profile.department)
+            subject = Course.objects.get(id=subject_id)
+            
+            students = list(Student.objects.filter(
+                department=dept, current_semester=semester, is_active=True
+            ).filter(Q(academic_year_id=ay_id) | Q(studentgroup__academic_year_id=ay_id)).distinct().order_by('roll_number'))
+            
+            if len(students) == 0:
+                return Response({"error": f"No active students to split."}, status=400)
 
-            students = list(parent_group.students.all().order_by('roll_number'))
-            total_students = len(students)
-
-            if total_students == 0:
-                return Response({"error": "The parent group has no students to split."}, status=400)
-
-            # 2. Calculate the split mathematics
-            chunk_size = math.ceil(total_students / num_batches)
+            chunk_size = math.ceil(len(students) / num_batches)
             created_batches = []
-            labels = string.ascii_uppercase # Creates array: A, B, C, D...
+            labels = string.ascii_uppercase 
 
             with transaction.atomic():
                 for i in range(num_batches):
-                    # Slice the array of students
                     batch_students = students[i * chunk_size : (i + 1) * chunk_size]
-                    
-                    if not batch_students:
-                        continue # Skip empty batches if math overflows slightly on the last iteration
+                    if not batch_students: continue
 
-                    # Create the child batch
-                    batch_name = f"Batch {labels[i]}"
+                    # Auto-Generate Name: e.g., "Web Dev Lab - Batch A"
+                    batch_name = f"{subject.name} - Batch {labels[i]}"
+                    
                     batch = StudentGroup.objects.create(
-                        academic_year=parent_group.academic_year,
-                        department=parent_group.department,
+                        academic_year_id=ay_id,
+                        department=dept,
+                        subject=subject,
                         name=batch_name,
                         type='BATCH',
-                        semester=parent_group.semester,
-                        parent_group=parent_group # LINK TO PARENT
+                        semester=semester
                     )
-                    
-                    # Assign the sliced students
                     batch.students.set(batch_students)
                     created_batches.append(batch)
 
-            return Response({
-                "message": f"Successfully created {len(created_batches)} lab batches.",
-                "data": StudentGroupSerializer(created_batches, many=True).data
-            }, status=201)
+            return Response({"message": f"Generated {len(created_batches)} batches for {subject.name}."}, status=201)
 
-        except StudentGroup.DoesNotExist:
-            return Response({"error": "Master Class not found."}, status=404)
         except Exception as e:
             return Response({"error": str(e)}, status=500)
-
 
 class AllocationManagerView(APIView):
     permission_classes = [permissions.IsAuthenticated]

@@ -477,6 +477,9 @@ const SubjectFormModal = ({
                 <option value="OPEN_ELECTIVE">
                   Open Elective (Cross-Dept)
                 </option>
+                <option value="PRO_ELECTIVE_LAB">
+                  Professional Elective Lab
+                </option>
               </select>
             </div>
           </div>

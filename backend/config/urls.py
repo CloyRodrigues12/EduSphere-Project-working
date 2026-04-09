@@ -138,6 +138,8 @@ path('api/dashboard/advanced/', AdvancedDashboardView.as_view(), name='advanced_
  
     path('api/user/notifications/', NotificationListView.as_view(), name='notifications'),
     path('api/user/notifications/<int:notif_id>/read/', NotificationMarkReadView.as_view(), name='mark-notification-read'),
+    
+    path('api/results/', include('results.urls')),
 ]
 
 # This allows Django to serve uploaded images during development

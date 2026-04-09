@@ -165,7 +165,8 @@ class Course(models.Model):
         ('THEORY', 'Theory (Compulsory)'),         # Updated Label
         ('LAB', 'Practical / Lab'),       
         ('PRO_ELECTIVE', 'Professional Elective'), 
-        ('OPEN_ELECTIVE', 'Open Elective'),        
+        ('OPEN_ELECTIVE', 'Open Elective'),
+        ('PRO_ELECTIVE_LAB', 'Professional Elective Lab'),        
     ]
 
     department = models.ForeignKey(Department, on_delete=models.CASCADE) 
@@ -197,7 +198,7 @@ class StudentGroup(models.Model):
 
     academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE)
     department = models.ForeignKey(Department, on_delete=models.CASCADE)
-    
+    subject = models.ForeignKey(Course, on_delete=models.CASCADE, null=True, blank=True, related_name='linked_groups')
     name = models.CharField(max_length=50) 
     type = models.CharField(max_length=20, choices=GROUP_TYPE_CHOICES)
     semester = models.IntegerField()

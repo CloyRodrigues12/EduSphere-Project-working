@@ -4,7 +4,7 @@ import {
   BookOpen, Layers, CheckCircle, AlertTriangle, X, Edit2, UserX, UserCheck, Zap, SplitSquareHorizontal
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { studentService } from "../services/api";
+import { studentService, academicService } from "../services/api"; // Added academicService
 import "./StudentDirectory.css";
 import { useAcademic } from "../context/AcademicContext";
 import { useAuth } from "../context/AuthContext";
@@ -19,6 +19,7 @@ const StudentDirectory = () => {
   
   const [students, setStudents] = useState([]);
   const [groups, setGroups] = useState([]);
+  const [subjects, setSubjects] = useState([]); // Store subjects for the active sem
   const [loading, setLoading] = useState(true);
 
   const defaultSem = activeTerm === "EVEN" ? 2 : 1;
@@ -34,10 +35,8 @@ const StudentDirectory = () => {
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [editGroupTarget, setEditGroupTarget] = useState(null);
   const [showPromotionModal, setShowPromotionModal] = useState(false);
-
   const [showAutoClassModal, setShowAutoClassModal] = useState(false);
   const [showAutoSplitModal, setShowAutoSplitModal] = useState(false);
-
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
 
   const showToast = (message, type = "success") => {
@@ -49,6 +48,7 @@ const StudentDirectory = () => {
     if (activeAcademicYear) {
       if (activeTab === "directory") fetchStudents();
       else fetchGroups();
+      fetchSubjects(); // Fetch curriculum for naming logic
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeAcademicYear, activeSem, activeTab]);
@@ -59,11 +59,8 @@ const StudentDirectory = () => {
       const res = await studentService.getStudents(activeAcademicYear.id, activeSem, searchTerm);
       setStudents(res.data);
     } catch (error) {
-      console.error(error);
       showToast("Failed to load students.", "error");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   const fetchGroups = async () => {
@@ -72,11 +69,16 @@ const StudentDirectory = () => {
       const res = await studentService.getGroups(activeAcademicYear.id, activeSem);
       setGroups(res.data);
     } catch (error) {
-      console.error(error);
       showToast("Failed to load groups.", "error");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
+  };
+
+  const fetchSubjects = async () => {
+    try {
+      // Assuming academicService.getSubjects takes semester parameter like in Catalog
+      const res = await academicService.getSubjects(activeSem); 
+      setSubjects(res.data);
+    } catch(e) { console.error("Failed fetching subjects for sem", activeSem); }
   };
 
   useEffect(() => {
@@ -117,14 +119,12 @@ const StudentDirectory = () => {
   };
 
   const handleDeleteGroup = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this group? All nested batches will also be deleted.")) return;
+    if (!window.confirm("Are you sure you want to delete this group?")) return;
     try {
       await studentService.deleteGroup(id);
       showToast("Group deleted successfully.");
       fetchGroups();
-    } catch (err) {
-      showToast("Failed to delete group.", "error");
-    }
+    } catch (err) { showToast("Failed to delete group.", "error"); }
   };
 
   const handleToggleStatus = async (id) => {
@@ -132,12 +132,9 @@ const StudentDirectory = () => {
       const res = await studentService.toggleStatus(id);
       showToast(res.data.message);
       fetchStudents();
-    } catch (err) {
-      showToast("Failed to change status.", "error");
-    }
+    } catch (err) { showToast("Failed to change status.", "error"); }
   };
 
-  // --- HIERARCHY CATEGORIES (With Search Filter) ---
   const filteredGroups = groups.filter(g => g.name.toLowerCase().includes(searchTerm.toLowerCase()));
   const masterClasses = filteredGroups.filter(g => g.type === 'CLASS');
   const labBatches = filteredGroups.filter(g => g.type === 'BATCH');
@@ -153,7 +150,7 @@ const StudentDirectory = () => {
       <div className="page-header">
         <div>
           <h1 className="page-title">Directory & Batches</h1>
-          <p className="page-subtitle">Manage student enrollments, promotions, and lab batches.</p>
+          <p className="page-subtitle">Manage student enrollments, promotions, and subject batches.</p>
         </div>
       </div>
 
@@ -167,22 +164,15 @@ const StudentDirectory = () => {
       </div>
 
       <div className="toolbar glass-panel" style={{ padding: "1rem", marginBottom: "1.5rem", borderRadius: "12px", display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "center" }}>
-        
         <select className="standard-input" style={{ width: "200px" }} value={activeSem} onChange={(e) => setActiveSem(parseInt(e.target.value))}>
           {(activeTerm === "ODD" ? [1, 3, 5, 7] : [2, 4, 6, 8]).map(sem => (
             <option key={sem} value={sem}>Semester {sem}</option>
           ))}
         </select>
 
-        {/* SEARCH BAR NOW VISIBLE FOR BOTH TABS */}
         <div className="search-bar" style={{ flex: 1, minWidth: "250px" }}>
           <Search size={18} className="search-icon" />
-          <input 
-            type="text" 
-            placeholder={activeTab === "directory" ? "Search by name or roll number..." : "Search classes, batches, or electives..."} 
-            value={searchTerm} 
-            onChange={(e) => setSearchTerm(e.target.value)} 
-          />
+          <input type="text" placeholder={activeTab === "directory" ? "Search by name or roll number..." : "Search classes, batches, or electives..."} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
 
         <div style={{ display: "flex", gap: "10px", marginLeft: "auto" }}>
@@ -194,8 +184,8 @@ const StudentDirectory = () => {
         </div>
       </div>
 
-      {/* --- DIRECTORY TAB (WITH SCROLLABLE TABLE) --- */}
       {activeTab === "directory" && (
+        // ... (Keep existing master directory rendering exact same code) ...
         <div className="table-card" style={{ padding: 0, overflow: "hidden" }}>
           {loading ? (
             <div className="spinner" style={{ margin: "3rem auto" }}></div>
@@ -265,45 +255,32 @@ const StudentDirectory = () => {
         </div>
       )}
 
-      {/* --- GROUPS / BATCHES TAB --- */}
       {activeTab === "groups" && (
         <div className="groups-layout" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-          
           <div style={{ display: "flex", gap: "1.5rem", borderBottom: "2px solid var(--bg-input)", marginBottom: "1rem" }}>
-            <button 
-              style={{ padding: "0.75rem 1rem", background: "transparent", border: "none", borderBottom: activeGroupTab === 'master' ? "2px solid var(--primary-color)" : "2px solid transparent", color: activeGroupTab === 'master' ? "var(--primary-color)" : "var(--text-secondary)", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", marginBottom: "-2px", transition: "all 0.2s" }}
-              onClick={() => setActiveGroupTab('master')}
-            >
-              <BookOpen size={18} /> Master Classes
+            <button style={{ padding: "0.75rem 1rem", background: "transparent", border: "none", borderBottom: activeGroupTab === 'master' ? "2px solid var(--primary-color)" : "2px solid transparent", color: activeGroupTab === 'master' ? "var(--primary-color)" : "var(--text-secondary)", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", marginBottom: "-2px", transition: "all 0.2s" }} onClick={() => setActiveGroupTab('master')}>
+              <BookOpen size={18} /> Theory Master Classes
             </button>
-            <button 
-              style={{ padding: "0.75rem 1rem", background: "transparent", border: "none", borderBottom: activeGroupTab === 'labs' ? "2px solid #f59e0b" : "2px solid transparent", color: activeGroupTab === 'labs' ? "#f59e0b" : "var(--text-secondary)", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", marginBottom: "-2px", transition: "all 0.2s" }}
-              onClick={() => setActiveGroupTab('labs')}
-            >
-              <Layers size={18} /> Lab Batches
+            <button style={{ padding: "0.75rem 1rem", background: "transparent", border: "none", borderBottom: activeGroupTab === 'labs' ? "2px solid #f59e0b" : "2px solid transparent", color: activeGroupTab === 'labs' ? "#f59e0b" : "var(--text-secondary)", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", marginBottom: "-2px", transition: "all 0.2s" }} onClick={() => setActiveGroupTab('labs')}>
+              <Layers size={18} /> Subject Lab Batches
             </button>
-            <button 
-              style={{ padding: "0.75rem 1rem", background: "transparent", border: "none", borderBottom: activeGroupTab === 'electives' ? "2px solid #10b981" : "2px solid transparent", color: activeGroupTab === 'electives' ? "#10b981" : "var(--text-secondary)", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", marginBottom: "-2px", transition: "all 0.2s" }}
-              onClick={() => setActiveGroupTab('electives')}
-            >
-              <Users size={18} /> Electives & Custom
+            <button style={{ padding: "0.75rem 1rem", background: "transparent", border: "none", borderBottom: activeGroupTab === 'electives' ? "2px solid #10b981" : "2px solid transparent", color: activeGroupTab === 'electives' ? "#10b981" : "var(--text-secondary)", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", marginBottom: "-2px", transition: "all 0.2s" }} onClick={() => setActiveGroupTab('electives')}>
+              <Users size={18} /> Elective Sections
             </button>
           </div>
 
-          {loading ? (
-             <div className="spinner" style={{ margin: "3rem auto" }}></div>
-          ) : (
+          {loading ? ( <div className="spinner" style={{ margin: "3rem auto" }}></div> ) : (
             <AnimatePresence mode="wait">
               {activeGroupTab === "master" && (
                 <motion.div key="master" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="group-section glass-panel" style={{ padding: "1.5rem", borderRadius: "12px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
                     <div>
-                      <h3 style={{ margin: 0, color: "var(--primary-color)" }}>Master Classes (Theory)</h3>
-                      <p className="text-muted text-sm" style={{ margin: "4px 0 0 0" }}>Auto-generated core classes for the entire semester.</p>
+                      <h3 style={{ margin: 0, color: "var(--primary-color)" }}>Theory Master Classes</h3>
+                      <p className="text-muted text-sm" style={{ margin: "4px 0 0 0" }}>Auto-generated core classes linked directly to subjects.</p>
                     </div>
                     {canEdit && (
                       <button className="btn-secondary" style={{ color: 'var(--primary-color)', borderColor: 'var(--primary-color)' }} onClick={() => setShowAutoClassModal(true)}>
-                        <Zap size={16} fill="currentColor" /> Auto-Generate Class
+                        <Zap size={16} fill="currentColor" /> Generate Subject Class
                       </button>
                     )}
                   </div>
@@ -339,12 +316,12 @@ const StudentDirectory = () => {
                 <motion.div key="labs" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="group-section glass-panel" style={{ padding: "1.5rem", borderRadius: "12px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
                     <div>
-                      <h3 style={{ margin: 0, color: "#f59e0b" }}>Compulsory Lab Batches</h3>
-                      <p className="text-muted text-sm" style={{ margin: "4px 0 0 0" }}>Split your master classes automatically into smaller lab groups.</p>
+                      <h3 style={{ margin: 0, color: "#f59e0b" }}>Subject Lab Batches</h3>
+                      <p className="text-muted text-sm" style={{ margin: "4px 0 0 0" }}>Split semester students directly into specific practical labs.</p>
                     </div>
                     {canEdit && (
                       <button className="btn-secondary" style={{ color: '#f59e0b', borderColor: '#f59e0b' }} onClick={() => setShowAutoSplitModal(true)}>
-                        <SplitSquareHorizontal size={16} /> Auto-Split Lab Batches
+                        <SplitSquareHorizontal size={16} /> Auto-Generate Lab Batches
                       </button>
                     )}
                   </div>
@@ -352,18 +329,17 @@ const StudentDirectory = () => {
                     <thead>
                       <tr>
                         <th>Batch Name</th>
-                        <th>Parent Class</th>
+                        <th>Semester</th>
                         <th>Total Enrolled</th>
                         {canEdit && <th style={{ textAlign: "right" }}>Actions</th>}
                       </tr>
                     </thead>
                     <tbody>
                       {labBatches.length > 0 ? labBatches.map(g => {
-                        const parent = groups.find(m => m.id === g.parent_group);
                         return (
                           <tr key={g.id}>
                             <td className="font-medium" style={{ padding: "1rem" }}>{g.name}</td>
-                            <td className="text-muted" style={{ padding: "1rem" }}>{parent ? parent.name : "Unknown"}</td>
+                            <td className="text-muted" style={{ padding: "1rem" }}>Semester {g.semester}</td>
                             <td style={{ padding: "1rem" }}><span className="badge badge-designation">{g.student_count} Students</span></td>
                             {canEdit && (
                               <td style={{ textAlign: "right", padding: "1rem" }}>
@@ -384,7 +360,7 @@ const StudentDirectory = () => {
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
                     <div>
                       <h3 style={{ margin: 0, color: "#10b981" }}>Electives & Custom Groups</h3>
-                      <p className="text-muted text-sm" style={{ margin: "4px 0 0 0" }}>Create specialized groups for PE, OE, or custom projects.</p>
+                      <p className="text-muted text-sm" style={{ margin: "4px 0 0 0" }}>Create specialized sections tied to elective subjects.</p>
                     </div>
                     {canEdit && (
                       <button className="btn-secondary" style={{ color: '#10b981', borderColor: '#10b981' }} onClick={() => { setEditGroupTarget(null); setShowGroupModal(true); }}>
@@ -431,15 +407,15 @@ const StudentDirectory = () => {
         )}
 
         {(showGroupModal || editGroupTarget) && (
-          <GroupFormModal group={editGroupTarget} ayId={activeAcademicYear.id} sem={activeSem} onClose={() => { setShowGroupModal(false); setEditGroupTarget(null); }} onRefresh={fetchGroups} showToast={showToast} />
+          <GroupFormModal group={editGroupTarget} ayId={activeAcademicYear.id} sem={activeSem} subjects={subjects} onClose={() => { setShowGroupModal(false); setEditGroupTarget(null); }} onRefresh={fetchGroups} showToast={showToast} />
         )}
 
         {showAutoClassModal && (
-          <AutoGenerateClassModal ayId={activeAcademicYear.id} sem={activeSem} onClose={() => setShowAutoClassModal(false)} onRefresh={fetchGroups} showToast={showToast} />
+          <AutoGenerateClassModal ayId={activeAcademicYear.id} sem={activeSem} subjects={subjects} onClose={() => setShowAutoClassModal(false)} onRefresh={fetchGroups} showToast={showToast} />
         )}
 
         {showAutoSplitModal && (
-          <AutoSplitLabModal masterClasses={groups.filter(g => g.type === 'CLASS')} onClose={() => setShowAutoSplitModal(false)} onRefresh={fetchGroups} showToast={showToast} />
+          <AutoSplitLabModal ayId={activeAcademicYear.id} sem={activeSem} subjects={subjects} onClose={() => setShowAutoSplitModal(false)} onRefresh={fetchGroups} showToast={showToast} />
         )}
       </AnimatePresence>
     </div>
@@ -448,29 +424,34 @@ const StudentDirectory = () => {
 
 // --- SUB-COMPONENTS ---
 
-const AutoGenerateClassModal = ({ ayId, sem, onClose, onRefresh, showToast }) => {
+const AutoGenerateClassModal = ({ ayId, sem, subjects, onClose, onRefresh, showToast }) => {
   const [loading, setLoading] = useState(false);
   const [targetSem, setTargetSem] = useState(sem);
+  const [selectedSubject, setSelectedSubject] = useState("");
+
+  const theorySubjects = subjects.filter(s => s.subject_type === 'THEORY');
 
   const handleGenerate = async () => {
+    if (!selectedSubject) return showToast("Please select a subject.", "error");
     setLoading(true);
     try {
-      const res = await studentService.autoGenerateClassGroup({ academic_year_id: ayId, semester: targetSem });
+      const res = await studentService.autoGenerateClassGroup({ 
+        academic_year_id: ayId, 
+        semester: targetSem,
+        subject_id: selectedSubject
+      });
       showToast(res.data.message, "success");
       onRefresh();
       onClose();
-    } catch (err) {
-      showToast(err.response?.data?.error || "Failed to generate class.", "error");
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { showToast(err.response?.data?.error || "Failed to generate class.", "error"); } 
+    finally { setLoading(false); }
   };
 
   return (
     <div className="modal-overlay">
       <motion.div className="modal-content premium-modal" style={{ maxWidth: "500px", padding: "2rem" }} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}>
         <div className="modal-header" style={{ marginBottom: "1.5rem" }}>
-          <h3 style={{ fontSize: "1.3rem" }}>Auto-Generate Master Class</h3>
+          <h3 style={{ fontSize: "1.3rem" }}>Generate Subject Class</h3>
           <button onClick={onClose} className="close-btn"><X size={20} /></button>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
@@ -480,14 +461,21 @@ const AutoGenerateClassModal = ({ ayId, sem, onClose, onRefresh, showToast }) =>
               {[1, 2, 3, 4, 5, 6, 7, 8].map(s => <option key={s} value={s}>Semester {s}</option>)}
             </select>
           </div>
+          <div className="sinput-group">
+            <label>Compulsory Theory Subject</label>
+            <select className="standard-input" value={selectedSubject} onChange={(e) => setSelectedSubject(e.target.value)}>
+              <option value="" disabled>-- Select Subject --</option>
+              {theorySubjects.map(s => <option key={s.id} value={s.id}>{s.code} - {s.name}</option>)}
+            </select>
+          </div>
           <div style={{ background: "rgba(59, 130, 246, 0.1)", padding: "1rem", borderRadius: "8px", color: "var(--text-secondary)", fontSize: "0.9rem", lineHeight: "1.5" }}>
-            This will fetch all active students in the selected semester and automatically group them into a new <strong>Master Class</strong>. If it already exists, it will update it with new students.
+            The system will link this class explicitly to the selected subject and automatically name it using standard conventions (e.g., "BE ECS: Subject Name").
           </div>
         </div>
         <div className="modal-actions" style={{ marginTop: "2rem", display: "flex", gap: "1rem", justifyContent: "flex-end" }}>
           <button className="btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn-primary" onClick={handleGenerate} disabled={loading}>
-            {loading ? "Generating..." : <><Zap size={16} /> Generate Now</>}
+          <button className="btn-primary" onClick={handleGenerate} disabled={loading || !selectedSubject}>
+            {loading ? "Generating..." : <><Zap size={16} /> Generate Class</>}
           </button>
         </div>
       </motion.div>
@@ -495,39 +483,50 @@ const AutoGenerateClassModal = ({ ayId, sem, onClose, onRefresh, showToast }) =>
   );
 };
 
-const AutoSplitLabModal = ({ masterClasses, onClose, onRefresh, showToast }) => {
+const AutoSplitLabModal = ({ ayId, sem, subjects, onClose, onRefresh, showToast }) => {
   const [loading, setLoading] = useState(false);
   const [numBatches, setNumBatches] = useState(3);
-  const [selectedMaster, setSelectedMaster] = useState(masterClasses.length > 0 ? masterClasses[0].id : "");
+  const [targetSem, setTargetSem] = useState(sem);
+  const [selectedSubject, setSelectedSubject] = useState("");
+
+  const labSubjects = subjects.filter(s => s.subject_type === 'LAB' || s.subject_type === 'PRO_ELECTIVE_LAB');
 
   const handleSplit = async () => {
-    if (!selectedMaster) return showToast("Please select a Master Class to split.", "error");
+    if (!selectedSubject) return showToast("Please select a Lab Subject.", "error");
     setLoading(true);
     try {
-      const res = await studentService.autoSplitBatches({ parent_group_id: selectedMaster, num_batches: numBatches });
+      const res = await studentService.autoSplitBatches({ 
+        academic_year_id: ayId,
+        semester: targetSem,
+        num_batches: numBatches,
+        subject_id: selectedSubject
+      });
       showToast(res.data.message, "success");
       onRefresh();
       onClose();
-    } catch (err) {
-      showToast(err.response?.data?.error || "Failed to split batches.", "error");
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { showToast(err.response?.data?.error || "Failed to split batches.", "error"); } 
+    finally { setLoading(false); }
   };
 
   return (
     <div className="modal-overlay">
       <motion.div className="modal-content premium-modal" style={{ maxWidth: "500px", padding: "2rem" }} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}>
         <div className="modal-header" style={{ marginBottom: "1.5rem" }}>
-          <h3 style={{ fontSize: "1.3rem" }}>Auto-Split Lab Batches</h3>
+          <h3 style={{ fontSize: "1.3rem" }}>Generate Subject Lab Batches</h3>
           <button onClick={onClose} className="close-btn"><X size={20} /></button>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
           <div className="sinput-group">
-            <label>Select Source Master Class</label>
-            <select className="standard-input" value={selectedMaster} onChange={(e) => setSelectedMaster(e.target.value)}>
-              <option value="" disabled>-- Select Class --</option>
-              {masterClasses.map(m => <option key={m.id} value={m.id}>{m.name} ({m.student_count} Students)</option>)}
+            <label>Target Semester</label>
+            <select className="standard-input" value={targetSem} onChange={(e) => setTargetSem(parseInt(e.target.value))}>
+              {[1, 2, 3, 4, 5, 6, 7, 8].map(s => <option key={s} value={s}>Semester {s}</option>)}
+            </select>
+          </div>
+          <div className="sinput-group">
+            <label>Select Lab Subject</label>
+            <select className="standard-input" value={selectedSubject} onChange={(e) => setSelectedSubject(e.target.value)}>
+              <option value="" disabled>-- Select Lab --</option>
+              {labSubjects.map(s => <option key={s.id} value={s.id}>{s.code} - {s.name}</option>)}
             </select>
           </div>
           <div className="sinput-group">
@@ -535,13 +534,13 @@ const AutoSplitLabModal = ({ masterClasses, onClose, onRefresh, showToast }) => 
             <input type="number" className="standard-input" min="2" max="10" value={numBatches} onChange={(e) => setNumBatches(parseInt(e.target.value))} />
           </div>
           <p className="text-muted" style={{ fontSize: "0.85rem", lineHeight: "1.5" }}>
-            The system will alphabetically sort the students in the Master Class by roll number and divide them evenly into {numBatches} lab batches.
+            The system will alphabetically divide all semester students into equal lab batches automatically named after the Subject (e.g., "[Subject] - Batch A").
           </p>
         </div>
         <div className="modal-actions" style={{ marginTop: "2rem", display: "flex", gap: "1rem", justifyContent: "flex-end" }}>
           <button className="btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn-primary" onClick={handleSplit} disabled={loading || !selectedMaster}>
-            {loading ? "Splitting..." : <><SplitSquareHorizontal size={16} /> Split Batches</>}
+          <button className="btn-primary" onClick={handleSplit} disabled={loading || !selectedSubject}>
+            {loading ? "Generating..." : <><SplitSquareHorizontal size={16} /> Generate Batches</>}
           </button>
         </div>
       </motion.div>
@@ -590,14 +589,16 @@ const PromotionModal = ({ count, currentSem, onClose, onConfirm }) => {
   );
 };
 
-const GroupFormModal = ({ group, ayId, sem, onClose, onRefresh, showToast }) => {
+const GroupFormModal = ({ group, ayId, sem, subjects, onClose, onRefresh, showToast }) => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: group?.name || "",
     type: group?.type || "ELECTIVE",
     semester: group?.semester || sem,
+    subject_id: group?.subject || "" // Track subject ID
   });
 
+  const electiveSubjects = subjects.filter(s => ['PRO_ELECTIVE', 'OPEN_ELECTIVE', 'PRO_ELECTIVE_LAB'].includes(s.subject_type));
   const [availableStudents, setAvailableStudents] = useState([]);
   const [selectedStudents, setSelectedStudents] = useState(new Set(group?.students_list?.map(s => s.id) || []));
   const [search, setSearch] = useState("");
@@ -608,14 +609,16 @@ const GroupFormModal = ({ group, ayId, sem, onClose, onRefresh, showToast }) => 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!formData.subject_id) return showToast("Please select the target Subject first.", "error");
+
     setLoading(true);
     try {
       let savedGroup;
       if (group) {
-        const res = await studentService.updateGroup({ id: group.id, ...formData });
+        const res = await studentService.updateGroup({ id: group.id, subject_id: formData.subject_id, ...formData });
         savedGroup = res.data;
       } else {
-        const res = await studentService.createGroup({ academic_year: ayId, ...formData });
+        const res = await studentService.createGroup({ academic_year: ayId, subject_id: formData.subject_id, ...formData });
         savedGroup = res.data;
       }
 
@@ -623,14 +626,11 @@ const GroupFormModal = ({ group, ayId, sem, onClose, onRefresh, showToast }) => 
         await studentService.updateGroupStudents(savedGroup.id, Array.from(selectedStudents), 'set');
       }
 
-      showToast(group ? "Group updated!" : "Group created!");
+      showToast(group ? "Elective updated!" : "Elective created!");
       onRefresh();
       onClose();
-    } catch (err) {
-      showToast(err.response?.data?.error || "Error saving group", "error");
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { showToast(err.response?.data?.error || "Error saving elective", "error"); } 
+    finally { setLoading(false); }
   };
 
   const filteredStudents = availableStudents.filter(s => 
@@ -640,24 +640,23 @@ const GroupFormModal = ({ group, ayId, sem, onClose, onRefresh, showToast }) => 
 
   return (
     <div className="modal-overlay">
-      <motion.div className="modal-content premium-modal" style={{ maxWidth: "800px", padding: "2rem" }} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}>
+      <motion.div className="modal-content premium-modal" style={{ maxWidth: "900px", padding: "4rem",scrollBehavior: "smooth", height: "fit-content",overflow:"auto" }} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}>
         <div className="modal-header" style={{ marginBottom: "1.5rem" }}>
-          <h3 style={{ fontSize: "1.3rem" }}>{group ? "Edit Group" : "Create Custom Group"}</h3>
+          <h3 style={{ fontSize: "1.3rem" }}>{group ? "Edit Elective" : "Create Elective Section"}</h3>
           <button onClick={onClose} className="close-btn"><X size={20} /></button>
         </div>
         <form onSubmit={handleSubmit}>
           <div style={{ display: "flex", gap: "1.5rem", marginBottom: "1.5rem", flexWrap: "wrap" }}>
             <div className="sinput-group" style={{ flex: "2 1 300px" }}>
-              <label>Group Name</label>
-              <input className="standard-input" type="text" required placeholder="e.g. PE-Blockchain" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+              <label>Target Elective Subject</label>
+              <select className="standard-input" value={formData.subject_id} onChange={e => setFormData({...formData, subject_id: e.target.value})}>
+                <option value="" disabled>-- Select Subject --</option>
+                {electiveSubjects.map(s => <option key={s.id} value={s.id}>{s.code} - {s.name}</option>)}
+              </select>
             </div>
             <div className="sinput-group" style={{ flex: "1 1 150px" }}>
-              <label>Type</label>
-              <select className="standard-input" value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})} disabled={group && group.type === 'CLASS'}>
-                <option value="CLASS">Master Class</option>
-                <option value="BATCH">Lab Batch</option>
-                <option value="ELECTIVE">Elective Section</option>
-              </select>
+              <label>Section Name</label>
+              <input className="standard-input" type="text" required placeholder="e.g. Section A" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
             </div>
             <div className="sinput-group" style={{ flex: "1 1 150px" }}>
               <label>Semester</label>
@@ -708,7 +707,7 @@ const GroupFormModal = ({ group, ayId, sem, onClose, onRefresh, showToast }) => 
 
           <div className="modal-actions" style={{ marginTop: "2rem", display: "flex", gap: "1rem", justifyContent: "flex-end" }}>
             <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn-primary" disabled={loading}>{loading ? "Saving..." : "Save Group"}</button>
+            <button type="submit" className="btn-primary" disabled={loading}>{loading ? "Saving..." : "Save Elective"}</button>
           </div>
         </form>
       </motion.div>

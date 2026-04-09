@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'faculty_assignments',
     'student_portal',
     'counselling',
+    'results',
 
     # --- 3rd Party Auth Apps ---
     'rest_framework.authtoken',

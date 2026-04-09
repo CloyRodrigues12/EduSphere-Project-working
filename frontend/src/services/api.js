@@ -190,6 +190,17 @@ export const attendanceService = {
 
 };
 
+export const resultsService = {
+  getAssessmentAllocations: (ayId, term) => 
+    api.get(`/results/internal-assessments/?academic_year=${ayId}&term=${term}`),
+    
+  getMarksheet: (allocationId, term) => 
+    api.get(`/results/internal-marksheet/?allocation_id=${allocationId}&term=${term}`),
+    
+  saveMarks: (data) => 
+    api.post('/results/save-internal-marks/', data),
+};
+
 export const assignmentService = {
   // Class Teachers
   getClassTeachers: (ayId) => api.get(`/assignments/class-teachers/?academic_year=${ayId}`),

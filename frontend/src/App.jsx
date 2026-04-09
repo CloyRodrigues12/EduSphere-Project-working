@@ -29,6 +29,7 @@ import MyClassDashboard from "./pages/MyClassDashboard";
 import MyMenteesDashboard from "./pages/MyMenteesDashboard";
 import TimetableManager from "./pages/TimetableManager";
 import DutyLeaveDashboard from "./pages/DutyLeaveDashboard";
+import InternalAssessment from './pages/InternalAssessment';
 
 // Placeholder Component
 const Placeholder = ({ title }) => (
@@ -129,6 +130,11 @@ const AppLayout = () => {
               path="/attendance/:allocationId"
               element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD", "FACULTY"]}><Attendance /></ProtectedRoute>}
             />
+            <Route path="/internal-assessment" element={
+  <ProtectedRoute>
+    <InternalAssessment />
+  </ProtectedRoute>
+} />
             <Route
   path="/duty-leave"
   element={
