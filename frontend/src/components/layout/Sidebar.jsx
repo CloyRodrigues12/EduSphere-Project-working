@@ -35,6 +35,8 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
   const isOrgAdmin = ["ORG_ADMIN", "SUPER_ADMIN"].includes(user?.role_code);
   const isHODOrAdmin = ["ORG_ADMIN", "SUPER_ADMIN", "HOD"].includes(user?.role_code);
   const isStudent = user?.role_code === "STUDENT";
+  const isSportsStaff = user?.role_code === "SPORTS_STAFF";
+  const isCounsellor = user?.role_code === "COUNSELLOR" || user?.role === "COUNSELLOR";
 
   let navItems = [];
 
@@ -44,22 +46,29 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
     // ==========================================
     navItems = [
       { icon: LayoutDashboard, label: "My Dashboard", path: "/" },
-      
       { icon: CalendarClock, label: "Duty Leaves (OD)", path: "/duty-leave" },
       { icon: ClipboardCheck, label: "My Attendance", path: "/my-attendance" },
       { icon: Banknote, label: "My Fees", path: "/fees" },
     ];
-  } else if (user?.role === "COUNSELLOR" || user?.role_code === "COUNSELLOR") {
+  } else if (isCounsellor) {
     // ==========================================
-    // COUNSELLOR SIDEBAR (Strictly Isolated)
+    // COUNSELLOR SIDEBAR 
     // ==========================================
     navItems = [
       { icon: LayoutDashboard, label: "Dashboard", path: "/" },
       { icon: HeartHandshake, label: "Mentor Allocation", path: "/counselling/mentor-allocation" },
     ];
+  } else if (isSportsStaff) {
+    // ==========================================
+    // SPORTS DEPARTMENT SIDEBAR
+    // ==========================================
+    navItems = [
+      { icon: LayoutDashboard, label: "Dashboard", path: "/" },
+      { icon: CalendarClock, label: "Duty Leaves (OD)", path: "/duty-leave" },
+    ];
   } else {
     // ==========================================
-    // FACULTY / ADMIN SIDEBAR
+    // FACULTY / ADMIN / HOD SIDEBAR
     // ==========================================
     navItems = [
       { icon: LayoutDashboard, label: "Dashboard", path: "/" },
@@ -91,7 +100,6 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
     }
 
     if (isHODOrAdmin) {
-      // Adjusted index numbers (+1) to account for the new Timetable item
       navItems.splice(5, 0, {
         icon: Shield, label: "Team & Perms", path: "/staff",
       });
@@ -120,51 +128,23 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
 
   return (
     <>
-      {/* Mobile Backdrop */}
-      <div
-        className={`mobile-backdrop ${mobileOpen ? "open" : ""}`}
-        onClick={() => setMobileOpen(false)}
-      />
+      <div className={`mobile-backdrop ${mobileOpen ? "open" : ""}`} onClick={() => setMobileOpen(false)} />
 
-      <aside
-        className={`sidebar ${collapsed ? "collapsed" : ""} ${
-          mobileOpen ? "mobile-open" : ""
-        }`}
-      >
+      <aside className={`sidebar ${collapsed ? "collapsed" : ""} ${mobileOpen ? "mobile-open" : ""}`}>
         <div className="sidebar-header">
           <div className="logo-icon">
-            <img
-              src="/logo.png"
-              alt="EduSphere Logo"
-              className="brand-logo-img"
-            />
+            <img src="/logo.png" alt="EduSphere Logo" className="brand-logo-img" />
           </div>
           {(!collapsed || mobileOpen) && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                flex: 1,
-                justifyContent: "space-between",
-              }}
-            >
+            <div style={{ display: "flex", alignItems: "center", flex: 1, justifyContent: "space-between" }}>
               <span className="logo-text">EduSphere</span>
-              {/* Only show Info icon to Faculty/Staff */}
               {!isStudent && (
                 <NavLink
                   to="/welcome"
-                  className={({ isActive }) =>
-                    `info-nav-icon ${isActive ? "active" : ""}`
-                  }
+                  className={({ isActive }) => `info-nav-icon ${isActive ? "active" : ""}`}
                   style={({ isActive }) => ({
-                    color: isActive
-                      ? "var(--primary-color)"
-                      : "var(--text-muted)",
-                    display: "flex",
-                    alignItems: "center",
-                    padding: "4px",
-                    borderRadius: "6px",
-                    transition: "all 0.2s ease",
+                    color: isActive ? "var(--primary-color)" : "var(--text-muted)",
+                    display: "flex", alignItems: "center", padding: "4px", borderRadius: "6px", transition: "all 0.2s ease",
                   })}
                   title="System Guide & Architecture"
                 >
@@ -173,10 +153,7 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
               )}
             </div>
           )}
-          <button
-            className="icon-btn mobile-close-btn"
-            onClick={() => setMobileOpen(false)}
-          >
+          <button className="icon-btn mobile-close-btn" onClick={() => setMobileOpen(false)}>
             <X size={24} />
           </button>
         </div>
@@ -186,9 +163,7 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
             <NavLink
               to={item.path}
               key={item.path}
-              className={({ isActive }) =>
-                `nav-item ${isActive ? "active" : ""}`
-              }
+              className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}
               title={collapsed && !mobileOpen ? item.label : ""}
               onClick={() => setMobileOpen(false)}
             >
@@ -204,34 +179,21 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
             {(!collapsed || mobileOpen) && <span>Logout</span>}
           </button>
 
-          <button
-            className="collapse-btn desktop-only"
-            onClick={() => setCollapsed(!collapsed)}
-          >
+          <button className="collapse-btn desktop-only" onClick={() => setCollapsed(!collapsed)}>
             {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
           </button>
         </div>
       </aside>
 
-      {/* Logout Popup */}
       {showLogoutConfirm && (
         <div className="logout-overlay">
           <div className="logout-modal">
-            <div className="logout-icon-container">
-              <AlertCircle size={32} />
-            </div>
+            <div className="logout-icon-container"><AlertCircle size={32} /></div>
             <h3>Log Out?</h3>
             <p>Are you sure you want to exit your session?</p>
             <div className="logout-actions">
-              <button
-                className="cancel-btn"
-                onClick={() => setShowLogoutConfirm(false)}
-              >
-                Cancel
-              </button>
-              <button className="confirm-logout-btn" onClick={confirmLogout}>
-                Yes, Log Out
-              </button>
+              <button className="cancel-btn" onClick={() => setShowLogoutConfirm(false)}>Cancel</button>
+              <button className="confirm-logout-btn" onClick={confirmLogout}>Yes, Log Out</button>
             </div>
           </div>
         </div>

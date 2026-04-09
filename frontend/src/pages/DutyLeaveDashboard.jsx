@@ -3,10 +3,31 @@ import { useAuth } from "../context/AuthContext";
 import { attendanceService, staffService } from "../services/api";
 import { 
   Calendar, Clock, CheckCircle, XCircle, AlertTriangle, 
-  Plus, Users, Search, X, ShieldAlert, Check
+  Plus, Users, Search, X, ShieldAlert, Check, ChevronRight, FileText, UserCircle
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
+
+// --- PREMIUM COMPACT STATUS BADGE ---
+const StatusBadge = ({ role, status, name }) => {
+    const isApproved = status === 'APPROVED';
+    const isRejected = status === 'REJECTED';
+    const color = isApproved ? '#10b981' : isRejected ? '#ef4444' : '#f59e0b';
+    const bg = isApproved ? 'rgba(16, 185, 129, 0.1)' : isRejected ? 'rgba(239, 68, 68, 0.1)' : 'rgba(245, 158, 11, 0.1)';
+    const Icon = isApproved ? CheckCircle : isRejected ? XCircle : Clock;
+
+    return (
+        <div style={{ display: "flex", alignItems: "center", gap: "4px", background: bg, color: color, padding: "2px 8px", borderRadius: "12px", fontSize: "0.7rem", fontWeight: "600", border: `1px solid ${color}40` }}>
+            <Icon size={12} />
+            <span>{role}: {status}</span>
+            {name && name !== "Unassigned" && (
+                <span style={{ opacity: 0.8, marginLeft: "2px", borderLeft: `1px solid ${color}60`, paddingLeft: "4px" }}>
+                    {name}
+                </span>
+            )}
+        </div>
+    );
+}
 
 const DutyLeaveDashboard = () => {
   const { user } = useAuth();
@@ -47,109 +68,130 @@ const DutyLeaveDashboard = () => {
   };
 
   return (
-    <div className="fade-in" style={{ padding: "2rem", maxWidth: "1200px", margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
+    <div className="fade-in" style={{ padding: "1.5rem", maxWidth: "1200px", margin: "0 auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
         <div>
-          <h1 style={{ fontSize: "1.8rem", color: "var(--text-primary)", margin: "0 0 0.5rem 0" }}>Official Duty (OD) Management</h1>
-          <p style={{ color: "var(--text-secondary)", margin: 0 }}>
-            {isStudent ? "Track and apply for sports, cultural, or technical duty leaves." : "Review and approve pending duty leave requests."}
+          <h1 style={{ fontSize: "1.5rem", color: "var(--text-primary)", margin: "0 0 0.25rem 0" }}>Official Duty (OD) Management</h1>
+          <p style={{ color: "var(--text-secondary)", margin: 0, fontSize: "0.9rem" }}>
+            {isStudent ? "Track and apply for duty leaves." : "Review and approve pending requests."}
           </p>
         </div>
         <button 
           onClick={() => setShowApplyModal(true)}
-          style={{ display: "flex", alignItems: "center", gap: "8px", background: "var(--primary-color)", color: "white", padding: "10px 20px", borderRadius: "8px", border: "none", cursor: "pointer", fontWeight: "600", boxShadow: "0 4px 12px rgba(79, 70, 229, 0.2)" }}
+          style={{ display: "flex", alignItems: "center", gap: "6px", background: "var(--primary-color)", color: "white", padding: "8px 16px", borderRadius: "6px", border: "none", cursor: "pointer", fontWeight: "600", fontSize: "0.9rem", boxShadow: "0 2px 8px rgba(79, 70, 229, 0.2)", transition: "all 0.2s" }}
         >
-          <Plus size={18} /> {isStudent ? "Apply for OD" : "Initiate OD for Students"}
+          <Plus size={16} /> {isStudent ? "Apply for OD" : "Initiate OD"}
         </button>
       </div>
 
       {loading ? (
-        <div className="spinner" style={{ margin: "5rem auto" }}></div>
+        <div className="spinner" style={{ margin: "4rem auto" }}></div>
       ) : leaves.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "4rem 2rem", borderRadius: "12px", background: "var(--bg-card)", border: "1px solid var(--border-color)" }}>
-          <Calendar size={48} style={{ color: "var(--text-muted)", marginBottom: "1rem" }} />
-          <h3 style={{ color: "var(--text-primary)", marginBottom: "0.5rem" }}>No Duty Leaves Found</h3>
-          <p style={{ color: "var(--text-secondary)" }}>There are no active or pending official duty requests at the moment.</p>
+        <div style={{ textAlign: "center", padding: "3rem 1.5rem", borderRadius: "10px", background: "var(--bg-card)", border: "1px solid var(--border-color)" }}>
+          <Calendar size={36} style={{ color: "var(--text-muted)", opacity: 0.5, margin: "0 auto 0.5rem auto" }} />
+          <h3 style={{ color: "var(--text-primary)", margin: "0 0 0.5rem 0", fontSize: "1.1rem" }}>No Duty Leaves Found</h3>
+          <p style={{ color: "var(--text-secondary)", margin: 0, fontSize: "0.85rem" }}>There are no active or pending official duty requests.</p>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+        <div style={{ display: "grid", gap: "1rem" }}>
           {leaves.map(leave => (
-            <div key={leave.id} style={{ padding: "1.5rem", borderRadius: "12px", background: "var(--bg-card)", border: "1px solid var(--border-color)", borderLeft: `6px solid ${leave.in_charge_status === 'APPROVED' ? '#10b981' : '#f59e0b'}`, boxShadow: "0 4px 6px rgba(0,0,0,0.02)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem" }}>
+            <div key={leave.id} style={{ padding: "0", borderRadius: "10px", background: "var(--bg-card)", border: "1px solid var(--border-color)", borderLeft: `4px solid ${leave.in_charge_status === 'APPROVED' ? '#10b981' : '#f59e0b'}`, boxShadow: "0 2px 8px rgba(0,0,0,0.02)", overflow: "hidden" }}>
+              
+              {/* --- COMPACT CARD HEADER --- */}
+              <div style={{ padding: "1rem", borderBottom: "1px solid var(--border-color)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
-                  <h3 style={{ margin: "0 0 0.5rem 0", color: "var(--text-primary)", fontSize: "1.25rem" }}>{leave.title}</h3>
-                  <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "0.95rem" }}>{leave.reason}</p>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "var(--primary-color)", fontWeight: "600", marginBottom: "6px", background: "rgba(79, 70, 229, 0.1)", padding: "4px 12px", borderRadius: "20px" }}>
-                    <Calendar size={14} /> 
-                    {new Date(leave.start_date).toLocaleDateString('en-GB')} {leave.start_date !== leave.end_date ? ` to ${new Date(leave.end_date).toLocaleDateString('en-GB')}` : ""}
+                  <h3 style={{ margin: "0 0 0.25rem 0", color: "var(--text-primary)", fontSize: "1.1rem", fontWeight: "600" }}>{leave.title}</h3>
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px", color: "var(--text-secondary)", fontSize: "0.75rem" }}>
+                      <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><UserCircle size={12}/> {leave.initiator_name}</span>
+                      <span style={{ display: "flex", alignItems: "center", gap: "4px", color: "var(--primary-color)", fontWeight: "600", background: "rgba(79, 70, 229, 0.08)", padding: "2px 8px", borderRadius: "8px" }}>
+                        <Calendar size={10} /> 
+                        {new Date(leave.start_date).toLocaleDateString('en-GB')} {leave.start_date !== leave.end_date ? ` to ${new Date(leave.end_date).toLocaleDateString('en-GB')}` : ""}
+                      </span>
                   </div>
-                  <span style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>Initiated by {leave.initiator_name}</span>
                 </div>
+                
+                {/* Event In-Charge Quick Status */}
+                {leave.event_in_charge && (
+                    <div style={{ textAlign: "right", background: "var(--bg-main)", padding: "6px 10px", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
+                        <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "2px", fontWeight: "600" }}>Event In-Charge</div>
+                        <div style={{ fontSize: "0.8rem", color: "var(--text-primary)", fontWeight: "600", marginBottom: "4px" }}>{leave.event_in_charge_name}</div>
+                        {user?.id === leave.event_in_charge && leave.in_charge_status === 'PENDING' ? (
+                            <div style={{ display: "flex", gap: "4px", justifyContent: "flex-end" }}>
+                                <button onClick={() => handleAction(leave.id, null, 'APPROVED', 'IN_CHARGE')} style={{ padding: "2px 8px", fontSize: "0.7rem", background: "#10b981", color: "white", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "600" }}>Approve</button>
+                                <button onClick={() => handleAction(leave.id, null, 'REJECTED', 'IN_CHARGE')} style={{ padding: "2px 8px", fontSize: "0.7rem", background: "#ef4444", color: "white", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "600" }}>Reject</button>
+                            </div>
+                        ) : (
+                            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                                <StatusBadge role="In-Charge" status={leave.in_charge_status} />
+                            </div>
+                        )}
+                    </div>
+                )}
               </div>
 
-              {leave.event_in_charge && (
-                <div style={{ background: "var(--bg-input)", padding: "12px 15px", borderRadius: "8px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem", border: "1px solid var(--border-color)" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <ShieldAlert size={18} style={{ color: "var(--text-muted)" }}/>
-                    <span style={{ fontSize: "0.9rem", color: "var(--text-primary)" }}>
-                      <strong>Event In-Charge:</strong> {leave.event_in_charge_name}
-                    </span>
+              <div style={{ padding: "1rem" }}>
+                  {/* COMPACT REASON BLOCK */}
+                  <div style={{ background: "var(--bg-main)", padding: "0.75rem", borderRadius: "6px", borderLeft: "2px solid var(--primary-color)", marginBottom: "1rem" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "4px", color: "var(--text-secondary)", fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: "600", marginBottom: "4px" }}>
+                          <FileText size={12} /> Reason
+                      </div>
+                      <p style={{ margin: 0, color: "var(--text-primary)", fontSize: "0.85rem", lineHeight: "1.4" }}>"{leave.reason}"</p>
                   </div>
-                  
-                  {user?.id === leave.event_in_charge && leave.in_charge_status === 'PENDING' ? (
-                     <div style={{ display: "flex", gap: "10px" }}>
-                        <button onClick={() => handleAction(leave.id, null, 'APPROVED', 'IN_CHARGE')} style={{ padding: "6px 14px", fontSize: "0.85rem", background: "#10b981", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "600" }}>Approve</button>
-                        <button onClick={() => handleAction(leave.id, null, 'REJECTED', 'IN_CHARGE')} style={{ padding: "6px 14px", fontSize: "0.85rem", background: "#ef4444", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "600" }}>Reject</button>
-                     </div>
-                  ) : (
-                    <span style={{ padding: "4px 10px", borderRadius: "12px", fontSize: "0.75rem", fontWeight: "bold", background: leave.in_charge_status === 'APPROVED' ? "rgba(16, 185, 129, 0.1)" : leave.in_charge_status === 'REJECTED' ? "rgba(239, 68, 68, 0.1)" : "rgba(245, 158, 11, 0.1)", color: leave.in_charge_status === 'APPROVED' ? "#10b981" : leave.in_charge_status === 'REJECTED' ? "#ef4444" : "#f59e0b" }}>
-                      STATUS: {leave.in_charge_status}
-                    </span>
-                  )}
-                </div>
-              )}
 
-              <div>
-                <h4 style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginBottom: "12px", textTransform: "uppercase", letterSpacing: "1px", fontWeight: "600" }}>Participants ({leave.participants.length})</h4>
-                <div style={{ display: "grid", gap: "12px" }}>
-                  {leave.participants.map(p => (
-                    <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg-main)", padding: "12px 16px", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
-                      <div>
-                        <div style={{ fontWeight: "600", color: "var(--text-primary)", fontSize: "0.95rem" }}>{p.student_name} <span style={{ color: "var(--text-muted)", fontSize: "0.85rem", fontWeight: "normal" }}>({p.roll_number})</span></div>
-                        <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: "4px" }}>{p.department} • Semester {p.semester}</div>
-                      </div>
-                      
-                      <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
-                        <div style={{ display: "flex", gap: "15px", fontSize: "0.8rem", fontWeight: "500" }}>
-                           <span style={{ color: p.class_teacher_status === 'APPROVED' ? '#10b981' : p.class_teacher_status === 'REJECTED' ? '#ef4444' : 'var(--text-muted)', display: "flex", alignItems: "center", gap: "4px" }}>
-                             CT: {p.class_teacher_status}
-                           </span>
-                           <span style={{ color: p.hod_status === 'APPROVED' ? '#10b981' : p.hod_status === 'REJECTED' ? '#ef4444' : 'var(--text-muted)', display: "flex", alignItems: "center", gap: "4px" }}>
-                             HOD: {p.hod_status}
-                           </span>
+                  {/* COMPACT PARTICIPANTS GRID */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "10px" }}>
+                    {leave.participants.map(p => (
+                        <div key={p.id} style={{ display: "flex", flexDirection: "column", background: "var(--bg-input)", padding: "10px", borderRadius: "8px", border: "1px solid var(--border-color)", position: "relative" }}>
+                            
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
+                                <div>
+                                    <div style={{ fontWeight: "600", color: "var(--text-primary)", fontSize: "0.9rem" }}>{p.student_name}</div>
+                                    <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "2px" }}>
+                                        {p.roll_number} • Sem {p.semester}
+                                    </div>
+                                </div>
+                                {/* Compact Attendance Badge */}
+                                <div style={{ 
+                                    background: p.attendance_percentage >= 75 ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)", 
+                                    color: p.attendance_percentage >= 75 ? "#10b981" : "#ef4444", 
+                                    padding: "4px 6px", borderRadius: "6px", fontWeight: "bold", fontSize: "0.75rem",
+                                    border: `1px solid ${p.attendance_percentage >= 75 ? "#10b98140" : "#ef444440"}`
+                                }}>
+                                    {p.attendance_percentage}%
+                                </div>
+                            </div>
+                            
+                            {/* Badges */}
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginBottom: "8px" }}>
+                                <StatusBadge role="CT" status={p.class_teacher_status} name={p.class_teacher_name} />
+                                <StatusBadge role="HOD" status={p.hod_status} name={p.hod_name} />
+                            </div>
+
+                            {/* Compact Action Buttons */}
+                            {user?.role_code !== 'STUDENT' && (
+                                <div style={{ display: "flex", gap: "6px", marginTop: "auto", borderTop: "1px solid var(--border-color)", paddingTop: "8px" }}>
+                                    
+                                    {/* --- STRICT CHECK: ONLY THE ASSIGNED CT SEES THIS --- */}
+                                    {user?.id === p.class_teacher_id && p.class_teacher_status === 'PENDING' && leave.in_charge_status !== 'PENDING' && (
+                                        <>
+                                            <button onClick={() => handleAction(leave.id, p.id, 'APPROVED', 'CLASS_TEACHER')} style={{ flex: 1, padding: "4px", fontSize: "0.75rem", background: "rgba(16,185,129,0.1)", color: "#10b981", border: "1px solid #10b981", borderRadius: "4px", cursor: "pointer", fontWeight: "600", transition: "all 0.2s" }} title="Approve as Class Teacher">Approve (CT)</button>
+                                            <button onClick={() => handleAction(leave.id, p.id, 'REJECTED', 'CLASS_TEACHER')} style={{ flex: 1, padding: "4px", fontSize: "0.75rem", background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "1px solid #ef4444", borderRadius: "4px", cursor: "pointer", fontWeight: "600", transition: "all 0.2s" }} title="Reject as Class Teacher">Reject</button>
+                                        </>
+                                    )}
+
+                                    {/* --- STRICT CHECK: ONLY THE DESIGNATED HOD OR ORG ADMIN SEES THIS --- */}
+                                    {(user?.id === p.hod_id || user?.role_code === 'SUPER_ADMIN') && p.hod_status === 'PENDING' && p.class_teacher_status === 'APPROVED' && (
+                                        <>
+                                            <button onClick={() => handleAction(leave.id, p.id, 'APPROVED', 'HOD')} style={{ flex: 1, padding: "4px", fontSize: "0.75rem", background: "rgba(16,185,129,0.1)", color: "#10b981", border: "1px solid #10b981", borderRadius: "4px", cursor: "pointer", fontWeight: "600", transition: "all 0.2s" }} title="Final HOD Approval">Approve (HOD)</button>
+                                            <button onClick={() => handleAction(leave.id, p.id, 'REJECTED', 'HOD')} style={{ flex: 1, padding: "4px", fontSize: "0.75rem", background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "1px solid #ef4444", borderRadius: "4px", cursor: "pointer", fontWeight: "600", transition: "all 0.2s" }} title="Final HOD Rejection">Reject</button>
+                                        </>
+                                    )}
+                                </div>
+                            )}
+
                         </div>
-
-                        {/* CT ACTION BUTTONS (Bulletproof Visibility Check) */}
-                        {user?.role_code !== 'STUDENT' && p.class_teacher_status === 'PENDING' && leave.in_charge_status !== 'PENDING' && (
-                           <div style={{ display: "flex", gap: "8px" }}>
-                              <button onClick={() => handleAction(leave.id, p.id, 'APPROVED', 'CLASS_TEACHER')} style={{ padding: "6px", background: "#10b981", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center" }} title="Approve as Class Teacher"><CheckCircle size={16}/></button>
-                              <button onClick={() => handleAction(leave.id, p.id, 'REJECTED', 'CLASS_TEACHER')} style={{ padding: "6px", background: "#ef4444", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center" }} title="Reject as Class Teacher"><XCircle size={16}/></button>
-                           </div>
-                        )}
-
-                        {/* HOD ACTION BUTTONS */}
-                        {(user?.role_code === 'HOD' || user?.role_code === 'SUPER_ADMIN') && p.hod_status === 'PENDING' && p.class_teacher_status === 'APPROVED' && (
-                           <div style={{ display: "flex", gap: "8px" }}>
-                              <button onClick={() => handleAction(leave.id, p.id, 'APPROVED', 'HOD')} style={{ padding: "6px", background: "#10b981", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center" }} title="Final HOD Approval"><CheckCircle size={16}/></button>
-                              <button onClick={() => handleAction(leave.id, p.id, 'REJECTED', 'HOD')} style={{ padding: "6px", background: "#ef4444", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center" }} title="Final HOD Rejection"><XCircle size={16}/></button>
-                           </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
               </div>
             </div>
           ))}
@@ -181,6 +223,11 @@ const ApplicationModal = ({ onClose, onRefresh, user, isStudent }) => {
   
   const [studentSearch, setStudentSearch] = useState("");
   
+  const [showInChargeModal, setShowInChargeModal] = useState(false);
+  const [inChargeSearch, setInChargeSearch] = useState(""); 
+  
+  const [dateSelectionType, setDateSelectionType] = useState("single"); 
+
   const [formData, setFormData] = useState({
     title: "",
     reason: "",
@@ -196,12 +243,11 @@ const ApplicationModal = ({ onClose, onRefresh, user, isStudent }) => {
       try {
         const [facRes, stuRes] = await Promise.all([
           staffService.getOrganizationFaculties(),
-          attendanceService.getDutyLeaveStudents() // <-- FIXED: Pointing to the new secure endpoint
+          attendanceService.getDutyLeaveStudents()
         ]);
         setFaculties(facRes.data);
         setAllStudents(stuRes.data);
 
-        // Auto-add the student creating the request
         if (isStudent && user) {
            const me = stuRes.data.find(s => s.id === user.id || s.user_id === user.id || s.full_name === user.name);
            if (me) setSelectedStudents([me]);
@@ -229,14 +275,27 @@ const ApplicationModal = ({ onClose, onRefresh, user, isStudent }) => {
     setSelectedStudents(prev => prev.filter(s => s.id !== id));
   };
 
+  const handleDateTypeChange = (type) => {
+      setDateSelectionType(type);
+      if (type === 'single') {
+          setFormData(prev => ({ ...prev, end_date: prev.start_date }));
+      }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (selectedStudents.length === 0) return alert("You must add at least one participant.");
+    if (isStudent && !formData.event_in_charge_id) return alert("Students must select an Event In-Charge to verify the OD.");
     
+    if (dateSelectionType === 'multiple' && formData.end_date < formData.start_date) {
+        return alert("End Date cannot be earlier than the Start Date.");
+    }
+
     setLoading(true);
     try {
       const payload = {
         ...formData,
+        end_date: dateSelectionType === 'single' ? formData.start_date : formData.end_date,
         student_ids: selectedStudents.map(s => s.id)
       };
       await attendanceService.submitDutyLeave(payload);
@@ -248,7 +307,15 @@ const ApplicationModal = ({ onClose, onRefresh, user, isStudent }) => {
     }
   };
 
-  // STRICT INLINE CSS FOR THE OVERLAY TO PREVENT INLINE RENDERING
+  const searchedFaculties = faculties.filter(f => 
+    (f.full_name || f.name || "").toLowerCase().includes(inChargeSearch.toLowerCase()) ||
+    (f.department_name || "").toLowerCase().includes(inChargeSearch.toLowerCase())
+  );
+
+  const sportsAndCounsellors = searchedFaculties.filter(f => ["SPORTS_STAFF", "COUNSELLOR"].includes(f.role_code || f.role));
+  const hods = searchedFaculties.filter(f => (f.role_code || f.role) === "HOD");
+  const teachers = searchedFaculties.filter(f => !["SPORTS_STAFF", "COUNSELLOR", "HOD"].includes(f.role_code || f.role));
+
   const overlayStyle = {
     position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: "rgba(0, 0, 0, 0.65)", backdropFilter: "blur(4px)",
@@ -292,15 +359,41 @@ const ApplicationModal = ({ onClose, onRefresh, user, isStudent }) => {
             <input type="text" required placeholder="e.g., Inter-College Football Tournament" style={inputStyle} value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
           </div>
 
-          <div style={{ display: "flex", gap: "1rem", marginBottom: "1.2rem" }}>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Start Date</label>
-              <input type="date" required style={inputStyle} value={formData.start_date} onChange={e => setFormData({...formData, start_date: e.target.value})} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>End Date</label>
-              <input type="date" required min={formData.start_date} style={inputStyle} value={formData.end_date} onChange={e => setFormData({...formData, end_date: e.target.value})} />
-            </div>
+          <div style={{ marginBottom: "1.2rem", background: "var(--bg-main)", padding: "12px", borderRadius: "12px", border: "1px solid var(--border-color)" }}>
+              <div style={{ display: "flex", gap: "10px", marginBottom: "12px" }}>
+                  <button 
+                      type="button" 
+                      onClick={() => handleDateTypeChange("single")}
+                      style={{ flex: 1, padding: "8px", borderRadius: "6px", border: dateSelectionType === "single" ? "none" : "1px solid var(--border-color)", background: dateSelectionType === "single" ? "var(--primary-color)" : "transparent", color: dateSelectionType === "single" ? "white" : "var(--text-secondary)", fontWeight: "600", cursor: "pointer", transition: "all 0.2s" }}
+                  >
+                      Single Day
+                  </button>
+                  <button 
+                      type="button" 
+                      onClick={() => handleDateTypeChange("multiple")}
+                      style={{ flex: 1, padding: "8px", borderRadius: "6px", border: dateSelectionType === "multiple" ? "none" : "1px solid var(--border-color)", background: dateSelectionType === "multiple" ? "var(--primary-color)" : "transparent", color: dateSelectionType === "multiple" ? "white" : "var(--text-secondary)", fontWeight: "600", cursor: "pointer", transition: "all 0.2s" }}
+                  >
+                      Multiple Days
+                  </button>
+              </div>
+
+              {dateSelectionType === "single" ? (
+                  <div>
+                      <label style={labelStyle}>Date of Event</label>
+                      <input type="date" required style={inputStyle} value={formData.start_date} onChange={e => setFormData({...formData, start_date: e.target.value, end_date: e.target.value})} />
+                  </div>
+              ) : (
+                  <div style={{ display: "flex", gap: "1rem" }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={labelStyle}>Start Date</label>
+                      <input type="date" required style={inputStyle} value={formData.start_date} onChange={e => setFormData({...formData, start_date: e.target.value})} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={labelStyle}>End Date</label>
+                      <input type="date" required min={formData.start_date} style={inputStyle} value={formData.end_date} onChange={e => setFormData({...formData, end_date: e.target.value})} />
+                    </div>
+                  </div>
+              )}
           </div>
 
           <div style={{ marginBottom: "1.2rem" }}>
@@ -309,14 +402,18 @@ const ApplicationModal = ({ onClose, onRefresh, user, isStudent }) => {
           </div>
 
           <div style={{ marginBottom: "1.5rem" }}>
-            <label style={labelStyle}>Event In-Charge (Optional if initiated by Faculty)</label>
-            <select required={isStudent} style={inputStyle} value={formData.event_in_charge_id} onChange={e => setFormData({...formData, event_in_charge_id: e.target.value})}>
-              <option value="">-- Select Supervising Faculty/Staff --</option>
-              {faculties.map(f => <option key={f.id} value={f.id}>{f.full_name || f.name}</option>)}
-            </select>
+            <label style={labelStyle}>Event In-Charge {isStudent ? "" : "(Optional)"}</label>
+            <div 
+              onClick={() => setShowInChargeModal(true)}
+              style={{...inputStyle, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", background: formData.event_in_charge_id ? "var(--bg-card)" : "var(--bg-input)"}}
+            >
+              <span style={{ color: formData.event_in_charge_id ? "var(--text-primary)" : "var(--text-muted)", fontWeight: formData.event_in_charge_id ? "600" : "normal" }}>
+                {formData.event_in_charge_id ? faculties.find(f => f.id === parseInt(formData.event_in_charge_id))?.full_name || faculties.find(f => f.id === parseInt(formData.event_in_charge_id))?.name : "-- Click to Select Supervising Faculty/Staff --"}
+              </span>
+              <ChevronRight size={18} style={{ color: "var(--text-muted)" }}/>
+            </div>
           </div>
 
-          {/* STUDENT TAGGING SYSTEM */}
           <div style={{ padding: "16px", background: "var(--bg-main)", borderRadius: "12px", border: "1px solid var(--border-color)" }}>
             <label style={{...labelStyle, display: "flex", alignItems: "center", gap: "6px"}}><Users size={16}/> Tag Participants</label>
             
@@ -361,9 +458,97 @@ const ApplicationModal = ({ onClose, onRefresh, user, isStudent }) => {
             </button>
           </div>
         </form>
+
+        {/* --- NESTED IN-CHARGE SELECTION MODAL --- */}
+        <AnimatePresence>
+            {showInChargeModal && (
+                <div style={{...overlayStyle, zIndex: 10001}}>
+                    <motion.div style={{...modalStyle, maxWidth: "500px"}} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}>
+                        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-color)", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg-main)", borderRadius: "16px 16px 0 0" }}>
+                            <h3 style={{ margin: 0, color: "var(--text-primary)", fontSize: "1.1rem" }}>Select Event In-Charge</h3>
+                            <button type="button" onClick={() => { setShowInChargeModal(false); setInChargeSearch(""); }} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--text-muted)" }}><X size={20} /></button>
+                        </div>
+                        
+                        <div style={{ padding: "16px 20px 0 20px" }}>
+                            <div style={{ display: "flex", alignItems: "center", background: "var(--bg-input)", border: "1px solid var(--border-color)", borderRadius: "8px", padding: "0 10px" }}>
+                                <Search size={18} style={{ color: "var(--text-muted)" }} />
+                                <input 
+                                    type="text" 
+                                    placeholder="Search by name or department..." 
+                                    value={inChargeSearch} 
+                                    onChange={(e) => setInChargeSearch(e.target.value)} 
+                                    style={{ border: "none", background: "transparent", width: "100%", padding: "10px", outline: "none", color: "var(--text-primary)" }} 
+                                />
+                            </div>
+                        </div>
+                        
+                        <div style={{ padding: "20px", maxHeight: "55vh", overflowY: "auto" }}>
+                            
+                            {searchedFaculties.length === 0 ? (
+                                <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-muted)", fontSize: "0.9rem" }}>No faculty found matching "{inChargeSearch}"</div>
+                            ) : (
+                                <>
+                                    {sportsAndCounsellors.length > 0 && (
+                                        <div style={{ marginBottom: "1.5rem" }}>
+                                            <h4 style={{ fontSize: "0.8rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "10px", borderBottom: "1px solid var(--border-color)", paddingBottom: "5px" }}>Sports & Event Staff</h4>
+                                            <div style={{ display: "grid", gap: "8px" }}>
+                                                {sportsAndCounsellors.map(f => (
+                                                    <div key={f.id} onClick={() => { setFormData({...formData, event_in_charge_id: f.id}); setShowInChargeModal(false); setInChargeSearch(""); }} style={{ padding: "10px 12px", background: "var(--bg-input)", border: "1px solid var(--border-color)", borderRadius: "8px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                                        <div>
+                                                            <div style={{ fontWeight: "600", fontSize: "0.9rem", color: "var(--text-primary)" }}>{f.full_name || f.name}</div>
+                                                            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>{f.designation || "Staff"} • {f.department_name || "Campus"}</div>
+                                                        </div>
+                                                        {formData.event_in_charge_id === f.id && <Check size={18} style={{ color: "var(--primary-color)" }}/>}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {hods.length > 0 && (
+                                        <div style={{ marginBottom: "1.5rem" }}>
+                                            <h4 style={{ fontSize: "0.8rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "10px", borderBottom: "1px solid var(--border-color)", paddingBottom: "5px" }}>Heads of Department</h4>
+                                            <div style={{ display: "grid", gap: "8px" }}>
+                                                {hods.map(f => (
+                                                    <div key={f.id} onClick={() => { setFormData({...formData, event_in_charge_id: f.id}); setShowInChargeModal(false); setInChargeSearch(""); }} style={{ padding: "10px 12px", background: "var(--bg-input)", border: "1px solid var(--border-color)", borderRadius: "8px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                                        <div>
+                                                            <div style={{ fontWeight: "600", fontSize: "0.9rem", color: "var(--text-primary)" }}>{f.full_name || f.name}</div>
+                                                            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>{f.department_name || "Department"}</div>
+                                                        </div>
+                                                        {formData.event_in_charge_id === f.id && <Check size={18} style={{ color: "var(--primary-color)" }}/>}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {teachers.length > 0 && (
+                                        <div style={{ marginBottom: "1.5rem" }}>
+                                            <h4 style={{ fontSize: "0.8rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "10px", borderBottom: "1px solid var(--border-color)", paddingBottom: "5px" }}>Teaching Faculty</h4>
+                                            <div style={{ display: "grid", gap: "8px" }}>
+                                                {teachers.map(f => (
+                                                    <div key={f.id} onClick={() => { setFormData({...formData, event_in_charge_id: f.id}); setShowInChargeModal(false); setInChargeSearch(""); }} style={{ padding: "10px 12px", background: "var(--bg-input)", border: "1px solid var(--border-color)", borderRadius: "8px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                                        <div>
+                                                            <div style={{ fontWeight: "600", fontSize: "0.9rem", color: "var(--text-primary)" }}>{f.full_name || f.name}</div>
+                                                            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>{f.department_name || "Department"}</div>
+                                                        </div>
+                                                        {formData.event_in_charge_id === f.id && <Check size={18} style={{ color: "var(--primary-color)" }}/>}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    </motion.div>
+                </div>
+            )}
+        </AnimatePresence>
+
       </motion.div>
     </div>,
-    document.body
+    document.body 
   );
 };
 

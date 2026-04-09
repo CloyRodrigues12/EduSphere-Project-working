@@ -881,6 +881,10 @@ class DutyLeaveActionView(APIView):
             with transaction.atomic():
                 if stage == 'IN_CHARGE':
                     dl_req = DutyLeaveRequest.objects.get(id=req_id)
+                    # Security Check
+                    if dl_req.event_in_charge and dl_req.event_in_charge.user != request.user:
+                        return Response({"error": "Unauthorized. You are not the Event In-Charge."}, status=403)
+                        
                     dl_req.in_charge_status = action
                     dl_req.save()
                     
@@ -896,6 +900,17 @@ class DutyLeaveActionView(APIView):
 
                 elif stage == 'CLASS_TEACHER':
                     participant = DutyLeaveParticipant.objects.get(id=part_id)
+                    
+                    # --- NEW: SECURITY CHECK FOR CLASS TEACHER ---
+                    from faculty_assignments.models import ClassTeacher
+                    sem_to_year = {1: 'FE', 2: 'FE', 3: 'SE', 4: 'SE', 5: 'TE', 6: 'TE', 7: 'BE', 8: 'BE'}
+                    y_level = sem_to_year.get(participant.student.current_semester)
+                    ct = ClassTeacher.objects.filter(department=participant.student.department, year_level=y_level).first()
+                    
+                    if not ct or ct.faculty.user != request.user:
+                        return Response({"error": "Unauthorized. You are not this student's Class Teacher."}, status=403)
+                    # ----------------------------------------------
+                        
                     participant.class_teacher_status = action
                     participant.save()
 
@@ -918,24 +933,29 @@ class DutyLeaveActionView(APIView):
 
                 elif stage == 'HOD':
                     participant = DutyLeaveParticipant.objects.get(id=part_id)
+                    
+                    # --- NEW: SECURITY CHECK FOR HOD ---
+                    is_super = request.user.profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']
+                    is_their_hod = request.user.profile.role == 'HOD' and request.user.profile.department == participant.student.department
+                    
+                    if not (is_super or is_their_hod):
+                        return Response({"error": "Unauthorized. You are not the HOD for this department."}, status=403)
+                    # -----------------------------------
+                        
                     participant.hod_status = action
                     participant.final_status = action
                     participant.save()
 
-                    # --- NEW: THE RETROACTIVE SWEEPER ---
                     if action == 'APPROVED':
-                        # Find any existing attendance records for this student during the leave dates
                         records_to_update = AttendanceRecord.objects.filter(
                             student=participant.student,
                             session__date__gte=participant.request.start_date,
                             session__date__lte=participant.request.end_date
                         )
-                        # Overwrite them with Duty Leave instantly
                         records_to_update.update(
                             status='DUTY_OTHER', 
                             remarks='Auto-Updated: Official Duty Approved'
                         )
-                    # ------------------------------------
 
                     Notification.objects.create(
                         recipient=participant.student.user,
@@ -956,6 +976,7 @@ class DutyLeaveActionView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=400)
         
+              
 class DutyLeaveStudentListView(APIView):
     """ Fetches a lightweight list of all active students for the Duty Leave Tagging Dropdown """
     permission_classes = [permissions.IsAuthenticated]

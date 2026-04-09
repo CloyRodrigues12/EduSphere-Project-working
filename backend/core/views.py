@@ -768,7 +768,7 @@ class FacultyManagementView(APIView):
         is_global = request.GET.get('global') == 'true' 
         
         faculties = UserProfile.objects.filter(
-            Q(role__in=['FACULTY', 'HOD']) | Q(is_teaching_faculty=True),
+            Q(role__in=['FACULTY', 'HOD', 'SPORTS_STAFF', 'COUNSELLOR']) | Q(is_teaching_faculty=True),
             user__is_active=True,
             organization=user_profile.organization
         ).select_related('user', 'department')

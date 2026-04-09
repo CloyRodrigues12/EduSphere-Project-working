@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import ClassSession, AttendanceRecord, DutyLeaveRequest, DutyLeaveParticipant
 
+
 class AttendanceRecordSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='student.full_name', read_only=True)
     roll_number = serializers.CharField(source='student.roll_number', read_only=True)
@@ -29,20 +30,69 @@ class ClassSessionSerializer(serializers.ModelSerializer):
 # ==========================================
 # NEW: DUTY LEAVE SERIALIZERS
 # ==========================================
-
 class DutyLeaveParticipantSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='student.full_name', read_only=True)
     roll_number = serializers.CharField(source='student.roll_number', read_only=True)
     department = serializers.CharField(source='student.department.name', read_only=True)
     semester = serializers.IntegerField(source='student.current_semester', read_only=True)
+    
+    attendance_percentage = serializers.SerializerMethodField()
+    class_teacher_name = serializers.SerializerMethodField()
+    hod_name = serializers.SerializerMethodField()
+    
+    # --- NEW: Strict ID Tracking ---
+    class_teacher_id = serializers.SerializerMethodField()
+    hod_id = serializers.SerializerMethodField()
 
     class Meta:
         model = DutyLeaveParticipant
         fields = [
             'id', 'student', 'student_name', 'roll_number', 'department', 'semester',
-            'class_teacher_status', 'hod_status', 'final_status'
+            'class_teacher_status', 'hod_status', 'final_status',
+            'attendance_percentage', 'class_teacher_name', 'hod_name',
+            'class_teacher_id', 'hod_id' # <-- Added
         ]
 
+    def get_attendance_percentage(self, obj):
+        records = AttendanceRecord.objects.filter(student=obj.student).select_related('session')
+        ta = sum(r.session.lecture_count for r in records if r.status in ['PRESENT', 'LATE'] or r.status.startswith('DUTY'))
+        tc = sum(r.session.lecture_count for r in records)
+        return round((ta / tc) * 100, 1) if tc > 0 else 100.0
+
+    def get_class_teacher_name(self, obj):
+        from faculty_assignments.models import ClassTeacher
+        sem_to_year = {1: 'FE', 2: 'FE', 3: 'SE', 4: 'SE', 5: 'TE', 6: 'TE', 7: 'BE', 8: 'BE'}
+        y_level = sem_to_year.get(obj.student.current_semester)
+        ct = ClassTeacher.objects.filter(department=obj.student.department, year_level=y_level).first()
+        if ct and ct.faculty and ct.faculty.user:
+            return f"Prof. {ct.faculty.user.last_name or ct.faculty.user.first_name}"
+        return "Unassigned"
+
+    def get_hod_name(self, obj):
+        from core.models import UserProfile
+        hod = UserProfile.objects.filter(department=obj.student.department, role='HOD').first()
+        if hod and hod.user:
+            return f"Prof. {hod.user.last_name or hod.user.first_name}"
+        return "Unassigned"
+
+    # --- NEW METHODS ---
+    def get_class_teacher_id(self, obj):
+        from faculty_assignments.models import ClassTeacher
+        sem_to_year = {1: 'FE', 2: 'FE', 3: 'SE', 4: 'SE', 5: 'TE', 6: 'TE', 7: 'BE', 8: 'BE'}
+        y_level = sem_to_year.get(obj.student.current_semester)
+        ct = ClassTeacher.objects.filter(department=obj.student.department, year_level=y_level).first()
+        if ct and ct.faculty and ct.faculty.user:
+            return ct.faculty.user.id
+        return None
+
+    def get_hod_id(self, obj):
+        from core.models import UserProfile
+        hod = UserProfile.objects.filter(department=obj.student.department, role='HOD').first()
+        if hod and hod.user:
+            return hod.user.id
+        return None
+    
+    
 class DutyLeaveRequestSerializer(serializers.ModelSerializer):
     participants = DutyLeaveParticipantSerializer(many=True, read_only=True)
     initiator_name = serializers.CharField(source='initiator.user.get_full_name', read_only=True)
