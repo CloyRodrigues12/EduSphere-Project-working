@@ -23,7 +23,7 @@ import {
   HeartHandshake,
   CalendarDays,
   CalendarClock,
-  ClipboardList,
+  ClipboardPen,
 } from "lucide-react";
 import "./Sidebar.css";
 
@@ -76,7 +76,7 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
       { icon: Presentation, label: "My Class", path: "/my-class" },
       { icon: HeartHandshake, label: "My Mentees", path: "/my-mentees" },
       { icon: ClipboardCheck, label: "Attendance", path: "/attendance" },
-      { icon: ClipboardCheck, label: "Int. Assessments ", path: "/internal-assessment" },
+      { icon: ClipboardPen, label: "Int. Assessments ", path: "/internal-assessment" },
       { icon: CalendarClock, label: "Duty Leaves (OD)", path: "/duty-leave" },
       { icon: CalendarDays, label: "Timetables", path: "/timetable" },
       { icon: Library, label: "Subject Catalog", path: "/subjects" },

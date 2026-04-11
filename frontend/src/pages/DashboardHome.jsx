@@ -15,10 +15,8 @@ import {
 } from "recharts";
 import "./DashboardHome.css";
 
-// --- PROFESSIONAL ENTERPRISE COLOR PALETTE ---
 const COLORS = ['#6366f1', '#14b8a6', '#f59e0b', '#f43f5e', '#8b5cf6', '#0ea5e9', '#10b981'];
 
-// --- CUSTOM RECHARTS TOOLTIP ---
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
@@ -26,7 +24,7 @@ const CustomTooltip = ({ active, payload, label }) => {
         <p className="label">{label || payload[0].payload.name || payload[0].name}</p>
         {payload.map((entry, index) => (
           <p key={index} className="value">
-            {entry.name}: <span style={{ color: entry.payload.fill || COLORS[index] }}>{entry.value}</span>
+            {entry.name}: <span style={{ color: entry.payload?.fill || COLORS[index] }}>{entry.value}</span>
           </p>
         ))}
         <div className="tooltip-hint">Click to view data list</div>
@@ -36,7 +34,6 @@ const CustomTooltip = ({ active, payload, label }) => {
   return null;
 };
 
-// --- RENDER CUSTOM PIE LABELS ---
 const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }) => {
   const radius = innerRadius + (outerRadius - innerRadius) * 1.5;
   const x = cx + radius * Math.cos(-midAngle * Math.PI / 180);
@@ -49,7 +46,6 @@ const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, per
   );
 };
 
-// --- SLEEK KPI CARD ---
 const StatCard = ({ title, dataObj, icon: Icon, color, delay, onClick }) => (
   <motion.div
     className="sleek-stat-card glass-panel cursor-pointer"
@@ -67,20 +63,22 @@ const StatCard = ({ title, dataObj, icon: Icon, color, delay, onClick }) => (
   </motion.div>
 );
 
-// --- BENTO CHART WRAPPER ---
-const BentoChart = ({ title, spanClass, data, children, delay, icon: Icon }) => {
+const BentoChart = ({ title, spanClass, data, children, delay, icon: Icon, headerAction }) => {
   const hasData = data && data.length > 0;
   return (
-    <motion.div className={`bento-card glass-panel ${spanClass} ${!hasData ? 'empty-widget' : ''}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay }}>
-      <div className="card-header">
-        <h3>{title}</h3>
-        {Icon && <Icon size={18} className="text-muted" />}
+    <motion.div className={`bento-card glass-panel ${spanClass}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay }}>
+      <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {Icon && <Icon size={18} className="text-muted" />}
+          <h3 style={{ margin: 0 }}>{title}</h3>
+        </div>
+        {headerAction && <div>{headerAction}</div>}
       </div>
-      <div className="chart-wrapper">
+      <div className="chart-wrapper" style={{ minHeight: '280px', display: hasData ? 'block' : 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
         {hasData ? children : (
-          <div className="no-data-overlay">
-            <Filter size={32} opacity={0.2} />
-            <p>No data to visualize</p>
+          <div className="no-data-overlay" style={{ textAlign: 'center', color: '#9ca3af' }}>
+            <Filter size={32} style={{ opacity: 0.3, marginBottom: '8px' }} />
+            <p style={{ margin: 0, fontSize: '0.95rem' }}>No data to visualize</p>
           </div>
         )}
       </div>
@@ -90,18 +88,17 @@ const BentoChart = ({ title, spanClass, data, children, delay, icon: Icon }) => 
 
 const DashboardHome = () => {
   const { user } = useAuth();
-  
-  // Notice we grab activeTerm here too so the dashboard auto-refreshes if Topbar changes!
   const { activeAcademicYear, activeDepartment, activeTerm } = useAcademic();
   
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   
   const [studyYearFilter, setStudyYearFilter] = useState("ALL");
-  const [termFilter, setTermFilter] = useState("CURRENT"); // <-- NEW TERM STATE
-  const [defaulterView, setDefaulterView] = useState("class");
+  const [termFilter, setTermFilter] = useState("CURRENT");
   
-  // Drill Down State & Search
+  const [selectedSubjectCode, setSelectedSubjectCode] = useState(null);
+  const [localDeptFilter, setLocalDeptFilter] = useState("ALL");
+
   const [drillDown, setDrillDown] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -110,15 +107,12 @@ const DashboardHome = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeAcademicYear, activeDepartment, studyYearFilter, termFilter, activeTerm]);
 
-  // Reset search query when modal opens
   useEffect(() => { if (drillDown) setSearchQuery(""); }, [drillDown]);
 
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      // --- THE FIX: Let React resolve "CURRENT" to the actual active term ---
       const effectiveTerm = termFilter === "CURRENT" ? (activeTerm || "ODD") : termFilter;
-
       const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/dashboard/advanced/?year=${studyYearFilter}&term=${effectiveTerm}`, {
         headers: {
           'X-Academic-Year-Id': activeAcademicYear?.id || '',
@@ -127,10 +121,43 @@ const DashboardHome = () => {
       });
       setData(res.data);
     } catch (error) {
-      console.error("Dashboard error", error);
+      console.error("Dashboard error:", error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const filteredSubjects = data?.charts?.subject_performance?.filter(s => 
+    localDeptFilter === "ALL" || String(s.dept_id) === String(localDeptFilter)
+  ) || [];
+
+  const getDynamicPieData = () => {
+    if (!data) return [];
+    
+    let pass = [], fail = [], pending = [];
+    
+    if (selectedSubjectCode) {
+      const subj = filteredSubjects.find(s => s.name === selectedSubjectCode);
+      if (subj) {
+        pass = subj.pass_details || [];
+        fail = subj.fail_details || [];
+        pending = subj.pending_details || [];
+      }
+    } else {
+      filteredSubjects.forEach(s => {
+        pass.push(...(s.pass_details || []));
+        fail.push(...(s.fail_details || []));
+        pending.push(...(s.pending_details || []));
+      });
+    }
+
+    const res = [
+      { name: 'Pass', value: pass.length, fill: '#10b981', details: pass },
+      { name: 'Fail', value: fail.length, fill: '#ef4444', details: fail },
+      { name: 'In Progress', value: pending.length, fill: '#f59e0b', details: pending }
+    ];
+    
+    return res.filter(r => r.value > 0); 
   };
 
   const openDrillDown = (title, value, details) => {
@@ -143,8 +170,9 @@ const DashboardHome = () => {
     openDrillDown(`${payload.name || payload.class} - ${chartName}`, payload.value || payload.defaulters || payload.attendance || payload.Load, payload.details);
   };
 
-  if (loading) return <div className="spinner-container"><div className="spinner"></div></div>;
+  if (loading && !data) return <div className="spinner-container"><div className="spinner"></div></div>;
   if (!data) return null;
+  
   const { kpis, charts, user_name } = data;
 
   const filteredDrillDown = drillDown?.details.filter(item => 
@@ -156,24 +184,23 @@ const DashboardHome = () => {
     ...item, fill: COLORS[index % COLORS.length]
   })) || [];
 
+  const isAllDeptMode = !activeDepartment || activeDepartment.id === 'ALL';
+
   return (
     <div className="dashboard-home fade-in">
       
-      {/* HEADER & FILTERS */}
       <div className="dashboard-header glass-panel">
         <div className="welcome-section">
           <h1>Welcome back, <span>{user_name}</span> 👋</h1>
           <p>Here's a breakdown of your institution's real-time performance.</p>
         </div>
         <div className="global-filters" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          {/* --- NEW TERM DROPDOWN --- */}
           <select className="premium-select" value={termFilter} onChange={(e) => setTermFilter(e.target.value)}>
             <option value="CURRENT">Current Term (Auto)</option>
             <option value="ODD">Odd Term Only</option>
             <option value="EVEN">Even Term Only</option>
             <option value="BOTH">Both Terms (Full Year)</option>
           </select>
-          {/* ------------------------- */}
           <select className="premium-select" value={studyYearFilter} onChange={(e) => setStudyYearFilter(e.target.value)}>
             <option value="ALL">All Study Years</option>
             <option value="FE">First Year (FE)</option>
@@ -184,7 +211,6 @@ const DashboardHome = () => {
         </div>
       </div>
 
-      {/* KPIs */}
       <div className="kpi-row">
         {user?.role_code !== 'FACULTY' && <StatCard title="Departments" dataObj={kpis.total_departments} icon={Building} color={COLORS[4]} delay={0.1} onClick={openDrillDown} />}
         <StatCard title="Active Students" dataObj={kpis.total_students} icon={Users} color={COLORS[0]} delay={0.2} onClick={openDrillDown} />
@@ -193,12 +219,12 @@ const DashboardHome = () => {
         {user?.role_code !== 'STUDENT' && <StatCard title="Faculty Staff" dataObj={kpis.total_faculty} icon={UserCheck} color={COLORS[3]} delay={0.5} onClick={openDrillDown} />}
       </div>
 
-      {/* ADVANCED BENTO GRID */}
       <div className="bento-grid">
         
-        {/* ATTENDANCE TREND */}
+        {/* ROW 1: Operations & Demographics */}
         <BentoChart title="Attendance Trend (Last 7 Days)" spanClass="col-span-8" data={charts.attendance_trend} delay={0.6}>
-          <ResponsiveContainer width="100%" height="100%">
+          {/* 🚨 FIX: Explicit height of 280px to prevent collapse */}
+          <ResponsiveContainer width="100%" height={280}>
             <ComposedChart data={charts.attendance_trend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} onClick={(e) => { if (e?.activePayload) handleChartClick('Trend Date', e.activePayload[0].payload); }} style={{ cursor: 'pointer' }}>
               <defs><linearGradient id="colorAtt" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={COLORS[0]} stopOpacity={0.4}/><stop offset="95%" stopColor={COLORS[0]} stopOpacity={0}/></linearGradient></defs>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" opacity={0.5} />
@@ -211,8 +237,97 @@ const DashboardHome = () => {
           </ResponsiveContainer>
         </BentoChart>
 
-        <BentoChart title="Defaulters Alert (<75%)" spanClass="col-span-4" data={charts.defaulters_matrix} delay={0.65}>
-          <ResponsiveContainer width="100%" height="100%">
+        <BentoChart title="Student Demographics" spanClass="col-span-4" data={charts.demographics} icon={PieIcon} delay={0.62}>
+          <ResponsiveContainer width="100%" height={280}>
+            <PieChart>
+              <Pie data={charts.demographics} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={4} dataKey="value" stroke="none" label={renderCustomizedLabel} labelLine={false} cursor="pointer" onClick={(data) => handleChartClick('Students', data.payload)}>
+                {charts.demographics?.map((e, i) => <Cell key={i} fill={e.color || COLORS[i % COLORS.length]} />)}
+              </Pie>
+              <Tooltip content={<CustomTooltip />} />
+            </PieChart>
+          </ResponsiveContainer>
+        </BentoChart>
+
+        {/* ROW 2: Subject-Level Academic Assessment */}
+        <BentoChart title="Average Marks per Subject" spanClass="col-span-8" data={filteredSubjects} icon={BookOpen} delay={0.65} 
+          headerAction={
+            isAllDeptMode ? (
+              <select
+                className="premium-select"
+                style={{ padding: '2px 8px', fontSize: '0.8rem', borderRadius: '6px', height: 'auto', minHeight: '26px' }}
+                value={localDeptFilter}
+                onChange={(e) => { setLocalDeptFilter(e.target.value); setSelectedSubjectCode(null); }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <option value="ALL">All Departments</option>
+                {kpis.total_departments?.details?.map(d => (
+                  <option key={d.value} value={d.value}>{d.name}</option>
+                ))}
+              </select>
+            ) : null
+          }
+        >
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart layout="vertical" data={filteredSubjects} margin={{ top: 10, right: 20, left: 60, bottom: 0 }}>
+              <XAxis type="number" domain={[0, 25]} hide />
+              <YAxis dataKey="name" type="category" tick={{ fontSize: 12, fill: "var(--text-primary)", fontWeight: 600 }} axisLine={false} tickLine={false} />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: 'transparent' }} />
+              <Bar 
+                dataKey="Average Score" 
+                radius={[0, 5, 5, 0]} 
+                barSize={20} 
+                cursor="pointer" 
+                onClick={(data) => {
+                    // 🚨 THE FIX: Extract the data from the 'payload' wrapper!
+                    setSelectedSubjectCode(data.payload.name);
+                    handleChartClick('Subject Analysis', data.payload);
+                }}
+              >
+                {filteredSubjects?.map((entry, i) => (
+                  <Cell key={i} fill={entry["Average Score"] >= 10 ? '#6366f1' : '#f43f5e'} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </BentoChart>
+
+        <BentoChart title={selectedSubjectCode ? `Pass/Fail: ${selectedSubjectCode}` : "Pass/Fail (All Subjects)"} spanClass="col-span-4" data={getDynamicPieData()} icon={Activity} delay={0.68}
+          headerAction={
+            selectedSubjectCode ? (
+              <button 
+                onClick={(e) => { e.stopPropagation(); setSelectedSubjectCode(null); }}
+                className="badge"
+                style={{ cursor: 'pointer', background: "rgba(59, 130, 246, 0.1)", color: "#3b82f6", border: "none", padding: "4px 8px" }}
+              >
+                Reset ✕
+              </button>
+            ) : null
+          }
+        >
+          <ResponsiveContainer width="100%" height={320}>
+            <PieChart>
+              <Pie 
+                data={getDynamicPieData()}
+                innerRadius={60} 
+                outerRadius={80} 
+                dataKey="value"
+                cursor="pointer"
+                stroke="none"
+                onClick={(data) => handleChartClick(selectedSubjectCode ? `${selectedSubjectCode} Status` : 'Pass/Fail Breakdown', data.payload)} 
+              >
+                {getDynamicPieData().map((entry, index) => (
+                  <Cell key={index} fill={entry.fill} />
+                ))}
+              </Pie>
+              <Tooltip content={<CustomTooltip />} />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        </BentoChart>
+
+        {/* ROW 3: Alerts & Resources */}
+        <BentoChart title="Defaulters Alert (<75%)" spanClass="col-span-4" data={charts.defaulters_matrix} delay={0.7}>
+          <ResponsiveContainer width="100%" height={280}>
             <BarChart data={charts.defaulters_matrix} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" opacity={0.5} />
               <XAxis dataKey="class" tick={{ fill: "var(--text-secondary)" }} axisLine={false} tickLine={false} fontSize={12} />
@@ -225,20 +340,8 @@ const DashboardHome = () => {
           </ResponsiveContainer>
         </BentoChart>
 
-        {/* DEMOGRAPHICS (PIE) */}
-        <BentoChart title="Student Demographics" spanClass="col-span-4" data={charts.demographics} icon={PieIcon} delay={0.7}>
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie data={charts.demographics} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={4} dataKey="value" stroke="none" label={renderCustomizedLabel} labelLine={false} cursor="pointer" onClick={(data) => handleChartClick('Students', data.payload)}>
-                {charts.demographics?.map((e, i) => <Cell key={i} fill={e.color || COLORS[i % COLORS.length]} />)}
-              </Pie>
-              <Tooltip content={<CustomTooltip />} />
-            </PieChart>
-          </ResponsiveContainer>
-        </BentoChart>
-
-        <BentoChart title="Faculty Roles" spanClass="col-span-4" data={charts.faculty_demographics} icon={PieIcon} delay={0.75}>
-          <ResponsiveContainer width="100%" height="100%">
+        <BentoChart title="Faculty Roles" spanClass="col-span-4" data={charts.faculty_demographics} icon={PieIcon} delay={0.72}>
+          <ResponsiveContainer width="100%" height={280}>
             <PieChart>
               <Pie data={charts.faculty_demographics} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={4} dataKey="value" stroke="none" label={renderCustomizedLabel} labelLine={false} cursor="pointer" onClick={(data) => handleChartClick('Faculty', data.payload)}>
                 {charts.faculty_demographics?.map((e, i) => <Cell key={i} fill={COLORS[(i+2) % COLORS.length]} />)}
@@ -248,8 +351,8 @@ const DashboardHome = () => {
           </ResponsiveContainer>
         </BentoChart>
 
-        <BentoChart title="Subject Distribution" spanClass="col-span-4" data={charts.subject_distribution} icon={PieIcon} delay={0.8}>
-          <ResponsiveContainer width="100%" height="100%">
+        <BentoChart title="Subject Distribution" spanClass="col-span-4" data={charts.subject_distribution} icon={PieIcon} delay={0.74}>
+          <ResponsiveContainer width="100%" height={280}>
             <PieChart>
               <Pie data={charts.subject_distribution} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={4} dataKey="value" stroke="none" label={renderCustomizedLabel} labelLine={false} cursor="pointer" onClick={(data) => handleChartClick('Subjects', data.payload)}>
                 {charts.subject_distribution?.map((e, i) => <Cell key={i} fill={COLORS[(i+4) % COLORS.length]} />)}
@@ -259,9 +362,9 @@ const DashboardHome = () => {
           </ResponsiveContainer>
         </BentoChart>
 
-        {/* TOP PERFORMING CLASSES */}
-        <BentoChart title="Top Performing Classes" spanClass="col-span-6" data={topClassesData} icon={Activity} delay={0.85}>
-          <ResponsiveContainer width="100%" height="100%">
+        {/* ROW 4: Deep Dives */}
+        <BentoChart title="Top Performing Classes" spanClass="col-span-6" data={topClassesData} icon={Activity} delay={0.76}>
+          <ResponsiveContainer width="100%" height={280}>
             <RadialBarChart cx="40%" cy="50%" innerRadius="20%" outerRadius="100%" barSize={16} data={topClassesData}>
               <RadialBar minAngle={15} background={{ fill: 'var(--bg-input)' }} clockWise dataKey="attendance" cornerRadius={10} cursor="pointer" onClick={(data) => handleChartClick('Top Class', data.payload)} />
               <Legend iconSize={12} layout="vertical" verticalAlign="middle" wrapperStyle={{ right: 0, color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.9rem' }} />
@@ -270,9 +373,8 @@ const DashboardHome = () => {
           </ResponsiveContainer>
         </BentoChart>
 
-        {/* FACULTY WORKLOAD */}
-        <BentoChart title="Faculty Workload (Allocations)" spanClass="col-span-6" data={charts.workload} icon={BarChart2} delay={0.9}>
-          <ResponsiveContainer width="100%" height="100%">
+        <BentoChart title="Faculty Workload (Allocations)" spanClass="col-span-6" data={charts.workload} icon={BarChart2} delay={0.78}>
+          <ResponsiveContainer width="100%" height={280}>
             <BarChart layout="vertical" data={charts.workload} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
               <XAxis type="number" hide />
               <YAxis dataKey="name" type="category" width={120} tick={{ fill: "var(--text-primary)", fontWeight: 600, fontSize: 11 }} tickLine={false} axisLine={false} />
@@ -286,7 +388,7 @@ const DashboardHome = () => {
 
       </div>
 
-      {/* DRILL DOWN MODAL WITH SEARCH */}
+      {/* DRILL DOWN MODAL */}
       <AnimatePresence>
         {drillDown && (
           <div className="modal-overlay" onClick={() => setDrillDown(null)}>
@@ -303,15 +405,9 @@ const DashboardHome = () => {
                 <p>Results Found</p>
               </div>
 
-              {/* SEARCH BAR */}
               <div className="drill-search-bar">
                 <Search size={18} className="text-muted" />
-                <input 
-                  type="text" 
-                  placeholder="Search list..." 
-                  value={searchQuery} 
-                  onChange={(e) => setSearchQuery(e.target.value)} 
-                />
+                <input type="text" placeholder="Search list..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
               </div>
 
               <div className="drill-list-container">
@@ -320,11 +416,32 @@ const DashboardHome = () => {
                     filteredDrillDown.map((item, idx) => (
                       <li key={idx}>
                         <span className="item-name">{item.name}</span>
-                        <span className="item-value">{item.value}</span>
+                        
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          {item.status && (
+                            <span style={{
+                                fontSize: '0.75rem',
+                                fontWeight: 600,
+                                padding: '3px 10px',
+                                borderRadius: '12px',
+                                ...(item.status === 'In Progress' || item.status === 'Pending' 
+                                  ? { background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' } 
+                                  : item.status === 'Pass' 
+                                  ? { background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' } 
+                                  : { background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' })
+                            }}>
+                              {item.status}
+                            </span>
+                          )}
+                          
+                          <span className="item-value">{item.value}</span>
+                        </div>
                       </li>
                     ))
                   ) : (
-                    <li className="no-results">No matches found for "{searchQuery}"</li>
+                    <li className="no-results" style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                      No matches found for "{searchQuery}"
+                    </li>
                   )}
                 </ul>
               </div>

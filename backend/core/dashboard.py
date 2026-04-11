@@ -3,7 +3,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from core.models import Student, UserProfile, Course, TeachingAllocation, Department
 from attendance.models import ClassSession, AttendanceRecord
-from django.db.models import Count, Q
+from results.models import InternalAssessment
+from django.db.models import Count, Q, Avg
 
 class AdvancedDashboardView(APIView):
     permission_classes = [IsAuthenticated]
@@ -13,19 +14,12 @@ class AdvancedDashboardView(APIView):
         dept_id = request.headers.get('X-Department-Id')
         ay_id = request.headers.get('X-Academic-Year-Id')
         study_year = request.query_params.get('year', 'ALL')
-        
-        # 1. React now explicitly sends ODD, EVEN, or BOTH
         req_term = request.query_params.get('term', 'ODD').upper().strip()
 
-        # ==========================================
-        # 0. STRICT MULTI-TENANT ISOLATION
-        # ==========================================
         org = user_profile.organization
-        
         if not org:
             return Response({"error": "User does not belong to any organization."}, status=403)
 
-        # 1. Base Querysets
         students = Student.objects.filter(organization=org, is_active=True)
         faculty = UserProfile.objects.filter(organization=org, role__in=['FACULTY', 'HOD'], user__is_active=True)
         courses = Course.objects.filter(department__organization=org)
@@ -36,7 +30,6 @@ class AdvancedDashboardView(APIView):
             students = students.filter(Q(academic_year_id=ay_id) | Q(studentgroup__academic_year_id=ay_id)).distinct()
             allocations = allocations.filter(academic_year_id=ay_id)
 
-        # 2. Department Lock
         if user_profile.role in ['HOD', 'FACULTY'] or (dept_id and dept_id != 'ALL'):
             target_dept = user_profile.department_id if user_profile.role in ['HOD', 'FACULTY'] else dept_id
             students = students.filter(department_id=target_dept)
@@ -45,20 +38,13 @@ class AdvancedDashboardView(APIView):
             allocations = allocations.filter(subject__department_id=target_dept)
             departments = departments.filter(id=target_dept)
 
-        # ==========================================
-        # 3. SMART YEAR & TERM INTERSECTION FILTER
-        # ==========================================
         year_map = {'FE': [1, 2], 'SE': [3, 4], 'TE': [5, 6], 'BE': [7, 8], 'ALL': [1,2,3,4,5,6,7,8,9,10]}
         year_sems = year_map.get(study_year, [1,2,3,4,5,6,7,8,9,10])
 
-        if req_term == 'ODD':
-            term_sems = [1, 3, 5, 7, 9]
-        elif req_term == 'EVEN':
-            term_sems = [2, 4, 6, 8, 10]
-        else: # 'BOTH'
-            term_sems = [1,2,3,4,5,6,7,8,9,10]
+        if req_term == 'ODD': term_sems = [1, 3, 5, 7, 9]
+        elif req_term == 'EVEN': term_sems = [2, 4, 6, 8, 10]
+        else: term_sems = [1,2,3,4,5,6,7,8,9,10]
 
-        # Intersect the selected year with the selected term
         valid_sems = list(set(year_sems) & set(term_sems))
 
         if valid_sems:
@@ -68,9 +54,7 @@ class AdvancedDashboardView(APIView):
 
         total_students = students.count()
 
-        # ==========================================
-        # REAL ATTENDANCE CALCULATIONS
-        # ==========================================
+        # --- ATTENDANCE ---
         sessions = ClassSession.objects.filter(allocation__in=allocations)
         records = AttendanceRecord.objects.filter(session__in=sessions, student__in=students).select_related('student', 'session')
         
@@ -95,75 +79,49 @@ class AdvancedDashboardView(APIView):
             for r in day_records:
                 d_total += r.session.lecture_count
                 if r.status in valid_present: d_pres += r.session.lecture_count
-                
             att_pct = round((d_pres / d_total * 100) if d_total > 0 else 0, 1)
             trend_data.append({
                 "date": d.strftime('%b %d'), "attendance": att_pct,
                 "details": [{"name": "Attendance Info", "value": f"{d_pres} hours present out of {d_total} total hours"}]
             })
 
-        # ==========================================
-        # OVERALL DEFAULTERS & TOP CLASSES
-        # ==========================================
         student_ledger = {}
         for rec in records:
             sid = rec.student.id
             if sid not in student_ledger:
                 sem = rec.student.current_semester
                 y_key = 'FE' if sem in [1,2] else 'SE' if sem in [3,4] else 'TE' if sem in [5,6] else 'BE'
-                student_ledger[sid] = {
-                    'name': rec.student.full_name,
-                    'y_key': y_key,
-                    'total_hrs': 0,
-                    'pres_hrs': 0
-                }
-            
+                student_ledger[sid] = {'name': rec.student.full_name, 'y_key': y_key, 'total_hrs': 0, 'pres_hrs': 0}
             hrs = rec.session.lecture_count
             student_ledger[sid]['total_hrs'] += hrs
-            if rec.status in valid_present:
-                student_ledger[sid]['pres_hrs'] += hrs
+            if rec.status in valid_present: student_ledger[sid]['pres_hrs'] += hrs
 
         class_stats = {
-            'FE': {'total_hrs': 0, 'pres_hrs': 0, 'defaulters': []},
-            'SE': {'total_hrs': 0, 'pres_hrs': 0, 'defaulters': []},
-            'TE': {'total_hrs': 0, 'pres_hrs': 0, 'defaulters': []},
-            'BE': {'total_hrs': 0, 'pres_hrs': 0, 'defaulters': []}
+            'FE': {'total_hrs': 0, 'pres_hrs': 0, 'defaulters': []}, 'SE': {'total_hrs': 0, 'pres_hrs': 0, 'defaulters': []},
+            'TE': {'total_hrs': 0, 'pres_hrs': 0, 'defaulters': []}, 'BE': {'total_hrs': 0, 'pres_hrs': 0, 'defaulters': []}
         }
 
         for sid, data in student_ledger.items():
             y_key = data['y_key']
             class_stats[y_key]['total_hrs'] += data['total_hrs']
             class_stats[y_key]['pres_hrs'] += data['pres_hrs']
-            
             if data['total_hrs'] > 0:
                 overall_pct = round((data['pres_hrs'] / data['total_hrs']) * 100, 1)
                 if overall_pct < 75.0:
-                    class_stats[y_key]['defaulters'].append({
-                        "name": data['name'], 
-                        "value": f"{overall_pct}% (Attended {data['pres_hrs']} / {data['total_hrs']} hrs)"
-                    })
+                    class_stats[y_key]['defaulters'].append({"name": data['name'], "value": f"{overall_pct}%"})
 
         defaulters_matrix = []
         top_classes = []
-        
         for cls, data in class_stats.items():
             if data['total_hrs'] > 0:
                 cls_att = round((data['pres_hrs'] / data['total_hrs']) * 100, 1)
                 top_classes.append({"name": cls, "attendance": cls_att, "details": [{"name": "Class Average", "value": f"{cls_att}%"}]})
-                
                 if len(data['defaulters']) > 0:
                     sorted_defs = sorted(data['defaulters'], key=lambda x: float(x['value'].split('%')[0]))
-                    defaulters_matrix.append({
-                        "class": cls, 
-                        "defaulters": len(sorted_defs), 
-                        "details": sorted_defs
-                    })
-        
+                    defaulters_matrix.append({"class": cls, "defaulters": len(sorted_defs), "details": sorted_defs})
         top_classes = sorted(top_classes, key=lambda x: x['attendance'], reverse=True)
 
-        # ==========================================
-        # AGGREGATIONS & DEMOGRAPHICS
-        # ==========================================
+        # --- DEMOGRAPHICS ---
         m_students = [{"name": s.full_name, "value": "Male"} for s in students if s.gender in ['Male', 'M']]
         f_students = [{"name": s.full_name, "value": "Female"} for s in students if s.gender in ['Female', 'F']]
         demographics = []
@@ -175,7 +133,6 @@ class AdvancedDashboardView(APIView):
             d = f.designation if f.designation else "Faculty"
             if d not in fac_designations: fac_designations[d] = []
             fac_designations[d].append({"name": f.user.get_full_name() or "Staff", "value": d})
-            
         fac_demographics = [{"name": desig.replace('_', ' ').title(), "value": len(lst), "details": lst} for desig, lst in fac_designations.items()]
 
         subj_dict = {}
@@ -192,6 +149,72 @@ class AdvancedDashboardView(APIView):
             if fname not in wl_dict: wl_dict[fname] = []
             wl_dict[fname].append({"name": a.subject.name, "value": "Allocated"})
         workload = sorted([{"name": k, "Load": len(v), "details": v} for k, v in wl_dict.items()], key=lambda x: x['Load'], reverse=True)[:6]
+
+        # ==========================================
+        # 🚨 EXACT SUBJECT-LEVEL ANALYTICS
+        # ==========================================
+        assessments = InternalAssessment.objects.filter(
+            student__organization=org, 
+            academic_year_id=ay_id,
+            subject__in=courses
+        ).select_related('student', 'subject', 'subject__department')
+        
+        if req_term != 'BOTH': 
+            assessments = assessments.filter(term=req_term)
+
+        subject_data = {}
+        for a in assessments:
+            subj_code = a.subject.code
+            if subj_code not in subject_data:
+                subject_data[subj_code] = {
+                    "name": subj_code,
+                    "full_name": a.subject.name,
+                    "dept_id": a.subject.department.code if a.subject.department else "ALL",
+                    "total_score": 0,
+                    "valid_count": 0,
+                    "pass_details": [],
+                    "fail_details": [],
+                    "pending_details": []
+                }
+            
+            c_count = (1 if a.it1 is not None else 0) + (1 if a.it2 is not None else 0) + (1 if a.it3 is not None else 0)
+            
+            if c_count > 0:
+                subject_data[subj_code]["total_score"] += float(a.final_score or 0)
+                subject_data[subj_code]["valid_count"] += 1
+                
+                if a.is_passing:
+                    subject_data[subj_code]["pass_details"].append({
+                        "name": a.student.full_name, "value": f"{a.final_score} / 25", "status": "Pass"
+                    })
+                elif c_count > 1:
+                    subject_data[subj_code]["fail_details"].append({
+                        "name": a.student.full_name, "value": f"{a.final_score} / 25", "status": "Fail"
+                    })
+                else:
+                    subject_data[subj_code]["pending_details"].append({
+                        "name": a.student.full_name, "value": f"{a.final_score} / 25", "status": "In Progress"
+                    })
+            else:
+                subject_data[subj_code]["pending_details"].append({
+                    "name": a.student.full_name, "value": "Not Conducted", "status": "Pending"
+                })
+
+        subject_performance = []
+        for code, data in subject_data.items():
+            # 🚨 FIX: Combine all the details so the modal has data to display!
+            all_details = data["pass_details"] + data["fail_details"] + data["pending_details"]
+            
+            subject_performance.append({
+                "name": data["name"],
+                "full_name": data["full_name"],
+                "dept_id": data["dept_id"],
+                "Average Score": round(data["total_score"] / data["valid_count"], 2) if data["valid_count"] > 0 else 0,
+                "pass_details": data["pass_details"],
+                "fail_details": data["fail_details"],
+                "pending_details": data["pending_details"],
+                "details": sorted(all_details, key=lambda x: x["name"]) # <-- Added this back!
+            })
 
         student_list = [{"name": s.full_name, "value": s.enrollment_number} for s in students[:100]]
         faculty_list = [{"name": f.user.get_full_name(), "value": f.department.code if f.department else ''} for f in faculty[:100]]
@@ -213,6 +236,7 @@ class AdvancedDashboardView(APIView):
                 "workload": workload,
                 "attendance_trend": trend_data,
                 "defaulters_matrix": defaulters_matrix,
-                "top_classes": top_classes
+                "top_classes": top_classes,
+                "subject_performance": subject_performance 
             }
         })
