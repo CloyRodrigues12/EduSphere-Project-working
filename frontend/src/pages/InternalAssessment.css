@@ -188,84 +188,91 @@ display:flex;
 gap:6px;
 cursor:pointer;
 }
-
 /* Table */
 
-.table-wrapper{
-background:white;
-border-radius:12px;
-overflow:hidden;
-box-shadow:0 6px 18px rgba(0,0,0,0.06);
+.table-wrapper {
+  background: var(--bg-card); /* 🚨 Replaced hardcoded white */
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--border-color); /* Added subtle border for dark mode definition */
 }
 
-.marks-table{
-width:100%;
-border-collapse:collapse;
+.marks-table {
+  width: 100%;
+  border-collapse: collapse;
 }
 
 /* Table header */
 
-.marks-table th{
-background:#f9fafb;
-padding:14px;
-text-align:left;
-font-size:14px;
+.marks-table th {
+  background: var(--bg-input); /* 🚨 Replaced hardcoded #f9fafb */
+  color: var(--text-primary); /* 🚨 Ensure text is visible in dark mode */
+  padding: 14px;
+  text-align: left;
+  font-size: 14px;
+  border-bottom: 1px solid var(--border-color); /* Added to separate header */
 }
 
 /* Table rows */
 
-.marks-table td{
-padding:12px;
-border-top:1px solid #f3f4f6;
-font-size:14px;
+.marks-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-color); /* 🚨 Replaced hardcoded #eee */
+  color: var(--text-secondary); /* 🚨 Ensure text adapts to theme */
+  vertical-align: middle; /* Ensures badges and text align nicely */
 }
 
-/* Input */
-
-.marks-table input{
-width:70px;
-padding:6px;
-border:1px solid #e5e7eb;
-border-radius:6px;
-text-align:center;
+.marks-table tbody tr {
+  transition: background-color 0.2s ease;
 }
 
-/* Pass / Fail */
-
-.pass{
-color:#059669;
-font-weight:600;
+.marks-table tbody tr:hover {
+  background-color: var(--bg-input); /* 🚨 Replaced hardcoded #f9fafb */
 }
 
-.fail{
-color:#dc2626;
-font-weight:600;
+/* Ensure the names stand out slightly */
+.marks-table td.font-medium {
+  color: var(--text-primary);
+  font-weight: 500;
 }
 
-/* Status badge */
-
-.status{
-padding:4px 10px;
-border-radius:20px;
-font-size:12px;
-font-weight:600;
+/* Standard Input Overrides for Table */
+.marks-table .standard-input {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 6px;
+  transition: all 0.2s ease;
 }
 
-.status.pass{
-background:#d1fae5;
-color:#059669;
+.marks-table .standard-input:focus {
+  border-color: var(--primary-color);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
 }
 
-.status.fail{
-background:#fee2e2;
-color:#dc2626;
+.marks-table .standard-input:disabled {
+  background: var(--bg-input);
+  cursor: not-allowed;
+  opacity: 0.7;
 }
 
-/* Loader */
+/* Hide number arrows for clean look */
+.marks-table .standard-input::-webkit-outer-spin-button,
+.marks-table .standard-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.marks-table .standard-input[type=number] {
+  -moz-appearance: textfield;
+}
 
-.loader{
-padding:40px;
-text-align:center;
-font-size:15px;
-color:#6b7280;
+/* Empty State / Loading State */
+.loader {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-secondary);
+  font-size: 16px;
 }

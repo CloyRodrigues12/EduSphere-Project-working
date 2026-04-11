@@ -1,4 +1,3 @@
-# backend/results/views.py
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -18,7 +17,6 @@ class InternalAssessmentView(APIView):
         even_sems = [2, 4, 6, 8]
         target_sems = odd_sems if term == 'ODD' else even_sems
 
-        # ---> ADDED: .exclude(subject__subject_type='LAB') <---
         allocations = TeachingAllocation.objects.filter(
             academic_year_id=ay_id,
             subject__semester__in=target_sems
@@ -26,7 +24,6 @@ class InternalAssessmentView(APIView):
             subject__subject_type='LAB'
         ).select_related('subject', 'faculty__user', 'student_group')
 
-        # Strict RBAC Isolation
         if user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']:
             allocations = allocations.filter(faculty__organization=user_profile.organization)
         elif user_profile.role == 'HOD':
@@ -79,7 +76,6 @@ class SaveInternalMarksView(APIView):
         try:
             allocation = TeachingAllocation.objects.get(id=allocation_id)
             
-            # ---> THE INTERCEPTOR: Destroys empty strings before Model Validation
             def clean_mark(val):
                 if val in ["", "null", None]:
                     return None
@@ -93,6 +89,7 @@ class SaveInternalMarksView(APIView):
                 if not s_id: 
                     continue
                     
+                # 🚨 FIX: We now explicitly grab the final_score calculated by React
                 InternalAssessment.objects.update_or_create(
                     student_id=s_id,
                     subject=allocation.subject,
@@ -102,6 +99,8 @@ class SaveInternalMarksView(APIView):
                         'it1': clean_mark(item.get('it1')),
                         'it2': clean_mark(item.get('it2')),
                         'it3': clean_mark(item.get('it3')),
+                        'final_score': float(item.get('final_score', 0.0)), # Grabs React's math
+                        'is_passing': bool(item.get('is_passing', False))   # Grabs React's math
                     }
                 )
             return Response({"message": "Marks updated successfully!"})

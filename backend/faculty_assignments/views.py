@@ -120,27 +120,35 @@ class MyClassDashboardView(APIView):
         if not ct:
             return Response({"is_class_teacher": False})
 
-        # --- SMART TERM FILTERING ---
-        # Look for term in query params first, fallback to header, default to ODD
         term = request.GET.get('term', request.headers.get('X-Term', 'ODD')).upper()
         valid_sems = [1, 3, 5, 7, 9] if term == 'ODD' else [2, 4, 6, 8, 10]
 
         sem_map = {'FE': [1, 2], 'SE': [3, 4], 'TE': [5, 6], 'BE': [7, 8]}
         sems = sem_map.get(ct.year_level, [])
-        
         active_sems = list(set(sems) & set(valid_sems))
 
-        students = Student.objects.filter(
+        # ---> THE FIX: Pull students based on their Group Enrollments for this term, 
+        # not just their isolated profile semester.
+        from core.models import StudentGroup
+        
+        # Find all groups belonging to this Class Teacher's department and active semesters
+        relevant_groups = StudentGroup.objects.filter(
+            academic_year_id=ay_id,
             department=ct.department,
-            current_semester__in=active_sems,
-            is_active=True
-        ).prefetch_related('mentorship__mentor__user').order_by('roll_number')
+            semester__in=active_sems
+        )
 
-        # 1. Fetch Attendance
+        # Get all active students enrolled in ANY of those groups
+        students = Student.objects.filter(
+            studentgroup__in=relevant_groups,
+            is_active=True
+        ).prefetch_related('mentorship__mentor__user').distinct().order_by('roll_number')
+
+        # 1. Fetch Attendance (Only for the relevant groups/allocations)
         records = AttendanceRecord.objects.filter(
             student__in=students,
             session__allocation__academic_year_id=ay_id,
-            session__allocation__subject__semester__in=valid_sems
+            session__allocation__subject__semester__in=active_sems
         ).select_related('session')
 
         student_stats = {s.id: {"ta": 0, "tc": 0} for s in students}
@@ -150,7 +158,7 @@ class MyClassDashboardView(APIView):
                 if r.status in ['PRESENT', 'LATE'] or r.status.startswith('DUTY'):
                     student_stats[r.student_id]["ta"] += r.session.lecture_count
 
-        # 2. Fetch Internal Marks for this Term efficiently
+        # 2. Fetch Internal Marks
         marks_records = InternalAssessment.objects.filter(
             student__in=students,
             academic_year_id=ay_id,
@@ -159,10 +167,16 @@ class MyClassDashboardView(APIView):
 
         student_marks_map = {s.id: [] for s in students}
         for record in marks_records:
+            conducted = sum(1 for m in [record.it1, record.it2, record.it3] if m is not None)
             student_marks_map[record.student_id].append({
                 "name": record.subject.name,
                 "code": record.subject.code,
-                "marks": record.final_score
+                "it1": record.it1,
+                "it2": record.it2,
+                "it3": record.it3,
+                "marks": record.final_score,
+                "is_passing": record.is_passing,
+                "conducted": conducted
             })
 
         student_data = []
@@ -198,7 +212,7 @@ class MyClassDashboardView(APIView):
                 "percentage": perc,
                 "status": status_label,
                 "mentor_name": mentor_name,
-                "subject_marks": student_marks_map[student.id] # Append marks here!
+                "subject_marks": student_marks_map[student.id]
             })
 
         chart_data = [
