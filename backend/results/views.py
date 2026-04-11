@@ -78,13 +78,33 @@ class SaveInternalMarksView(APIView):
 
         try:
             allocation = TeachingAllocation.objects.get(id=allocation_id)
+            
+            # ---> THE INTERCEPTOR: Destroys empty strings before Model Validation
+            def clean_mark(val):
+                if val in ["", "null", None]:
+                    return None
+                try:
+                    return float(val)
+                except (ValueError, TypeError):
+                    return None
+
             for item in marks_list:
                 s_id = item.get('student') or item.get('student_id')
-                if not s_id: continue
+                if not s_id: 
+                    continue
+                    
                 InternalAssessment.objects.update_or_create(
-                    student_id=s_id, subject=allocation.subject, academic_year=allocation.academic_year, term=term,
-                    defaults={'it1': item.get('it1'), 'it2': item.get('it2'), 'it3': item.get('it3')}
+                    student_id=s_id,
+                    subject=allocation.subject,
+                    academic_year=allocation.academic_year,
+                    term=term,
+                    defaults={
+                        'it1': clean_mark(item.get('it1')),
+                        'it2': clean_mark(item.get('it2')),
+                        'it3': clean_mark(item.get('it3')),
+                    }
                 )
             return Response({"message": "Marks updated successfully!"})
         except Exception as e:
+            print("SAVE MARKS ERROR:", str(e)) 
             return Response({"error": str(e)}, status=500)

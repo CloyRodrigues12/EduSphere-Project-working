@@ -208,10 +208,8 @@ export const assignmentService = {
   deleteClassTeacher: (id) => api.delete(`/assignments/class-teachers/?id=${id}`),
   getClassTeacherStudents: (ctId) => api.get(`/assignments/class-teachers/students/?ct_id=${ctId}`),
 
-  getMyClassDashboard: (ayId) => api.get(`/assignments/my-class/?academic_year=${ayId}`),
+  getMyClassDashboard: (ayId, term) => api.get(`/assignments/my-class/?academic_year=${ayId}&term=${term}`),
   
-  // NOTE: Mentor endpoints were removed from here and moved to counsellingService
-
   // MENTOR DASHBOARD CALLS (Used by standard faculty to view their mentees)
   getMyMenteesDashboard: (ayId) => api.get(`/assignments/my-mentees/?academic_year=${ayId}`),
   getMenteeSubjectAttendance: (studentId, ayId) => api.get(`/assignments/my-mentees/subjects/?student_id=${studentId}&academic_year=${ayId}`),

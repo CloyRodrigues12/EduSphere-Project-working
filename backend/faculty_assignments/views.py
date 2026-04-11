@@ -8,6 +8,7 @@ from counselling.models import Mentorship
 from .serializers import ClassTeacherSerializer
 
 from attendance.models import AttendanceRecord
+from results.models import InternalAssessment
 
 class ClassTeacherManagerView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -102,6 +103,8 @@ class ClassTeacherStudentListView(APIView):
         except ClassTeacher.DoesNotExist:
             return Response({"error": "Class Teacher assignment not found."}, status=404)
 
+
+
 class MyClassDashboardView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -118,13 +121,13 @@ class MyClassDashboardView(APIView):
             return Response({"is_class_teacher": False})
 
         # --- SMART TERM FILTERING ---
-        term = request.headers.get('X-Term', 'ODD')
+        # Look for term in query params first, fallback to header, default to ODD
+        term = request.GET.get('term', request.headers.get('X-Term', 'ODD')).upper()
         valid_sems = [1, 3, 5, 7, 9] if term == 'ODD' else [2, 4, 6, 8, 10]
 
         sem_map = {'FE': [1, 2], 'SE': [3, 4], 'TE': [5, 6], 'BE': [7, 8]}
         sems = sem_map.get(ct.year_level, [])
         
-        # Intersect the Year Level with the Term (e.g. SE + ODD = Semester 3)
         active_sems = list(set(sems) & set(valid_sems))
 
         students = Student.objects.filter(
@@ -133,7 +136,7 @@ class MyClassDashboardView(APIView):
             is_active=True
         ).prefetch_related('mentorship__mentor__user').order_by('roll_number')
 
-        # ONLY fetch attendance for subjects in the current term
+        # 1. Fetch Attendance
         records = AttendanceRecord.objects.filter(
             student__in=students,
             session__allocation__academic_year_id=ay_id,
@@ -146,6 +149,21 @@ class MyClassDashboardView(APIView):
                 student_stats[r.student_id]["tc"] += r.session.lecture_count
                 if r.status in ['PRESENT', 'LATE'] or r.status.startswith('DUTY'):
                     student_stats[r.student_id]["ta"] += r.session.lecture_count
+
+        # 2. Fetch Internal Marks for this Term efficiently
+        marks_records = InternalAssessment.objects.filter(
+            student__in=students,
+            academic_year_id=ay_id,
+            term=term
+        ).select_related('subject')
+
+        student_marks_map = {s.id: [] for s in students}
+        for record in marks_records:
+            student_marks_map[record.student_id].append({
+                "name": record.subject.name,
+                "code": record.subject.code,
+                "marks": record.final_score
+            })
 
         student_data = []
         safe, at_risk, defaulters = 0, 0, 0
@@ -179,7 +197,8 @@ class MyClassDashboardView(APIView):
                 "tc": tc,
                 "percentage": perc,
                 "status": status_label,
-                "mentor_name": mentor_name
+                "mentor_name": mentor_name,
+                "subject_marks": student_marks_map[student.id] # Append marks here!
             })
 
         chart_data = [
@@ -205,7 +224,6 @@ class MyClassDashboardView(APIView):
             "chartData": chart_data,
             "students": student_data
         })
-        
         
 class MyMenteesDashboardView(APIView):
     permission_classes = [permissions.IsAuthenticated]

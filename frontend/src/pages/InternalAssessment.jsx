@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Save, Download } from "lucide-react";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
 import { resultsService, academicService } from "../services/api";
 import { useAcademic } from "../context/AcademicContext";
 import { useAuth } from "../context/AuthContext";
+import { ArrowLeft, Save, Download, CheckCircle, AlertTriangle } from "lucide-react";
 
 import "./InternalAssessment.css";
 
@@ -19,6 +19,12 @@ const [selectedClass,setSelectedClass] = useState(null);
 const [students,setStudents] = useState([]);
 const [loading,setLoading] = useState(false);
 
+const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+
+  const showToast = (message, type = "success") => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: "", type: "" }), 3000);
+  };
 
 /* ---------------- LOAD CLASSES ---------------- */
 
@@ -54,102 +60,88 @@ const loadClasses = async () => {
     console.error("Error loading classes:", err);
   }
 };
-
 /* ---------------- LOAD MARKS ---------------- */
+const loadMarksheet = async(allocation) => {
+  setSelectedClass(allocation);
+  setLoading(true);
 
-const loadMarksheet = async(allocation)=>{
+  try {
+    // 🚨 FIX: You MUST pass activeTerm here so we load the exact same term we saved!
+    const res = await resultsService.getMarksheet(allocation.id, activeTerm);
 
-setSelectedClass(allocation);
-setLoading(true);
+    const processedStudents = res.data.map(student => {
+      const marks = [
+        student.it1 || 0,
+        student.it2 || 0,
+        student.it3 || 0
+      ].sort((a,b)=>b-a);
 
-try{
+      const final = Number(((marks[0] + marks[1]) / 2).toFixed(2));
 
-const res = await resultsService.getMarksheet(allocation.id);
+      return {
+        ...student,
+        final_score: final,
+        is_passing: final >= 10
+      };
+    });
 
-const processedStudents = res.data.map(student => {
-
-const marks = [
-student.it1 || 0,
-student.it2 || 0,
-student.it3 || 0
-].sort((a,b)=>b-a);
-
-const final = Number(((marks[0] + marks[1]) / 2).toFixed(2));
-
-return {
-...student,
-final_score: final,
-is_passing: final >= 10
-};
-
-});
-
-setStudents(processedStudents);
-
-}catch(err){
-console.log("Error loading marks",err);
-}
-
-setLoading(false);
-
+    setStudents(processedStudents);
+  } catch(err) {
+    console.log("Error loading marks", err);
+  }
+  setLoading(false);
 };
 
 
 /* ---------------- EDIT MARKS ---------------- */
+const handleMarkChange = (targetStudentId, field, value) => {
+    let rawValue = value;
 
-const handleMarkChange=(studentId,field,value)=>{
+    if (rawValue !== "") {
+      if (parseFloat(rawValue) > 25) rawValue = "25";
+      if (parseFloat(rawValue) < 0) rawValue = "0";
+    }
 
-const num = value === "" ? null : parseFloat(value);
-
-if(num!==null && (num>25 || num<0)) return;
-
-setStudents(prev =>
- prev.map(s=>{
-
-  if(s.student_id===studentId){
-
-   const updated={...s,[field]:num};
-
-   const marks=[
-     updated.it1 || 0,
-     updated.it2 || 0,
-     updated.it3 || 0
-   ].sort((a,b)=>b-a);
-
-   updated.final_score = Number(((marks[0]+marks[1])/2).toFixed(2));
-   updated.is_passing = updated.final_score >= 10;
-
-   return updated;
-  }
-
-  return s;
-
- })
-);
-
-};
-
+    setStudents(prev => prev.map(s => {
+      if (s.student === targetStudentId) {
+        // If the box is empty, strictly set it to null so the Django float field doesn't crash
+        const updated = { ...s, [field]: rawValue === "" ? null : rawValue };
+        
+        const v1 = parseFloat(updated.it1) || 0;
+        const v2 = parseFloat(updated.it2) || 0;
+        const v3 = parseFloat(updated.it3) || 0;
+        
+        const marks = [v1, v2, v3].sort((a, b) => b - a);
+        updated.final_score = Number(((marks[0] + marks[1]) / 2).toFixed(2));
+        updated.is_passing = updated.final_score >= 10;
+        
+        return updated;
+      }
+      return s;
+    }));
+  };
 
 /* ---------------- SAVE MARKS ---------------- */
+  const handleSave = async () => {
+    try {
+      // Clean the payload: Convert strings to strict Numbers before sending to Django
+      const payloadStudents = students.map(s => ({
+        ...s,
+        it1: (s.it1 === null || s.it1 === "") ? null : Number(s.it1),
+        it2: (s.it2 === null || s.it2 === "") ? null : Number(s.it2),
+        it3: (s.it3 === null || s.it3 === "") ? null : Number(s.it3),
+      }));
 
-const handleSave = async()=>{
-
-try{
-
-await resultsService.saveMarks({
-allocation_id:selectedClass.id,
-marks:students
-});
-
-alert("Marks saved successfully");
-
-}catch(err){
-
-alert("Failed to save");
-
-}
-
-};
+      await resultsService.saveMarks({
+        allocation_id: selectedClass.id,
+        term: activeTerm,
+        marks: payloadStudents
+      });
+      showToast("Marks saved successfully!", "success");
+    } catch (err) {
+      showToast(err.response?.data?.error || "Failed to save marks.", "error");
+    }
+  };
 
 
 /* ---------------- DOWNLOAD REPORT ---------------- */
@@ -236,8 +228,6 @@ doc.save(`${selectedClass.subject_name}_Internal_Report.pdf`);
 
 
 /* ---------------- CLASS SCREEN ---------------- */
-
-/* ---------------- CLASS SCREEN ---------------- */
 if (!selectedClass) {
   return (
     // Wrap in this ID to activate your Attendance CSS
@@ -301,6 +291,11 @@ if (!selectedClass) {
 
 return (
   <div id="attendance-engine-root" className="assessment-container fade-in">
+
+    <div className={`toast-notification ${toast.type} ${toast.show ? "show" : ""}`}>
+        {toast.type === "success" ? <CheckCircle size={18} /> : <AlertTriangle size={18} />}
+        <span>{toast.message}</span>
+      </div>
     
     <div className="att-header-section with-back" style={{ marginBottom: '2rem' }}>
       <button
@@ -355,62 +350,73 @@ return (
 <th>Status</th>
 </tr>
 </thead>
-
 <tbody>
+  {students.map((s, index) => (
+    // 🚨 FIX: Use s.student as the key
+    <tr key={s.student}>
+      <td>{index + 1}</td>
+      <td className="font-medium">{s.roll_number}</td>
+      <td className="font-medium">{s.student_name}</td>
 
-{students.map((s,index)=>(
+      <td>
+        <input
+          className="standard-input"
+          style={{ width: "80px", textAlign: "center" }}
+          type="number"
+          min="0"
+          max="25"
+          step="0.5"
+          value={s.it1 ?? ""}
+          disabled={user?.role_code !== "FACULTY"}
+          onWheel={(e) => e.target.blur()} 
+          // 🚨 FIX: Pass s.student instead of s.student_id
+          onChange={(e) => handleMarkChange(s.student, "it1", e.target.value)}
+        />
+      </td>
 
-<tr key={s.student_id}>
+      <td>
+        <input
+          className="standard-input"
+          style={{ width: "80px", textAlign: "center" }}
+          type="number"
+          min="0"
+          max="25"
+          step="0.5"
+          value={s.it2 ?? ""}
+          disabled={user?.role_code !== "FACULTY"}
+          onWheel={(e) => e.target.blur()} 
+          // 🚨 FIX: Pass s.student instead of s.student_id
+          onChange={(e) => handleMarkChange(s.student, "it2", e.target.value)}
+        />
+      </td>
 
-<td>{index+1}</td>
-
-<td>{s.roll_number || s.student_roll_number}</td>
-
-<td>{s.student_name}</td>
-
-<td>
-<input
-type="number"
-value={s.it1 ?? ""}
-disabled={user?.role_code !== "FACULTY"}
-onChange={(e)=>handleMarkChange(s.student_id,"it1",e.target.value)}
-/>
-</td>
-
-<td>
-<input
-type="number"
-value={s.it2 ?? ""}
-disabled={user?.role_code !== "FACULTY"}
-onChange={(e)=>handleMarkChange(s.student_id,"it2",e.target.value)}
-/>
-</td>
-
-<td>
-<input
-type="number"
-value={s.it3 ?? ""}
-disabled={user?.role_code !== "FACULTY"}
-onChange={(e)=>handleMarkChange(s.student_id,"it3",e.target.value)}
-/>
-</td>
-
-<td className={s.is_passing ? "pass":"fail"}>
-{s.final_score}
-</td>
-
-<td>
-<span className={s.is_passing ? "status pass":"status fail"}>
-{s.is_passing ? "PASS":"FAIL"}
-</span>
-</td>
-
-</tr>
-
-))}
-
+      <td>
+        <input
+          className="standard-input"
+          style={{ width: "80px", textAlign: "center" }}
+          type="number"
+          min="0"
+          max="25"
+          step="0.5"
+          value={s.it3 ?? ""}
+          disabled={user?.role_code !== "FACULTY"}
+          onWheel={(e) => e.target.blur()} 
+          // 🚨 FIX: Pass s.student instead of s.student_id
+          onChange={(e) => handleMarkChange(s.student, "it3", e.target.value)}
+        />
+      </td>
+      
+      <td style={{ textAlign: "center", fontSize: "1.1rem" }}>
+        <strong>{s.final_score}</strong>
+      </td>
+      <td style={{ textAlign: "center" }}>
+        <span className={`badge ${s.is_passing ? 'badge-open' : 'badge-designation'}`}>
+          {s.is_passing ? 'Pass' : 'Fail'}
+        </span>
+      </td>
+    </tr>
+  ))}
 </tbody>
-
 </table>
 
 </div>
