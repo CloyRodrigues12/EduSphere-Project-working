@@ -51,7 +51,6 @@ const MyClassDashboard = () => {
         if (realPercentage < 75) status = "Defaulter";
         else if (realPercentage < 80) status = "At Risk";
 
-        // 🚨 THE FIX: Introducing s_on_track so 1-test students aren't falsely "All Clear"
         let s_fail = false; let s_risk = false; let s_pending = true; let s_on_track = false;
         let s_total_score = 0; let s_subjects = 0;
 
@@ -71,7 +70,6 @@ const MyClassDashboard = () => {
                else if (["NEEDS EFFORT", "CRITICAL"].includes(evalRes.status)) s_risk = true;
                else if (evalRes.status === "ON TRACK") s_on_track = true;
            } else {
-               // If they have 0 tests in ANY subject, they can't be "All Clear" yet
                s_on_track = true;
            }
         });
@@ -102,8 +100,6 @@ const MyClassDashboard = () => {
     }
   };
 
-/* ---------------- PDF EXPORTS ---------------- */
-  
   const downloadDefaultersPDF = () => {
     if (!data) return;
     const defaulters = data.students.filter(s => s.percentage < 75);
@@ -111,7 +107,7 @@ const MyClassDashboard = () => {
 
     const doc = new jsPDF();
     doc.setFontSize(18);
-    doc.setTextColor(239, 68, 68); // Red color for defaulters
+    doc.setTextColor(239, 68, 68); 
     doc.text(`Attendance Defaulters List (< 75%) - ${activeTerm} Term`, 14, 20);
 
     autoTable(doc, {
@@ -125,12 +121,11 @@ const MyClassDashboard = () => {
     doc.save(`Attendance_Defaulters_${data.class_info.year_level}.pdf`);
   };
 
-const downloadSubjectWisePDF = () => {
+  const downloadSubjectWisePDF = () => {
     if (!data) return;
     
     const doc = new jsPDF('l', 'mm', 'a4'); 
     
-    // Pure Black & White Report Header
     doc.setFontSize(18);
     doc.setTextColor(0, 0, 0); 
     doc.text("Class Academic Report - Comprehensive Internal Marks", 14, 15);
@@ -142,7 +137,6 @@ const downloadSubjectWisePDF = () => {
 
     const uniqueSubjects = [...new Set((data.students || []).flatMap(s => s.subject_marks?.map(sm => sm.name) || []))];
     
-    // --- BUILD THE NESTED HEADERS ---
     const headRow1 = [
       { content: 'Roll No', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
       { content: 'Name', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } }
@@ -155,7 +149,6 @@ const downloadSubjectWisePDF = () => {
       headRow2.push('IT1', 'IT2', 'IT3', 'Avg');
     });
 
-    // --- BUILD THE DATA ROWS ---
     const tableRows = data.students.map(s => {
       const row = [s.roll_number, s.name];
       
@@ -171,29 +164,28 @@ const downloadSubjectWisePDF = () => {
       return row;
     });
 
-    // --- RENDER THE B&W TABLE ---
     autoTable(doc, { 
       startY: 35, 
       head: [headRow1, headRow2], 
       body: tableRows, 
       theme: 'grid', 
       headStyles: { 
-        fillColor: [240, 240, 240], // Professional light gray background
-        textColor: [0, 0, 0],       // Pure black text
-        lineColor: [0, 0, 0],       // Pure black borders
+        fillColor: [240, 240, 240],
+        textColor: [0, 0, 0],       
+        lineColor: [0, 0, 0],       
         lineWidth: 0.1 
       }, 
       styles: { 
-        fontSize: 8,                // Increased font size
-        cellPadding: 2.5,           // Increased padding for better readability
+        fontSize: 8,                
+        cellPadding: 2.5,           
         halign: 'center',
-        textColor: [0, 0, 0],       // Pure black body text
-        lineColor: [0, 0, 0],       // Pure black body borders
+        textColor: [0, 0, 0],       
+        lineColor: [0, 0, 0],       
         lineWidth: 0.1
       }, 
       columnStyles: {
-        0: { halign: 'center', cellWidth: 20 }, // Roll No column width
-        1: { halign: 'left', cellWidth: 45 },   // Name column width
+        0: { halign: 'center', cellWidth: 20 }, 
+        1: { halign: 'left', cellWidth: 45 },   
       }
     });
 
@@ -254,7 +246,7 @@ const downloadSubjectWisePDF = () => {
     if (s.overall_mark_status === "Pending") mPending++;
     else if (s.overall_mark_status === "Failing") mFail++;
     else if (s.overall_mark_status === "At Risk") mRisk++;
-    else if (s.overall_mark_status === "On Track") mTrack++; // Counts On Track students
+    else if (s.overall_mark_status === "On Track") mTrack++; 
     else mSafe++;
   });
 
@@ -362,7 +354,13 @@ const downloadSubjectWisePDF = () => {
               <div className="scrollable-table-container premium-scroll" style={{ maxHeight: "300px", overflowY: "auto", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
                 <table className="data-table">
                   <thead style={{ position: "sticky", top: 0, zIndex: 1, background: "var(--bg-card)" }}>
-                    <tr><th>Roll No</th><th>Name</th><th className="text-center">%</th><th>Status</th></tr>
+                    <tr>
+                      <th>Roll No</th>
+                      <th>Name</th>
+                      <th className="text-center">%</th>
+                      <th>Status</th>
+                      <th>Mentor</th> {/* 🚨 ADDED MENTOR COLUMN HEADER */}
+                    </tr>
                   </thead>
                   <tbody>
                     {filteredAttStudents.map(s => (
@@ -375,6 +373,7 @@ const downloadSubjectWisePDF = () => {
                             <span className="badge" style={{ background: "rgba(239, 68, 68, 0.1)", color: "#ef4444" }}>{s.status}</span>
                           )}
                         </td>
+                        <td className="text-muted text-sm">{s.mentor_name || "Unassigned"}</td> {/* 🚨 ADDED MENTOR NAME CELL */}
                       </tr>
                     ))}
                   </tbody>
