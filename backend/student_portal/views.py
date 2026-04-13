@@ -104,6 +104,8 @@ class MyStudentDashboardView(APIView):
                 "student_info": {
                     "name": student.full_name,
                     "roll_number": student.roll_number,
+                    "enrollment_number": student.enrollment_number,
+                    
                     "department": student.department.name,
                     "semester": student.current_semester
                 },

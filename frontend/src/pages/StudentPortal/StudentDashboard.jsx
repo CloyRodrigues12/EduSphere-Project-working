@@ -134,7 +134,11 @@ const StudentDashboard = () => {
         <div className="welcome-section">
           <h1>Welcome, <span>{student_info.name.split(' ')[0]}</span> 👋</h1>
           <p>{student_info.department} • Semester {student_info.semester} • {activeTerm} Term</p>
-          <span className="badge mt-2" style={{ background: 'var(--bg-input)', color: 'var(--text-secondary)' }}>Roll No: {student_info.roll_number}</span>
+          <span className="badge mt-2" style={{ background: 'var(--bg-input)', color: 'var(--text-secondary)' }}>
+            Roll No: {student_info.roll_number} &nbsp;|&nbsp;
+            Enrollment No: {student_info.enrollment_number}
+            
+            </span>
         </div>
         <div className="support-box">
           <div className="support-item">
