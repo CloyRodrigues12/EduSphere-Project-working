@@ -127,24 +127,20 @@ class MyClassDashboardView(APIView):
         sems = sem_map.get(ct.year_level, [])
         active_sems = list(set(sems) & set(valid_sems))
 
-        # ---> THE FIX: Pull students based on their Group Enrollments for this term, 
-        # not just their isolated profile semester.
         from core.models import StudentGroup
         
-        # Find all groups belonging to this Class Teacher's department and active semesters
         relevant_groups = StudentGroup.objects.filter(
             academic_year_id=ay_id,
             department=ct.department,
             semester__in=active_sems
         )
 
-        # Get all active students enrolled in ANY of those groups
         students = Student.objects.filter(
             studentgroup__in=relevant_groups,
             is_active=True
         ).prefetch_related('mentorship__mentor__user').distinct().order_by('roll_number')
 
-        # 1. Fetch Attendance (Only for the relevant groups/allocations)
+        # 1. Fetch Attendance
         records = AttendanceRecord.objects.filter(
             student__in=students,
             session__allocation__academic_year_id=ay_id,
@@ -260,7 +256,7 @@ class MyMenteesDashboardView(APIView):
 
         student_ids = [m.student.id for m in mentorships]
 
-        # Fetch aggregate attendance strictly for subjects in the current term
+        # 1. Fetch aggregate attendance strictly for subjects in the current term
         records = AttendanceRecord.objects.filter(
             student_id__in=student_ids,
             session__allocation__academic_year_id=ay_id,
@@ -272,6 +268,27 @@ class MyMenteesDashboardView(APIView):
             student_stats[r.student_id]["tc"] += r.session.lecture_count
             if r.status in ['PRESENT', 'LATE'] or r.status.startswith('DUTY'):
                 student_stats[r.student_id]["ta"] += r.session.lecture_count
+
+        # 2. 🚨 NEW: Fetch Internal Marks for mentees
+        marks_records = InternalAssessment.objects.filter(
+            student_id__in=student_ids,
+            academic_year_id=ay_id,
+            term=term
+        ).select_related('subject')
+
+        student_marks_map = {sid: [] for sid in student_ids}
+        for record in marks_records:
+            conducted = sum(1 for m in [record.it1, record.it2, record.it3] if m is not None)
+            student_marks_map[record.student_id].append({
+                "name": record.subject.name,
+                "code": record.subject.code,
+                "it1": record.it1,
+                "it2": record.it2,
+                "it3": record.it3,
+                "marks": record.final_score,
+                "is_passing": record.is_passing,
+                "conducted": conducted
+            })
 
         mentee_data = []
         for m in mentorships:
@@ -297,7 +314,8 @@ class MyMenteesDashboardView(APIView):
                 "ta": ta,
                 "tc": tc,
                 "percentage": perc,
-                "status": status_label
+                "status": status_label,
+                "subject_marks": student_marks_map[s.id] # 🚨 Append marks data here
             })
 
         return Response({
@@ -310,7 +328,6 @@ class MenteeSubjectAttendanceView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        """ Drill down into a specific student's subjects (Used by Mentors and Class Teachers) """
         student_id = request.GET.get('student_id')
         ay_id = request.GET.get('academic_year')
         user_profile = request.user.profile
@@ -318,7 +335,6 @@ class MenteeSubjectAttendanceView(APIView):
         if not student_id or not ay_id:
             return Response({"error": "Student ID and Academic Year required"}, status=400)
 
-        # SECURITY CHECK
         is_admin = user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN']
         is_mentor = Mentorship.objects.filter(mentor=user_profile, student_id=student_id).exists()
         try:
@@ -335,9 +351,8 @@ class MenteeSubjectAttendanceView(APIView):
             is_class_teacher = False
 
         if not (is_admin or is_mentor or is_class_teacher):
-            return Response({"error": "Unauthorized. You are not the assigned mentor or class teacher for this student."}, status=403)
+            return Response({"error": "Unauthorized."}, status=403)
 
-        # --- SMART TERM FILTERING ---
         term = request.headers.get('X-Term', 'ODD')
         valid_sems = [1, 3, 5, 7, 9] if term == 'ODD' else [2, 4, 6, 8, 10]
 
