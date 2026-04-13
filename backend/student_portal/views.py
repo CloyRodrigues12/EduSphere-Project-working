@@ -5,7 +5,7 @@ from core.models import Student, TeachingAllocation, Course, UserProfile
 from attendance.models import ClassSession, AttendanceRecord
 from faculty_assignments.models import ClassTeacher
 from counselling.models import Mentorship 
-from results.models import InternalAssessment # 🚨 ADDED
+from results.models import InternalAssessment
 from django.db.models import Q
 
 class MyStudentDashboardView(APIView):
@@ -17,16 +17,14 @@ class MyStudentDashboardView(APIView):
             return Response({"error": "Unauthorized"}, status=403)
 
         academic_year_id = request.GET.get('academic_year_id')
-        term = request.GET.get('term', request.headers.get('X-Term', 'ODD')).upper() # 🚨 Term Awareness
+        term = request.GET.get('term', request.headers.get('X-Term', 'ODD')).upper()
         
         if not academic_year_id:
             return Response({"error": "Academic Year required"}, status=400)
 
         try:
-            # 1. Identity Injection: Get the exact student linked to this user
             student = Student.objects.get(user=request.user)
             
-            # 2. Get Support System (Class Teacher & Mentor)
             sem_map = {1: 'FE', 2: 'FE', 3: 'SE', 4: 'SE', 5: 'TE', 6: 'TE', 7: 'BE', 8: 'BE'}
             yl = sem_map.get(student.current_semester, 'FE')
             
@@ -38,7 +36,6 @@ class MyStudentDashboardView(APIView):
             
             mentor_rel = Mentorship.objects.filter(student=student).select_related('mentor__user').first()
 
-            # 3. Calculate Accurate Subject-wise Attendance
             allocations = TeachingAllocation.objects.filter(
                 academic_year_id=academic_year_id,
                 student_group__students=student
@@ -52,7 +49,7 @@ class MyStudentDashboardView(APIView):
 
             for alloc in allocations:
                 if alloc.subject.semester not in valid_sems:
-                    continue # Skip subjects not in the current term
+                    continue 
                     
                 sessions = ClassSession.objects.filter(allocation=alloc)
                 tc = sum(s.lecture_count for s in sessions)
@@ -79,7 +76,7 @@ class MyStudentDashboardView(APIView):
 
             overall_percentage = round((total_ta / total_tc * 100), 2) if total_tc > 0 else 100.0
             
-            # 4. 🚨 FETCH INTERNAL MARKS
+            # 🚨 FETCH INTERNAL MARKS WITH RANK CALCULATION
             assessments = InternalAssessment.objects.filter(
                 student=student,
                 academic_year_id=academic_year_id,
@@ -89,6 +86,18 @@ class MyStudentDashboardView(APIView):
             marks_data = []
             for a in assessments:
                 conducted = sum(1 for m in [a.it1, a.it2, a.it3] if m is not None)
+                
+                # 🚨 Calculate the exact Class Rank for this specific subject
+                rank = "-"
+                if a.final_score is not None:
+                    higher_scores = InternalAssessment.objects.filter(
+                        subject=a.subject,
+                        academic_year_id=academic_year_id,
+                        term=term,
+                        final_score__gt=a.final_score
+                    ).count()
+                    rank = higher_scores + 1
+
                 marks_data.append({
                     "subject_name": a.subject.name,
                     "subject_code": a.subject.code,
@@ -97,7 +106,8 @@ class MyStudentDashboardView(APIView):
                     "it3": a.it3,
                     "final_score": a.final_score,
                     "is_passing": a.is_passing,
-                    "conducted": conducted
+                    "conducted": conducted,
+                    "rank": rank # Passed to the frontend!
                 })
 
             return Response({
@@ -105,7 +115,6 @@ class MyStudentDashboardView(APIView):
                     "name": student.full_name,
                     "roll_number": student.roll_number,
                     "enrollment_number": student.enrollment_number,
-                    
                     "department": student.department.name,
                     "semester": student.current_semester
                 },

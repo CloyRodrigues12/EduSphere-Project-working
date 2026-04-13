@@ -72,13 +72,15 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  height: 190px; 
+  box-sizing: border-box; /* 🚨 CRITICAL FIX: Forces padding to stay within the 190px height */
+  position: relative;
 }
 
 .kpi-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 1.5rem;
 }
 
 .kpi-icon-circle {
@@ -88,6 +90,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* 🚨 BEAUTIFUL ICON PULSE ANIMATION */
+@keyframes softPulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(var(--pulse-color), 0.4); }
+  70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(var(--pulse-color), 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(var(--pulse-color), 0); }
+}
+
+.kpi-icon-circle.pulse {
+  animation: softPulse 2.5s infinite ease-in-out;
 }
 
 .kpi-body h2 {
