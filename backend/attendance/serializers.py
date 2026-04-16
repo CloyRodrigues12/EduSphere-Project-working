@@ -39,10 +39,11 @@ class DutyLeaveParticipantSerializer(serializers.ModelSerializer):
     attendance_percentage = serializers.SerializerMethodField()
     class_teacher_name = serializers.SerializerMethodField()
     hod_name = serializers.SerializerMethodField()
-    
-    # --- NEW: Strict ID Tracking ---
     class_teacher_id = serializers.SerializerMethodField()
     hod_id = serializers.SerializerMethodField()
+    
+    # --- NEW: Fetch Protected Lectures ---
+    protected_sessions = serializers.SerializerMethodField()
 
     class Meta:
         model = DutyLeaveParticipant
@@ -50,7 +51,7 @@ class DutyLeaveParticipantSerializer(serializers.ModelSerializer):
             'id', 'student', 'student_name', 'roll_number', 'department', 'semester',
             'class_teacher_status', 'hod_status', 'final_status',
             'attendance_percentage', 'class_teacher_name', 'hod_name',
-            'class_teacher_id', 'hod_id' # <-- Added
+            'class_teacher_id', 'hod_id', 'protected_sessions' # <-- Added
         ]
 
     def get_attendance_percentage(self, obj):
@@ -75,7 +76,6 @@ class DutyLeaveParticipantSerializer(serializers.ModelSerializer):
             return f"Prof. {hod.user.last_name or hod.user.first_name}"
         return "Unassigned"
 
-    # --- NEW METHODS ---
     def get_class_teacher_id(self, obj):
         from faculty_assignments.models import ClassTeacher
         sem_to_year = {1: 'FE', 2: 'FE', 3: 'SE', 4: 'SE', 5: 'TE', 6: 'TE', 7: 'BE', 8: 'BE'}
@@ -91,7 +91,27 @@ class DutyLeaveParticipantSerializer(serializers.ModelSerializer):
         if hod and hod.user:
             return hod.user.id
         return None
-    
+
+    # --- NEW METHOD: Grabs actual lectures marked as DUTY ---
+    def get_protected_sessions(self, obj):
+        if obj.final_status != 'APPROVED':
+            return []
+            
+        records = AttendanceRecord.objects.filter(
+            student=obj.student,
+            session__date__gte=obj.request.start_date,
+            session__date__lte=obj.request.end_date,
+            status__startswith='DUTY'
+        ).select_related('session__allocation__subject')
+        
+        sessions = []
+        for r in records:
+            sessions.append({
+                'date': r.session.date.strftime('%b %d'),
+                'subject': r.session.allocation.subject.name,
+                'type': r.session.allocation.subject.subject_type
+            })
+        return sessions
     
 class DutyLeaveRequestSerializer(serializers.ModelSerializer):
     participants = DutyLeaveParticipantSerializer(many=True, read_only=True)

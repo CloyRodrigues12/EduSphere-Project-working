@@ -1,0 +1,333 @@
+/* --- TABS --- */
+.od-tabs-container {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 2rem;
+    overflow-x: auto;
+    padding-bottom: 8px;
+}
+
+.od-tab-btn {
+    padding: 8px 18px;
+    border-radius: 30px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    white-space: nowrap;
+}
+
+.od-tab-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    transform: translateY(-1px);
+}
+
+.od-tab-btn.active {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+}
+
+/* --- PREMIUM CARDS --- */
+.od-card {
+    background: var(--bg-card);
+    border-radius: 16px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    /* CRITICAL FIX: Removed 'overflow: hidden' so tooltips can float freely! */
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.od-card:hover {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+    transform: translateY(-2px);
+    border-color: var(--primary-color);
+}
+
+.od-card.status-approved { border-left: 4px solid #10b981; border-radius: 12px 16px 16px 12px; }
+.od-card.status-pending { border-left: 4px solid #f59e0b; border-radius: 12px 16px 16px 12px; }
+.od-card.status-rejected { border-left: 4px solid #ef4444; border-radius: 12px 16px 16px 12px; }
+
+/* --- CARD HEADER --- */
+.od-card-top {
+    padding: 1.5rem 1.5rem 1rem 1.5rem;
+}
+
+.od-card-title-group {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 12px;
+}
+
+.od-card-title {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 1.25rem;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.od-date-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--primary-color);
+    font-weight: 600;
+    background: rgba(79, 70, 229, 0.08);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
+
+.od-card-meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    background: var(--bg-main);
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+}
+
+.meta-divider {
+    color: var(--border-color);
+    font-weight: bold;
+}
+
+/* --- REASON BOX --- */
+.od-reason-box {
+    margin: 0 1.5rem 1rem 1.5rem;
+    padding: 12px 16px;
+    background: var(--bg-input);
+    border-radius: 10px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    border-left: 3px solid var(--text-muted);
+}
+
+.od-reason-text {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    font-style: italic;
+}
+
+/* --- PARTICIPANTS SECTION --- */
+.od-participants-section {
+    padding: 0 1.5rem 1.5rem 1.5rem;
+}
+
+.od-section-title {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 700;
+    margin: 0 0 12px 0;
+}
+
+.od-participants-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* SLEEK HORIZONTAL ROW */
+.od-participant-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg-main);
+    border: 1px solid var(--border-color);
+    padding: 12px 16px;
+    padding-right: 45px; /* CRITICAL: Room for top-right info button */
+    border-radius: 12px;
+    gap: 15px;
+    flex-wrap: wrap;
+    transition: background 0.2s;
+    position: relative; /* Anchors the absolute tooltip */
+}
+
+.od-participant-row:hover {
+    background: var(--bg-hover);
+}
+
+.od-participant-info {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex: 1;
+    min-width: 220px;
+}
+
+.od-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-color), #8b5cf6);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 1.1rem;
+    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+    flex-shrink: 0;
+}
+
+.od-p-name {
+    font-weight: 700;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.od-p-sub {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 3px;
+}
+
+.od-participant-badges {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.od-attendance-pill {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.attd-good { background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); }
+.attd-bad { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+
+/* --- BUTTONS --- */
+.od-participant-actions {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.od-btn {
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.od-btn-approve { background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid #10b98140; }
+.od-btn-approve:hover { background: #10b981; color: white; transform: scale(1.05); }
+
+.od-btn-reject { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid #ef444440; }
+.od-btn-reject:hover { background: #ef4444; color: white; transform: scale(1.05); }
+
+/* --- TOOLTIP --- */
+.od-tooltip-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.od-tooltip-content {
+    position: absolute;
+    width: 280px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+    padding: 14px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    color: var(--text-primary);
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 100;
+    text-align: left;
+    font-weight: normal;
+}
+
+/* TOP RIGHT CORNER TOOLTIP ALIGNMENT */
+.tooltip-right-align {
+    top: 130%; /* Drops downwards from the icon */
+    right: -6px;
+    left: auto;
+    transform: translateY(-10px);
+}
+
+.od-tooltip-wrapper:hover .tooltip-right-align {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.tooltip-right-align::after {
+    content: '';
+    position: absolute;
+    bottom: 100%; /* Points upwards */
+    right: 10px;
+    border-width: 8px;
+    border-style: solid;
+    border-color: transparent transparent var(--bg-card) transparent;
+}
+
+.protected-session-list {
+    margin: 8px 0 0 0; padding: 0; list-style: none; max-height: 150px; overflow-y: auto;
+}
+.protected-session-list li {
+    padding: 6px 0; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; gap: 10px;
+}
+.protected-session-list li:last-child { border-bottom: none; }
+.ps-date { font-weight: 600; color: var(--primary-color); white-space: nowrap; }
+.ps-subject { color: var(--text-secondary); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* MODAL OVERLAYS */
+.od-modal-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background-color: rgba(0, 0, 0, 0.65); backdrop-filter: blur(5px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; padding: 1rem;
+}
+
+.od-modal-content {
+    background: var(--bg-card); width: 100%; max-width: 600px;
+    border-radius: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+    max-height: 90vh; overflow-y: auto; border: 1px solid var(--border-color);
+}
+.od-input {
+    width: 100%; padding: 10px 12px; border-radius: 8px; 
+    border: 1px solid var(--border-color); background: var(--bg-input); 
+    color: var(--text-primary); font-size: 0.95rem; outline: none;
+    transition: border-color 0.2s;
+}
+.od-input:focus { border-color: var(--primary-color); }
