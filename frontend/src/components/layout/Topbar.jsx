@@ -82,7 +82,6 @@ const Topbar = ({ title, onMenuClick }) => {
 
   const fetchNotifications = async (token) => {
       try {
-          // FIXED ROUTE: Using /api/user/ prefix to match your core app urls
           const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/user/notifications/`, { headers: { Authorization: `Bearer ${token}` } });
           setNotifications(res.data);
       } catch (e) { console.error("Could not load notifications"); }
@@ -90,8 +89,6 @@ const Topbar = ({ title, onMenuClick }) => {
 
   const handleNotifClick = async (notif) => {
       setShowNotifMenu(false);
-      
-      // 1. Mark as Read on Backend
       if (!notif.is_read) {
           try {
               const token = localStorage.getItem("access_token");
@@ -99,14 +96,9 @@ const Topbar = ({ title, onMenuClick }) => {
               setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, is_read: true } : n));
           } catch(e) {}
       }
-      
-      // 2. Smart Navigation (Forces refresh if already on the page)
       if (notif.action_url) {
-          if (window.location.pathname === notif.action_url) {
-              window.location.reload(); 
-          } else {
-              navigate(notif.action_url);
-          }
+          if (window.location.pathname === notif.action_url) window.location.reload(); 
+          else navigate(notif.action_url);
       }
   };
 
@@ -160,7 +152,15 @@ const Topbar = ({ title, onMenuClick }) => {
     <header className="topbar glass-panel">
       <div className="topbar-left">
         <button className="icon-btn menu-trigger" onClick={onMenuClick}><Menu size={24} /></button>
-        <div className="academic-year-badge" style={{ background: "rgba(79, 70, 229, 0.05)", borderColor: "rgba(79, 70, 229, 0.2)" }}>
+        
+        {/* --- MOBILE SPECIFIC LOGO --- */}
+        <div className="mobile-only mobile-logo-container">
+            <img src="/logo.png" alt="Logo" className="mobile-logo" />
+            <span className="logo-text" style={{ fontSize: '1.25rem' }}>EduSphere</span>
+        </div>
+
+        {/* --- DESKTOP BADGE --- */}
+        <div className="academic-year-badge desktop-only" style={{ background: "rgba(79, 70, 229, 0.05)", borderColor: "rgba(79, 70, 229, 0.2)" }}>
           <Building2 size={16} className="text-primary" />
           {isOrgAdmin ? (
             <div style={{ display: "flex", alignItems: "center", marginLeft: "6px" }}>
@@ -183,10 +183,12 @@ const Topbar = ({ title, onMenuClick }) => {
       </div>
 
       <div className="topbar-right" style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-        <div className="search-container"><Search size={18} className="search-icon" /><input type="text" placeholder="Search..." /></div>
+        
+        {/* Everything here is Desktop Only EXCEPT the notification bell */}
+        <div className="search-container desktop-only"><Search size={18} className="search-icon" /><input type="text" placeholder="Search..." /></div>
 
         {activeAcademicYear && !isStudent && (
-          <div className="academic-year-badge" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0.4rem 0.8rem' }}>
+          <div className="academic-year-badge desktop-only" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0.4rem 0.8rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <Calendar size={16} className="text-primary" />
               <select className="year-selector" value={activeAcademicYear.id} onChange={handleYearSelect} title="Change Academic Year">
@@ -204,7 +206,7 @@ const Topbar = ({ title, onMenuClick }) => {
         )}
         
         {activeAcademicYear && isStudent && (
-           <div className="academic-year-badge" style={{ cursor: "default", opacity: 0.9, display: 'flex', alignItems: 'center', gap: '8px' }}>
+           <div className="academic-year-badge desktop-only" style={{ cursor: "default", opacity: 0.9, display: 'flex', alignItems: 'center', gap: '8px' }}>
              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                <Calendar size={16} className="text-primary" />
                <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--text-primary)" }}>{activeAcademicYear.name}</span>
@@ -217,10 +219,11 @@ const Topbar = ({ title, onMenuClick }) => {
            </div>
         )}
 
-        <button className="icon-btn" onClick={toggleTheme}>
+        <button className="icon-btn desktop-only" onClick={toggleTheme}>
           {theme === "light" ? <Moon size={20} /> : <Sun size={20} />}
         </button>
 
+        {/* NOTIFICATION BELL: Stays visible on both Desktop and Mobile */}
         <div className="profile-container" ref={notifRef}>
           <button className="icon-btn" onClick={() => setShowNotifMenu(!showNotifMenu)}>
             <Bell size={20} />
@@ -251,7 +254,8 @@ const Topbar = ({ title, onMenuClick }) => {
           )}
         </div>
 
-        <div className="profile-container" ref={menuRef}>
+        {/* DESKTOP PROFILE MENU (Hidden on mobile) */}
+        <div className="profile-container desktop-only" ref={menuRef}>
           <div className={`profile-chip ${showProfileMenu ? "active" : ""}`} onClick={() => setShowProfileMenu(!showProfileMenu)}>
             <img src={user.avatarUrl || "https://ui-avatars.com/api/?name=User&background=random"} alt="Profile" />
             <div className="profile-info"><span className="name" title={user.name}>{getFirstAndLastName(user.name)}</span><span className="role">{displayRole}</span></div>

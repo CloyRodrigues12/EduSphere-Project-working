@@ -36,7 +36,6 @@
   height: 48px;
   overflow: hidden;
 }
-/* Remove the old .logo-icon class and use this: */
 .brand-logo-img {
   width: 40px;
   height: 40px;
@@ -91,13 +90,10 @@
   gap: 0.5rem;
   padding: 0.8rem 0;
 
-  /* --- 1. ENABLE SCROLLING BUT HIDE THE SCROLLBAR --- */
   overflow-y: auto;
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; 
+  -ms-overflow-style: none; 
 
-  /* --- 2. THE SLEEK FADE INDICATOR --- */
-  /* This fades the links to transparency at the very top and bottom edges */
   -webkit-mask-image: linear-gradient(
     to bottom,
     transparent 0%,
@@ -205,7 +201,150 @@
   display: none;
 }
 
-/* The dark background overlay */
+/* --- MOBILE CONTEXT PANEL --- */
+.mobile-context-panel {
+  display: none;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 16px;
+  background: linear-gradient(to bottom, rgba(79, 70, 229, 0.05), transparent);
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 10px;
+}
+
+.mobile-profile-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mobile-profile-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid var(--primary-color);
+  object-fit: cover;
+}
+
+.mobile-profile-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.mobile-profile-name {
+  font-weight: 700;
+  color: var(--text-primary);
+  font-size: 1.05rem;
+}
+
+.mobile-profile-role {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.mobile-controls-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mobile-select-box {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  outline: none;
+}
+
+.mobile-actions-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 5px;
+}
+
+.mobile-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  padding: 8px 16px;
+  border-radius: 20px;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex: 1;
+}
+
+@media (max-width: 768px) {
+  .mobile-context-panel {
+    display: flex;
+  }
+  .sidebar-header {
+    display: none; /* Hide standard header on mobile since topbar has it */
+  }
+  .sidebar {
+    position: fixed;
+    left: -100%;
+    width: 280px !important;
+    height: 100vh;
+    box-shadow: none;
+    border-radius: 0; 
+    padding: 0; /* Remove padding to let panel hit edges */
+  }
+
+  .sidebar-nav {
+    padding: 0 16px;
+  }
+
+  .sidebar-footer {
+    padding: 16px;
+  }
+
+  .sidebar.mobile-open {
+    left: 0;
+    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.2);
+  }
+
+  .mobile-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    z-index: 40;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .mobile-backdrop.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .mobile-close-btn {
+    display: flex !important;
+    margin-left: auto;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+  }
+
+  .desktop-only {
+    display: none !important;
+  }
+}
+
+/* The actual white box */
 .logout-overlay {
   position: fixed;
   top: 0;
@@ -221,7 +360,6 @@
   animation: fadeIn 0.2s ease-out;
 }
 
-/* The actual white box */
 .logout-modal {
   background: white;
   padding: 2rem;
@@ -298,68 +436,12 @@
   transform: translateY(-1px);
 }
 
-/* Animations */
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes popIn {
-  from {
-    transform: scale(0.95);
-    opacity: 0;
-  }
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-@media (max-width: 768px) {
-  .sidebar {
-    position: fixed;
-    left: -100%;
-    width: 280px !important;
-    height: 100vh;
-    box-shadow: none;
-    border-radius: 0; /* No round corners on mobile */
-  }
-
-  .sidebar.mobile-open {
-    left: 0;
-    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.2);
-  }
-
-  /* Backdrop */
-  .mobile-backdrop {
-    display: block;
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(4px);
-    z-index: 40;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s;
-  }
-  .mobile-backdrop.open {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  /* Mobile Close Button */
-  .mobile-close-btn {
-    display: flex !important;
-    margin-left: auto;
-    background: transparent;
-    border: none;
-    color: var(--text-secondary);
-  }
-
-  .desktop-only {
-    display: none !important;
-  }
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
 }
