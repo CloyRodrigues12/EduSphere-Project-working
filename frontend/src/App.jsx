@@ -16,7 +16,6 @@ import Login from "./pages/Login";
 import SetupWizard from "./pages/SetupWizard";
 import StaffManagement from "./pages/StaffManagement";
 import PasswordResetConfirm from "./pages/PasswordResetConfirm";
-import DocuSense from "./pages/DocuSense";
 import ECSUploadWizard from "./pages/Upload/ECSView/ECSUploadWizard";
 import SubjectCatalog from "./pages/SubjectCatalog";
 import StudentDirectory from "./pages/StudentDirectory";
@@ -95,10 +94,6 @@ const AppLayout = () => {
             <Route 
               path="/upload" 
               element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD"]}><ECSUploadWizard /></ProtectedRoute>} 
-            />
-            <Route 
-              path="/docusense" 
-              element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD", "FACULTY", "STAFF"]}><DocuSense /></ProtectedRoute>} 
             />
             <Route 
               path="/staff" 

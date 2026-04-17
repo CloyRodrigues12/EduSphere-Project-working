@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { useAcademic } from "../../context/AcademicContext"; // <-- NEW
+import { useAcademic } from "../../context/AcademicContext"; 
 import {
   LayoutDashboard, UploadCloud, Users, Banknote, ChevronLeft, ChevronRight,
   LogOut, X, AlertCircle, Shield, Library, Layers, Settings, FileSearch,
@@ -74,7 +74,6 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
       { icon: Library, label: "Subject Catalog", path: "/subjects" },
       { icon: Users, label: "Dir & Batches", path: "/students" },
       { icon: Banknote, label: "Fees", path: "/fees" },
-      { icon: FileSearch, label: "DocuSense AI", path: "/docusense" },
     ];
 
     if (isOrgAdmin || user?.role_code === "HOD") navItems.push({ icon: HeartHandshake, label: "Counselling Dept", path: "/counselling/mentor-allocation" });
