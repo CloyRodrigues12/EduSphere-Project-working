@@ -6,6 +6,14 @@ from core.models import Student
 from .models import Mentorship
 from django.db.models import Q
 from .serializers import MenteeRegistrationFormSerializer
+import pandas as pd
+from rest_framework import viewsets, permissions, status
+from rest_framework.response import Response
+from rest_framework.decorators import action
+from django.db.models import Q
+from core.models import Student
+from .models import MenteeProfile
+from .serializers import MenteeRegistrationFormSerializer
 
 class MentorSummaryView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -125,46 +133,108 @@ class MentorStudentListView(APIView):
         
         
 
-
 class MenteeProfileViewSet(viewsets.ModelViewSet):
     """
     API endpoint for viewing and editing the digitized Mentee Registration Forms.
     """
     serializer_class = MenteeRegistrationFormSerializer
     permission_classes = [permissions.IsAuthenticated]
-    http_method_names = ['get', 'patch']  # Only allow Read and Update (Creation is handled via Upload/ECS)
+    http_method_names = ['get', 'patch', 'post']
 
     def get_queryset(self):
         user = self.request.user
         user_profile = user.profile
         
-        # Base query: All active students in the organization, optimized with select_related
         qs = Student.objects.filter(
             organization=user_profile.organization, 
             is_active=True
         ).select_related('mentee_profile', 'department', 'user')
 
-        # Security & Role-based filtering
         if user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN', 'COUNSELLOR']:
-            # Counsellors and Admins get global access
             return qs
-        
         elif user_profile.role == 'HOD':
-            # HODs only see their department
             return qs.filter(department=user_profile.department)
-        
         elif getattr(user_profile, 'is_teaching_faculty', False):
-            # Faculty (Mentors) only see students explicitly assigned to them
             from .models import Mentorship
             mentee_ids = Mentorship.objects.filter(
-                mentor__user=user, 
-                status='ACTIVE'
+                mentor__user=user, status='ACTIVE'
             ).values_list('student_id', flat=True)
             return qs.filter(id__in=mentee_ids)
-            
         elif user_profile.role_code == 'STUDENT':
-            # Students can only see their own profile
             return qs.filter(user=user)
             
-        # Default fallback: return nothing
         return Student.objects.none()
+
+    @action(detail=False, methods=['post'], url_path='bulk-upload')
+    def bulk_upload(self, request):
+        file = request.FILES.get('file')
+        if not file:
+            return Response({"error": "No file provided."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            if file.name.endswith('.csv'):
+                df = pd.read_csv(file)
+            else:
+                df = pd.read_excel(file)
+            
+            df.columns = df.columns.str.strip().str.upper()
+            
+            if 'ROLL NO' not in df.columns:
+                return Response({"error": "The uploaded file is missing the 'ROLL NO' column."}, status=status.HTTP_400_BAD_REQUEST)
+            
+            updated_count = 0
+            errors = []
+            
+            field_map = {
+                'ADDRESS': 'address', 'PIN CODE': 'pin_code', 'MENTEE CONTACT': 'contact_number',
+                'FATHER NAME': 'father_name', 'FATHER OCCUPATION': 'father_occupation', 'FATHER CONTACT': 'father_contact',
+                'MOTHER NAME': 'mother_name', 'MOTHER OCCUPATION': 'mother_occupation', 'MOTHER CONTACT': 'mother_contact',
+                'GUARDIAN NAME': 'guardian_name', 'GUARDIAN CONTACT': 'guardian_contact',
+                'HOBBIES': 'hobbies', 'ACHIEVEMENTS': 'achievements'
+            }
+            
+            for index, row in df.iterrows():
+                roll_no = str(row.get('ROLL NO', '')).strip()
+                if not roll_no or str(roll_no).lower() == 'nan':
+                    continue
+                    
+                try:
+                    student = self.get_queryset().get(roll_number=roll_no)
+                except Student.DoesNotExist:
+                    errors.append(f"Row {index+2}: Student with Roll No '{roll_no}' not found or no permission.")
+                    continue
+                
+                # Fetch or create the profile
+                profile, created = MenteeProfile.objects.get_or_create(student=student)
+                profile_was_updated = False
+                
+                # Iterate strictly through mapped columns
+                for excel_col, db_field in field_map.items():
+                    if excel_col in df.columns:
+                        raw_val = row.get(excel_col)
+                        
+                        # Check if the cell actually has data (ignore NaNs and empty strings)
+                        if pd.notna(raw_val) and str(raw_val).strip().lower() != 'nan':
+                            clean_val = str(raw_val).strip()
+                            
+                            # FIX 1: Remove the accidental .0 added by pandas for numeric columns
+                            if clean_val.endswith('.0'):
+                                clean_val = clean_val[:-2]
+                                
+                            # FIX 2: Only overwrite the DB if the Excel cell is NOT empty
+                            if clean_val:
+                                setattr(profile, db_field, clean_val)
+                                profile_was_updated = True
+                
+                # Only save if we actually altered a field or just created the profile
+                if profile_was_updated or created:
+                    profile.save()
+                    updated_count += 1
+                
+            return Response({
+                "message": f"Successfully updated {updated_count} profiles.",
+                "errors": errors
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response({"error": f"Failed to process file: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
