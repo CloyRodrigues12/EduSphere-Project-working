@@ -1,9 +1,11 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status, permissions
+from rest_framework import status, permissions,viewsets
 from django.db import transaction
 from core.models import Student
 from .models import Mentorship
+from django.db.models import Q
+from .serializers import MenteeRegistrationFormSerializer
 
 class MentorSummaryView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -120,3 +122,49 @@ class MentorStudentListView(APIView):
             return Response({"message": "Mentee removed successfully."})
         except Mentorship.DoesNotExist:
             return Response({"error": "Mentorship not found."}, status=404)
+        
+        
+
+
+class MenteeProfileViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint for viewing and editing the digitized Mentee Registration Forms.
+    """
+    serializer_class = MenteeRegistrationFormSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    http_method_names = ['get', 'patch']  # Only allow Read and Update (Creation is handled via Upload/ECS)
+
+    def get_queryset(self):
+        user = self.request.user
+        user_profile = user.profile
+        
+        # Base query: All active students in the organization, optimized with select_related
+        qs = Student.objects.filter(
+            organization=user_profile.organization, 
+            is_active=True
+        ).select_related('mentee_profile', 'department', 'user')
+
+        # Security & Role-based filtering
+        if user_profile.role in ['SUPER_ADMIN', 'ORG_ADMIN', 'COUNSELLOR']:
+            # Counsellors and Admins get global access
+            return qs
+        
+        elif user_profile.role == 'HOD':
+            # HODs only see their department
+            return qs.filter(department=user_profile.department)
+        
+        elif getattr(user_profile, 'is_teaching_faculty', False):
+            # Faculty (Mentors) only see students explicitly assigned to them
+            from .models import Mentorship
+            mentee_ids = Mentorship.objects.filter(
+                mentor__user=user, 
+                status='ACTIVE'
+            ).values_list('student_id', flat=True)
+            return qs.filter(id__in=mentee_ids)
+            
+        elif user_profile.role_code == 'STUDENT':
+            # Students can only see their own profile
+            return qs.filter(user=user)
+            
+        # Default fallback: return nothing
+        return Student.objects.none()

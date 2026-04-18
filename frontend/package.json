@@ -12,6 +12,8 @@
   "dependencies": {
     "@react-oauth/google": "^0.12.2",
     "axios": "^1.13.2",
+    "exceljs": "^4.4.0",
+    "file-saver": "^2.0.5",
     "framer-motion": "^12.23.26",
     "jspdf": "^4.2.0",
     "jspdf-autotable": "^5.0.7",

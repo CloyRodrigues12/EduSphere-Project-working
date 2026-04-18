@@ -1849,3 +1849,33 @@ class NotificationMarkReadView(APIView):
             return Response({"success": True})
         except Notification.DoesNotExist:
             return Response({"error": "Not found"}, status=404)
+        
+        
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+
+class UploadSchemaView(APIView):
+    """
+    Returns the exact column headers expected by the ECS pipeline
+    so the frontend can generate dynamic templates.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        category = request.query_params.get('category', 'STUDENTS').upper()
+        
+        if category == 'STUDENTS':
+            from core.ingestion.ecs_pipeline.students import ECS_STUDENT_MAPPING, OPTIONAL_MAPPING
+            return Response({
+                "mandatory": list(ECS_STUDENT_MAPPING.keys()),
+                "optional": list(OPTIONAL_MAPPING.keys())
+            })
+        elif category == 'FEES':
+            # Placeholder for your fees mapping
+            return Response({
+                "mandatory": ["ENROLLMENT NO", "RECEIPT NO", "AMOUNT", "DATE", "PAYMENT MODE", "REMARKS"],
+                "optional": []
+            })
+            
+        return Response({"error": "Unknown category"}, status=400)

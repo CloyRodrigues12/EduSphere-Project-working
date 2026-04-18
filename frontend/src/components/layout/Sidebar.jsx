@@ -55,6 +55,7 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
   } else if (isCounsellor) {
     navItems = [
       { icon: LayoutDashboard, label: "Dashboard", path: "/" },
+      { icon: Users, label: "Mentee Profiles", path: "/counselling/mentee-profiles" },
       { icon: HeartHandshake, label: "Mentor Allocation", path: "/counselling/mentor-allocation" },
     ];
   } else if (isSportsStaff) {

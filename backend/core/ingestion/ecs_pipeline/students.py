@@ -4,7 +4,7 @@ from django.db import transaction
 from core.models import Student, DataImportLog
 import re
 
-# Strict Mapping
+# --- MANDATORY COLUMNS (Core Student Data) ---
 ECS_STUDENT_MAPPING = {
     'ROLL NO': 'roll_number',
     'ENROLLMENT NO': 'enrollment_number',
@@ -15,8 +15,24 @@ ECS_STUDENT_MAPPING = {
     'AIC ID': 'aic_id',
     'AADHAR NO': 'aadhar_number',
     'NAME AS PER AADHAR CARD': 'name_on_aadhar',
-    'SIGN': 'signature_status',
     'REMARK': 'remarks'
+}
+
+# --- NEW: OPTIONAL COLUMNS (Mentee Profile Data) ---
+OPTIONAL_MAPPING = {
+    'ADDRESS': 'address',
+    'PIN CODE': 'pin_code',
+    'MENTEE CONTACT': 'contact_number',
+    'FATHER NAME': 'father_name',
+    'FATHER OCCUPATION': 'father_occupation',
+    'FATHER CONTACT': 'father_contact',
+    'MOTHER NAME': 'mother_name',
+    'MOTHER OCCUPATION': 'mother_occupation',
+    'MOTHER CONTACT': 'mother_contact',
+    'GUARDIAN NAME': 'guardian_name',
+    'GUARDIAN CONTACT': 'guardian_contact',
+    'HOBBIES': 'hobbies',
+    'ACHIEVEMENTS': 'achievements'
 }
 
 class StudentIngestionService:
@@ -55,10 +71,10 @@ class StudentIngestionService:
             # Normalize Headers
             self.df.columns = self.df.columns.str.strip().str.upper()
             
-            # Check Missing Columns
+            # Check Missing Mandatory Columns Only
             missing = [col for col in ECS_STUDENT_MAPPING.keys() if col not in self.df.columns]
             if missing:
-                self.validation_report["schema_errors"].append(f"Missing Columns: {', '.join(missing)}")
+                self.validation_report["schema_errors"].append(f"Missing Mandatory Columns: {', '.join(missing)}")
                 return False
             
             self.validation_report["schema_valid"] = True
@@ -79,7 +95,7 @@ class StudentIngestionService:
 
         seen_in_file = set()
         
-        valid_preview_data = [] # <-- FIX: Dynamic list to hold only valid preview rows
+        valid_preview_data = [] 
 
         for index, row in self.df.iterrows():
             row_data = row.to_dict()
@@ -120,11 +136,9 @@ class StudentIngestionService:
                 self.validation_report["error_rows"].append(record)
             else:
                 self.validation_report["valid_rows"].append(record)
-                valid_preview_data.append(safe_data) # <-- Add ONLY valid rows to preview
+                valid_preview_data.append(safe_data) 
 
-        # --- FIX: Send the purely valid rows to the frontend ---
         self.validation_report["preview_data"] = valid_preview_data
-
         return self.validation_report
 
     def commit_data(self, partial=False):
@@ -142,11 +156,12 @@ class StudentIngestionService:
             for row in rows_to_insert:
                 data = row["data"]
                 
-                Student.objects.update_or_create(
+                # 1. Save or Update Core Student
+                student, created = Student.objects.update_or_create(
                     organization=self.organization,
                     enrollment_number=str(data.get('ENROLLMENT NO')).strip(),
                     defaults={
-                        'department': self.department,  # Uses the dynamic department
+                        'department': self.department, 
                         'roll_number': str(data.get('ROLL NO', '')).strip(),
                         'full_name': str(data.get('NAME OF THE STUDENT', '')).strip(),
                         'dob': row["cleaned_dob"],
@@ -155,12 +170,26 @@ class StudentIngestionService:
                         'aic_id': str(data.get('AIC ID', '')).strip(),
                         'aadhar_number': str(data.get('AADHAR NO', '')).strip(),
                         'name_on_aadhar': str(data.get('NAME AS PER AADHAR CARD', '')).strip(),
-                        'signature_status': str(data.get('SIGN', '')).strip(),
                         'remarks': str(data.get('REMARK', '')).strip(),
                         'academic_year': self.academic_year, 
-                        'current_semester': self.semester # Uses the dynamic semester
+                        'current_semester': self.semester 
                     }
                 )
+                
+                # 2. Extract and Save Optional Mentee Profile Data
+                profile_defaults = {}
+                for excel_col, db_field in OPTIONAL_MAPPING.items():
+                    val = data.get(excel_col, "")
+                    if val and str(val).strip() != "" and str(val).lower() != 'nan':
+                        profile_defaults[db_field] = str(val).strip()
+                
+                if profile_defaults:
+                    from counselling.models import MenteeProfile
+                    MenteeProfile.objects.update_or_create(
+                        student=student,
+                        defaults=profile_defaults
+                    )
+
                 saved_count += 1
         
         # Update Audit Log

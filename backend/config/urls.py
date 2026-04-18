@@ -21,7 +21,7 @@ from core.views import AcademicYearView
 from core.views import AcademicYearSummaryView
 from core.views import ToggleTeachingRoleView
 
-from core.views import StudentDirectoryView, StudentGroupView, StudentToggleStatusView,AutoGenerateClassGroupView, AutoSplitLabBatchesView
+from core.views import StudentDirectoryView, StudentGroupView, StudentToggleStatusView,AutoGenerateClassGroupView, AutoSplitLabBatchesView,UploadSchemaView
 
 from core.dashboard import AdvancedDashboardView
 
@@ -101,6 +101,7 @@ path('api/dashboard/advanced/', AdvancedDashboardView.as_view(), name='advanced_
     path('api/upload/check-duplicate/', CheckDuplicateUploadView.as_view(), name='check-duplicate'),
     path('api/upload/preview/', UploadPreviewView.as_view(), name='upload-preview'),
     path('api/upload/commit/', commit_upload, name='commit-upload'),
+    path('api/upload/schema/', UploadSchemaView.as_view(), name='upload-schema'),
 
     # --- PASSWORD RESET ---
     path('password-reset/confirm/<uidb64>/<token>/', password_reset_redirect, name='password_reset_confirm'),

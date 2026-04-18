@@ -23,12 +23,13 @@ import AllocationMatrix from "./pages/AllocationMatrix";
 import AcademicSettings from "./pages/AcademicSettings";
 import Attendance from "./pages/Attendance";
 import ClassTeacherAssignments from "./pages/ClassTeacherAssignments";
-import CounsellorMentorManagement from "./pages/CounsellorMentorManagement";
+import CounsellorMentorManagement from "./pages/Counselling/CounsellorMentorManagement";
 import MyClassDashboard from "./pages/MyClassDashboard";
 import MyMenteesDashboard from "./pages/MyMenteesDashboard";
 import TimetableManager from "./pages/TimetableManager";
 import DutyLeaveDashboard from "./pages/DutyLeaveDashboard";
 import InternalAssessment from './pages/InternalAssessment';
+import MenteeDirectory from "./pages/Counselling/MenteeDirectory";
 
 // Placeholder Component
 const Placeholder = ({ title }) => (
@@ -151,6 +152,10 @@ const AppLayout = () => {
   path="/counselling/mentor-allocation"
   element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "COUNSELLOR"]}><CounsellorMentorManagement /></ProtectedRoute>}
 />
+<Route
+            path="/counselling/mentee-profiles"
+            element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "COUNSELLOR", "HOD", "FACULTY"]}><MenteeDirectory /></ProtectedRoute>}
+          />
             <Route
               path="/my-class"
               element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD", "FACULTY"]}><MyClassDashboard /></ProtectedRoute>}

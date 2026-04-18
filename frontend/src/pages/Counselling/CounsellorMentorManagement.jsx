@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { useAuth } from "../context/AuthContext";
-import { useAcademic } from "../context/AcademicContext"; // <-- NEW: Added Academic Context
-import { staffService, counsellingService } from "../services/api";
+import { useAuth } from "../../context/AuthContext";
+import { useAcademic } from "../../context/AcademicContext"; 
+import { staffService, counsellingService } from "../../services/api";
 import { Users, Plus, Trash2, Search, CheckSquare, Square, X, AlertTriangle, CheckCircle, Shield } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import "./ClassTeacherAssignments.css";
+import "../ClassTeacherAssignments.css";
 
 const getYearLevel = (sem) => {
   if (!sem) return "Unknown";
