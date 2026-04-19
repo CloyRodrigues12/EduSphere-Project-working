@@ -153,7 +153,7 @@ const InstituteDashboard = () => {
                   <p>
                       <span className="s-badge">{s.roll_number}</span>
                       <span style={{ opacity: 0.4, margin: '0 4px' }}>•</span>
-                      <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{getYearLevel(s.semester)} (Sem {s.semester})</span>
+                      <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{getYearLevel(s.semester)} </span>
                       <span style={{ opacity: 0.4, margin: '0 4px' }}>•</span>
                       {s.department_code}
                       {s.is_active === false && <span style={{color:'#ef4444', fontWeight:600, fontSize:'0.75rem', marginLeft:'6px'}}>Alumni</span>}
