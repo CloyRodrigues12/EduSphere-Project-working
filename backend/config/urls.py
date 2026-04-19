@@ -47,7 +47,7 @@ from core.views import (
     StudentUploadView,
     FacultyManagementView, 
     NotificationListView,         
-    NotificationMarkReadView,        
+    NotificationMarkReadView,InstituteDirectoryView, Student360View,       
 )
 
 def password_reset_redirect(request, uidb64, token):
@@ -141,6 +141,10 @@ path('api/dashboard/advanced/', AdvancedDashboardView.as_view(), name='advanced_
     path('api/user/notifications/<int:notif_id>/read/', NotificationMarkReadView.as_view(), name='mark-notification-read'),
     
     path('api/results/', include('results.urls')),
+    
+    
+    path('api/institute/directory/', InstituteDirectoryView.as_view(), name='institute-directory'),
+    path('api/institute/student-360/<int:student_id>/', Student360View.as_view(), name='student-360'),
 ]
 
 # This allows Django to serve uploaded images during development

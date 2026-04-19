@@ -31,6 +31,7 @@ import DutyLeaveDashboard from "./pages/DutyLeaveDashboard";
 import InternalAssessment from './pages/InternalAssessment';
 import MenteeDirectory from "./pages/Counselling/MenteeDirectory";
 import StudentProfile from "./pages/StudentPortal/StudentProfile";
+import InstituteDashboard from "./pages/Administration/InstituteDashboard";
 
 // Placeholder Component
 const Placeholder = ({ title }) => (
@@ -170,6 +171,10 @@ const AppLayout = () => {
               element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD", "FACULTY"]}><MyMenteesDashboard /></ProtectedRoute>}
             />
             <Route path="/timetable" element={<ProtectedRoute><TimetableManager /></ProtectedRoute>} />
+            <Route
+  path="/institute/directory"
+  element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD"]}><InstituteDashboard /></ProtectedRoute>}
+/>
           </Routes>
         </div>
       </div>

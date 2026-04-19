@@ -226,5 +226,10 @@ export const counsellingService = {
   getMyDetailedMentees: () => api.get("/counselling/my-detailed-mentees/"),
 };
 
+// --- INSTITUTE 360 ADMIN SERVICE ---
+export const instituteService = {
+  getDirectory: () => api.get("/institute/directory/"),
+  getStudent360: (studentId, ayId, term) => api.get(`/institute/student-360/${studentId}/?academic_year_id=${ayId}&term=${term}`),
+};
 
 export default api;

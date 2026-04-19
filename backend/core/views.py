@@ -8,7 +8,6 @@ from django.contrib.auth.models import User
 import traceback
 from core.models import Organization, UserProfile 
 
-
 from rest_framework.parsers import MultiPartParser, FormParser
 from core.models import Department
 
@@ -46,6 +45,13 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .models import EmailVerificationOTP
 
 from .models import Notification
+
+from core.models import Student, Department
+from counselling.serializers import MenteeRegistrationFormSerializer
+from attendance.models import DutyLeaveParticipant
+from counselling.models import Mentorship
+from faculty_assignments.models import ClassTeacher
+    
 
 
 # 1. Google Login
@@ -1850,10 +1856,7 @@ class NotificationMarkReadView(APIView):
         except Notification.DoesNotExist:
             return Response({"error": "Not found"}, status=404)
         
-        
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+
 
 class UploadSchemaView(APIView):
     """
@@ -1879,3 +1882,182 @@ class UploadSchemaView(APIView):
             })
             
         return Response({"error": "Unknown category"}, status=400)
+    
+    
+
+class InstituteDirectoryView(APIView):
+    """
+    Lightweight endpoint to fetch the student grid.
+    Admins get all students; HODs are restricted to their department.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        profile = getattr(user, 'profile', None)
+        
+        if not profile or profile.role not in ['SUPER_ADMIN', 'ORG_ADMIN', 'HOD']:
+            return Response({"error": "Unauthorized"}, status=403)
+
+        # FIX 1: Removed `is_active=True` so we can fetch Alumni/Inactive students
+        qs = Student.objects.filter(organization=profile.organization).select_related('department')
+
+        if profile.role == 'HOD':
+            qs = qs.filter(department=profile.department)
+
+        # Lightweight serialization for speed
+        data = []
+        for s in qs:
+            data.append({
+                "id": s.id,
+                "name": s.full_name,
+                "roll_number": s.roll_number,
+                "enrollment_number": s.enrollment_number,
+                "department_id": s.department.id if s.department else None,
+                "department_code": s.department.code if s.department else "N/A",
+                "department_name": s.department.name if s.department else "N/A",
+                "semester": s.current_semester,
+                "gender": s.gender,
+                "is_active": s.is_active # FIX 2: Added this so the frontend knows who is an Alumni
+            })
+
+        departments = list(Department.objects.filter(organization=profile.organization).values('id', 'name', 'code'))
+
+        return Response({
+            "students": data,
+            "departments": departments,
+            "user_role": profile.role,
+            "user_department_id": profile.department.id if profile.department else None
+        })
+
+from core.models import TeachingAllocation
+from attendance.models import ClassSession, AttendanceRecord
+from results.models import InternalAssessment
+
+from faculty_assignments.models import ClassTeacher
+
+class Student360View(APIView):
+    """
+    The ultimate aggregator endpoint. 
+    Fetches Profile, Duty Leaves, Mentors, Class Teacher, Attendance, and Internal Marks.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, student_id):
+        academic_year_id = request.GET.get('academic_year_id')
+        term = request.GET.get('term', 'ODD').upper()
+
+        try:
+            student = Student.objects.select_related('mentee_profile', 'department', 'user').get(id=student_id)
+        except Student.DoesNotExist:
+            return Response({"error": "Student not found"}, status=404)
+
+        # 1. Full Digitized Registration Profile
+        profile_data = MenteeRegistrationFormSerializer(student).data
+
+        # 2. Duty Leave History
+        leaves = DutyLeaveParticipant.objects.filter(student=student).select_related('request')
+        leave_data = [{
+            "event": l.request.title,
+            "status": l.final_status,
+            "start": l.request.start_date,
+            "end": l.request.end_date
+        } for l in leaves]
+
+        # 3. Mentorship Assignments
+        mentors = Mentorship.objects.filter(student=student).select_related('mentor__user')
+        mentor_names = [m.mentor.user.get_full_name() for m in mentors if m.mentor and m.mentor.user]
+
+        # 4. Class Teacher Assignment
+        class_teacher_name = None
+        if academic_year_id:
+            sem_map = {1: 'FE', 2: 'FE', 3: 'SE', 4: 'SE', 5: 'TE', 6: 'TE', 7: 'BE', 8: 'BE'}
+            yl = sem_map.get(student.current_semester, 'FE')
+            ct = ClassTeacher.objects.filter(
+                academic_year_id=academic_year_id,
+                department=student.department,
+                year_level=yl
+            ).select_related('faculty__user').first()
+            if ct and ct.faculty:
+                class_teacher_name = ct.faculty.user.get_full_name()
+
+        # 5. ACADEMICS (Attendance & Marks)
+        academics = {
+            "overall_attendance": {"ta": 0, "tc": 0, "percentage": 100, "status": "Safe"},
+            "attendance_subjects": [],
+            "marks_subjects": []
+        }
+
+        if academic_year_id:
+            # --- Fetch Attendance ---
+            allocations = TeachingAllocation.objects.filter(
+                academic_year_id=academic_year_id,
+                student_group__students=student
+            ).select_related('subject', 'faculty__user').distinct()
+
+            subject_stats = []
+            total_ta = 0
+            total_tc = 0
+            valid_sems = [1, 3, 5, 7, 9] if term == 'ODD' else [2, 4, 6, 8, 10]
+
+            for alloc in allocations:
+                if alloc.subject.semester not in valid_sems:
+                    continue
+                
+                sessions = ClassSession.objects.filter(allocation=alloc)
+                tc = sum(s.lecture_count for s in sessions)
+                
+                records = AttendanceRecord.objects.filter(session__in=sessions, student=student)
+                ta = sum(r.session.lecture_count for r in records if r.status in ['PRESENT', 'LATE'] or r.status.startswith('DUTY'))
+                
+                perc = round((ta / tc * 100), 2) if tc > 0 else 100.0
+                
+                subject_stats.append({
+                    "subject_name": alloc.subject.name,
+                    "subject_code": alloc.subject.code,
+                    "faculty_name": alloc.faculty.user.get_full_name() if alloc.faculty else "Unassigned",
+                    "ta": ta, "tc": tc, "percentage": perc
+                })
+                total_ta += ta
+                total_tc += tc
+
+            overall_percentage = round((total_ta / total_tc * 100), 2) if total_tc > 0 else 100.0
+            academics["overall_attendance"] = {
+                "ta": total_ta, "tc": total_tc, "percentage": overall_percentage,
+                "status": "Defaulter" if overall_percentage < 75 else "At Risk" if overall_percentage < 80 else "Safe"
+            }
+            academics["attendance_subjects"] = subject_stats
+
+            # --- Fetch Internal Marks ---
+            assessments = InternalAssessment.objects.filter(
+                student=student, academic_year_id=academic_year_id, term=term
+            ).select_related('subject')
+
+            marks_data = []
+            for a in assessments:
+                conducted = sum(1 for m in [a.it1, a.it2, a.it3] if m is not None)
+                rank = "-"
+                if a.final_score is not None:
+                    higher_scores = InternalAssessment.objects.filter(
+                        subject=a.subject, academic_year_id=academic_year_id, term=term, final_score__gt=a.final_score
+                    ).count()
+                    rank = higher_scores + 1
+
+                marks_data.append({
+                    "subject_name": a.subject.name,
+                    "subject_code": a.subject.code,
+                    "it1": a.it1, "it2": a.it2, "it3": a.it3,
+                    "final_score": a.final_score,
+                    "is_passing": a.is_passing,
+                    "conducted": conducted,
+                    "rank": rank
+                })
+            academics["marks_subjects"] = marks_data
+
+        return Response({
+            "profile": profile_data,
+            "duty_leaves": leave_data,
+            "mentors": mentor_names,
+            "class_teacher": class_teacher_name, 
+            "academics": academics
+        })

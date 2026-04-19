@@ -83,6 +83,8 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
       navItems.splice(7, 0, { icon: Layers, label: "Allocation Matrix", path: "/allocations" });
       navItems.splice(9, 0, { icon: UploadCloud, label: "Upload Data", path: "/upload" });
       navItems.splice(11, 0, { icon: UserStar, label: "Class Teachers", path: "/assignments" });
+      navItems.splice(3, 0, { icon:  Users, label: "Students", path: "/institute/directory" });
+      
     }
   }
 
