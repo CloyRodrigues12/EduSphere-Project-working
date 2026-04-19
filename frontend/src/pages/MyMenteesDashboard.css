@@ -209,3 +209,31 @@
   border-color: var(--primary-color);
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
+
+
+/* --- MENTEE PROFILES TAB --- */
+.semester-group-title { font-size: 1.2rem; font-weight: 700; color: var(--text-primary); margin: 2.5rem 0 1rem 0; padding-bottom: 0.5rem; border-bottom: 2px solid var(--border-color); }
+.profiles-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 1.5rem; }
+.profile-card-modern { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem; display: flex; align-items: center; gap: 1.25rem; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.02); }
+.profile-card-modern:hover { transform: translateY(-4px); border-color: var(--primary-color); box-shadow: 0 10px 25px rgba(99, 102, 241, 0.1); }
+.profile-avatar-large { width: 56px; height: 56px; border-radius: 16px; background: linear-gradient(135deg, var(--primary-color), #8b5cf6); color: white; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: bold; flex-shrink: 0; }
+.profile-card-info h4 { margin: 0 0 4px 0; color: var(--text-primary); font-size: 1.1rem; }
+.profile-card-info p { margin: 0; color: var(--text-secondary); font-size: 0.85rem; }
+
+/* --- FULL PROFILE MODAL (EYE-CATCHY DESIGN) --- */
+.full-profile-modal { width: 100%; max-width: 800px; background: var(--bg-card); border-radius: 20px; overflow: hidden; display: flex; flex-direction: column; max-height: 90vh; }
+.fp-header { background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1)); padding: 2rem; display: flex; align-items: center; gap: 1.5rem; border-bottom: 1px solid var(--border-color); position: relative; }
+.fp-avatar { width: 80px; height: 80px; border-radius: 20px; background: linear-gradient(135deg, var(--primary-color), #8b5cf6); color: white; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; font-weight: bold; box-shadow: 0 8px 20px rgba(99, 102, 241, 0.3); }
+.fp-title h2 { margin: 0 0 5px 0; font-size: 1.6rem; color: var(--text-primary); }
+.fp-title p { margin: 0; color: var(--text-secondary); font-weight: 500; font-size: 0.95rem;}
+.fp-close { position: absolute; top: 1.5rem; right: 1.5rem; background: var(--bg-card); border: none; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-muted); box-shadow: 0 2px 8px rgba(0,0,0,0.05); transition: all 0.2s; }
+.fp-close:hover { color: #ef4444; transform: scale(1.1); }
+.fp-content { padding: 2rem; overflow-y: auto; display: flex; flex-direction: column; gap: 2rem; }
+.fp-section { background: var(--bg-main); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem; }
+.fp-section-title { display: flex; align-items: center; gap: 8px; color: var(--primary-color); font-weight: 700; font-size: 1.1rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem; }
+.fp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.25rem; }
+.fp-field { display: flex; flex-direction: column; gap: 4px; }
+.fp-field.full { grid-column: 1 / -1; }
+.fp-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); font-weight: 700; }
+.fp-value { font-size: 0.95rem; color: var(--text-primary); font-weight: 500; word-break: break-word; }
+.fp-empty { color: var(--text-muted); font-style: italic; font-weight: 400; }

@@ -215,12 +215,14 @@ export const assignmentService = {
   getMenteeSubjectAttendance: (studentId, ayId) => api.get(`/assignments/my-mentees/subjects/?student_id=${studentId}&academic_year=${ayId}`),
 };
 
-// --- NEW: DEDICATED COUNSELLING SERVICE ---
+// --- DEDICATED COUNSELLING SERVICE ---
 export const counsellingService = {
   getMentorSummary: () => api.get("/counselling/mentors/summary/"),
   getMentorStudents: () => api.get("/counselling/mentors/students/"),
   assignMentors: (data) => api.post("/counselling/mentors/students/", data),
   removeMentee: (studentId) => api.delete(`/counselling/mentors/students/?student_id=${studentId}`),
+  getMyDetailedMentees: () => api.get("/counselling/my-detailed-mentees/"),
 };
+
 
 export default api;

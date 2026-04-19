@@ -238,3 +238,31 @@ class MenteeProfileViewSet(viewsets.ModelViewSet):
             
         except Exception as e:
             return Response({"error": f"Failed to process file: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        
+
+
+class MyDetailedMenteesView(APIView):
+    """
+    Dedicated endpoint for a faculty member to fetch the full 
+    digitized Registration Forms for ONLY their assigned mentees.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        
+        # 1. Find all student IDs assigned to this specific user
+        mentee_ids = Mentorship.objects.filter(
+            mentor__user=user
+        ).values_list('student_id', flat=True)
+        
+        # 2. Fetch those students with their profiles and core info
+        students = Student.objects.filter(
+            id__in=mentee_ids,
+            is_active=True
+        ).select_related('mentee_profile', 'department', 'user')
+        
+        # 3. Serialize using the updated serializer (now with enrollment_number)
+        serializer = MenteeRegistrationFormSerializer(students, many=True)
+        return Response(serializer.data)

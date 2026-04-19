@@ -42,11 +42,11 @@ class MenteeRegistrationFormSerializer(serializers.ModelSerializer):
     class Meta:
         model = Student
         fields = [
-            'id', 'roll_number', 'full_name', 'gender', 'dob', 
+            'id','enrollment_number', 'roll_number', 'full_name', 'gender', 'dob', 
             'current_semester', 'department_name', 'email', 'profile'
         ]
         read_only_fields = [
-            'id', 'roll_number', 'full_name', 'gender', 'dob', 
+            'id', 'enrollment_number', 'roll_number', 'full_name', 'gender', 'dob', 
             'current_semester', 'department_name', 'email'
         ]
 
