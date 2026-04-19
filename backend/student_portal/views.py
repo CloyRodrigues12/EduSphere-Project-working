@@ -7,6 +7,10 @@ from faculty_assignments.models import ClassTeacher
 from counselling.models import Mentorship 
 from results.models import InternalAssessment
 from django.db.models import Q
+from core.models import Student
+from counselling.serializers import MenteeRegistrationFormSerializer
+
+
 
 class MyStudentDashboardView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -134,3 +138,21 @@ class MyStudentDashboardView(APIView):
 
         except Student.DoesNotExist:
             return Response({"error": "Student record not found"}, status=404)
+        
+    
+
+class StudentProfileView(APIView):
+    """
+    Dedicated endpoint for a student to view their own comprehensive profile
+    (Core data + Mentee Registration Details).
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        try:
+            # Safely fetch the student profile linked to the logged-in user
+            student = Student.objects.select_related('mentee_profile', 'department', 'user').get(user=request.user)
+            serializer = MenteeRegistrationFormSerializer(student)
+            return Response(serializer.data)
+        except Student.DoesNotExist:
+            return Response({"error": "Student profile not found."}, status=404)

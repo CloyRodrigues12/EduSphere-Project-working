@@ -6,7 +6,7 @@ import {
   LayoutDashboard, UploadCloud, Users, Banknote, ChevronLeft, ChevronRight,
   LogOut, X, AlertCircle, Shield, Library, Layers, Settings, FileSearch,
   ClipboardCheck, Info, UserStar, Presentation, HeartHandshake, CalendarDays,
-  CalendarClock, ClipboardPen, Sun, Moon
+  CalendarClock, ClipboardPen, Sun, Moon, UserCircle,
 } from "lucide-react";
 import "./Sidebar.css";
 
@@ -49,8 +49,7 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
     navItems = [
       { icon: LayoutDashboard, label: "My Dashboard", path: "/" },
       { icon: CalendarClock, label: "Duty Leaves (OD)", path: "/duty-leave" },
-      { icon: ClipboardCheck, label: "My Attendance", path: "/my-attendance" },
-      { icon: Banknote, label: "My Fees", path: "/fees" },
+      { icon: UserCircle, label: "My Profile", path: "/student/profile" },
     ];
   } else if (isCounsellor) {
     navItems = [
@@ -74,7 +73,6 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
       { icon: CalendarDays, label: "Timetables", path: "/timetable" },
       { icon: Library, label: "Subject Catalog", path: "/subjects" },
       { icon: Users, label: "Dir & Batches", path: "/students" },
-      { icon: Banknote, label: "Fees", path: "/fees" },
     ];
 
     if (isOrgAdmin || user?.role_code === "HOD") navItems.push({ icon: HeartHandshake, label: "Counselling Dept", path: "/counselling/mentor-allocation" });

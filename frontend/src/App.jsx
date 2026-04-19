@@ -30,6 +30,7 @@ import TimetableManager from "./pages/TimetableManager";
 import DutyLeaveDashboard from "./pages/DutyLeaveDashboard";
 import InternalAssessment from './pages/InternalAssessment';
 import MenteeDirectory from "./pages/Counselling/MenteeDirectory";
+import StudentProfile from "./pages/StudentPortal/StudentProfile";
 
 // Placeholder Component
 const Placeholder = ({ title }) => (
@@ -108,6 +109,10 @@ const AppLayout = () => {
               path="/students" 
               element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD", "FACULTY"]}><StudentDirectory /></ProtectedRoute>} 
             />
+            <Route
+  path="/student/profile/"
+  element={<ProtectedRoute allowedRoles={["STUDENT"]}><StudentProfile /></ProtectedRoute>}
+/>
             <Route 
               path="/allocations" 
               element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD"]}><AllocationMatrix /></ProtectedRoute>} 

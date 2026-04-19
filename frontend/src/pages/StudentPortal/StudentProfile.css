@@ -1,0 +1,201 @@
+.student-profile-page {
+  padding: 1.5rem 2rem 4rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* --- BANNER & HEADER --- */
+.sp-header-card {
+  background: var(--bg-card);
+  border-radius: 20px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.02);
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.sp-cover-banner {
+  height: 80px;
+  background: linear-gradient(135deg, var(--primary-color), #8b5cf6, #ec4899);
+  position: relative;
+}
+
+.sp-profile-info-row {
+  padding: 0 2rem 2rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: -50px;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.sp-avatar-wrapper {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 6px solid var(--bg-card);
+  background: var(--bg-input);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  font-weight: 800;
+  color: var(--primary-color);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  position: relative;
+  z-index: 2;
+}
+
+.sp-primary-details {
+  flex: 1;
+  padding-top: 60px; /* Space for the overlapping avatar */
+}
+
+.sp-primary-details h1 {
+  margin: 0 0 5px 0;
+  font-size: 1.8rem;
+  color: var(--text-primary);
+}
+
+.sp-primary-details p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sp-status-badge {
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* --- GRID & CARDS --- */
+.sp-details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 1.5rem;
+}
+
+.sp-detail-card {
+  background: var(--bg-card);
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
+  padding: 1.5rem;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.01);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.sp-detail-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.03);
+}
+
+.sp-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+}
+
+.sp-card-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--primary-color);
+}
+
+.sp-icon-box {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--primary-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* --- DATA FIELDS --- */
+.sp-data-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.sp-data-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sp-data-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.sp-data-value {
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.sp-data-empty {
+  color: var(--text-muted);
+  font-style: italic;
+  font-weight: 400;
+}
+
+/* --- PROGRESS BAR --- */
+.sp-progress-container {
+  background: var(--bg-main);
+  padding: 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 2rem;
+}
+
+.sp-progress-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.sp-progress-bg {
+  width: 100%;
+  height: 8px;
+  background: var(--bg-input);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.sp-progress-fill {
+  height: 100%;
+  background: var(--primary-color);
+  border-radius: 4px;
+  transition: width 0.5s ease-out;
+}
+
+@media (max-width: 768px) {
+  .student-profile-page { padding: 1rem; }
+  .sp-profile-info-row { flex-direction: column; align-items: center; text-align: center; }
+  .sp-avatar-wrapper { margin: 0 auto; }
+  .sp-primary-details { padding-top: 10px; }
+  .sp-primary-details p { justify-content: center; }
+}

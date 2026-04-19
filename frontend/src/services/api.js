@@ -102,6 +102,8 @@ export const studentService = {
       academic_year_id: academicYearId,
     }),
 
+    getProfile: () => api.get("/student-portal/profile/"),
+
   // Toggle Active Status
   toggleStatus: (id) => api.post(`/students/toggle-status/${id}/`),
 
