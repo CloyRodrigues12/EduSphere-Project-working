@@ -386,3 +386,130 @@ class MenteeSubjectAttendanceView(APIView):
         results.sort(key=lambda x: x['percentage'])
 
         return Response(results)
+    
+import calendar
+from django.utils import timezone
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import permissions
+
+from core.models import Student, TeachingAllocation
+from attendance.models import ClassSession, AttendanceRecord
+from counselling.models import Mentorship
+
+class MenteeParentCommunicationView(APIView):
+    """
+    Generates the WhatsApp communication report for a mentor's mentees.
+    Calculates overall term attendance and a specifically requested month's attendance.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        ay_id = request.GET.get('academic_year')
+        term = request.GET.get('term', 'ODD').upper()
+        
+        # NEW: Get Target Month and Year from Frontend
+        target_month_str = request.GET.get('month')
+        target_year_str = request.GET.get('year')
+
+        if not ay_id:
+            return Response({"error": "Academic Year required"}, status=400)
+
+        now = timezone.now()
+        if target_month_str and target_year_str:
+            try:
+                current_month = int(target_month_str)
+                current_year = int(target_year_str)
+            except ValueError:
+                current_month = now.month
+                current_year = now.year
+        else:
+            current_month = now.month
+            current_year = now.year
+
+        current_month_name = f"{calendar.month_name[current_month]} {current_year}"
+
+        mentee_ids = Mentorship.objects.filter(mentor__user=user).values_list('student_id', flat=True)
+        students = Student.objects.filter(id__in=mentee_ids, is_active=True).select_related('mentee_profile')
+
+        valid_sems = [1, 3, 5, 7, 9] if term == 'ODD' else [2, 4, 6, 8, 10]
+        mentor_name = user.get_full_name().title() if user.get_full_name() else user.username.title()
+
+        data = []
+        for student in students:
+            # --- EXTRACT ALL AVAILABLE CONTACTS ---
+            profile = getattr(student, 'mentee_profile', None)
+            contacts = []
+            
+            if profile:
+                if profile.father_contact:
+                    contacts.append({"type": "Father", "name": profile.father_name or "Father", "phone": profile.father_contact})
+                if profile.mother_contact:
+                    contacts.append({"type": "Mother", "name": profile.mother_name or "Mother", "phone": profile.mother_contact})
+                if profile.guardian_contact:
+                    contacts.append({"type": "Guardian", "name": profile.guardian_name or "Guardian", "phone": profile.guardian_contact})
+
+            # --- Calculate Attendance ---
+            allocations = TeachingAllocation.objects.filter(
+                academic_year_id=ay_id,
+                student_group__students=student,
+                subject__semester__in=valid_sems
+            )
+
+            total_ta, total_tc = 0, 0
+            month_ta, month_tc = 0, 0
+
+            for alloc in allocations:
+                sessions = ClassSession.objects.filter(allocation=alloc)
+                month_sessions = sessions.filter(date__year=current_year, date__month=current_month)
+
+                total_tc += sum(s.lecture_count for s in sessions)
+                records = AttendanceRecord.objects.filter(session__in=sessions, student=student)
+                total_ta += sum(r.session.lecture_count for r in records if r.status in ['PRESENT', 'LATE'] or r.status.startswith('DUTY'))
+
+                month_tc += sum(s.lecture_count for s in month_sessions)
+                m_records = AttendanceRecord.objects.filter(session__in=month_sessions, student=student)
+                month_ta += sum(r.session.lecture_count for r in m_records if r.status in ['PRESENT', 'LATE'] or r.status.startswith('DUTY'))
+
+            overall_perc = round((total_ta / total_tc * 100), 2) if total_tc > 0 else 100.0
+            month_perc = round((month_ta / month_tc * 100), 2) if month_tc > 0 else 100.0
+            formatted_student_name = student.full_name.title()
+
+            # --- GENERATE THE WHATSAPP MESSAGE ---
+            if overall_perc < 75:
+                alert_text = "\u26A0\uFE0F *CRITICAL ALERT:*\nYour ward's overall attendance is falling below the mandatory *75%* university requirement. We kindly request you to advise them to attend classes regularly to avoid strict examination penalties.\n\n"
+            else:
+                alert_text = "\u2705 *Status:* Your ward is maintaining a satisfactory attendance record. Keep up the good work!\n\n"
+
+            whatsapp_message = (
+                "\U0001F3DB *EduSphere Academic Update*\n\n"
+                "Dear Parent/Guardian,\n\n"
+                "This is an official monthly attendance report for your ward:\n\n"
+                f"\U0001F464 *Name:* {formatted_student_name}\n"
+                f"*Roll No:* {student.roll_number}\n\n"
+                "Here is their current academic standing:\n\n"
+                f"\U0001F4CA *{current_month_name} Attendance:* {month_perc}% _({month_ta}/{month_tc} lectures)_\n"
+                f"\U0001F4CB *Overall Term Attendance:* {overall_perc}%\n\n"
+                f"{alert_text}"
+                f"Warm Regards,\n"
+                f"*Prof. {mentor_name}*\n"
+                "_Academic Mentor_\n"
+                "EduSphere Portal"
+            )
+
+            data.append({
+                "id": student.id,
+                "name": student.full_name,
+                "roll_number": student.roll_number,
+                "semester": student.current_semester,
+                "contacts": contacts, # Sends the list of parents
+                "current_month_name": current_month_name,
+                "month_ta": month_ta,
+                "month_tc": month_tc,
+                "month_percentage": month_perc,
+                "overall_percentage": overall_perc,
+                "whatsapp_message": whatsapp_message
+            })
+
+        return Response(data)

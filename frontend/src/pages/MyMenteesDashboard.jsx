@@ -1,15 +1,14 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useAcademic } from "../context/AcademicContext";
+import { useAuth } from "../context/AuthContext";
 import { assignmentService, counsellingService } from "../services/api";
 import { 
   Users, Search, X, Activity, AlertTriangle, 
   TrendingUp, FileText, UserCircle, MapPin, 
-  Users as UsersIcon, Award, Mail, Phone
+  Users as UsersIcon, Award, Mail, Phone, MessageCircle, Calendar,CheckCircle
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import "./MyMenteesDashboard.css";
-
-// IMPORT THE UNIFIED PREDICTIVE MATH ENGINE
 import { evaluateMarks, getStatusColor } from "./InternalAssessment";
 
 const getYearLevel = (sem) => {
@@ -22,10 +21,12 @@ const getYearLevel = (sem) => {
 
 const MyMenteesDashboard = () => {
   const { activeAcademicYear, activeTerm } = useAcademic();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   
   const [data, setData] = useState(null); 
-  const [menteeProfiles, setMenteeProfiles] = useState([]); // Isolated state for profiles
+  const [menteeProfiles, setMenteeProfiles] = useState([]); 
+  const [communications, setCommunications] = useState([]);
   const [search, setSearch] = useState("");
   
   const [selectedProfileMentee, setSelectedProfileMentee] = useState(null);
@@ -35,6 +36,13 @@ const MyMenteesDashboard = () => {
   const [activeTab, setActiveTab] = useState("profiles"); 
   const [yearFilter, setYearFilter] = useState("ALL");
 
+  const [reportMonth, setReportMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [notifiedSet, setNotifiedSet] = useState(new Set());
+
+  // 1. Fetch Main Profiles & Tracking Data
   useEffect(() => {
     if (activeAcademicYear) fetchDashboard();
   }, [activeAcademicYear, activeTerm]);
@@ -43,18 +51,12 @@ const MyMenteesDashboard = () => {
     setLoading(true);
     setSelectedMentee(null); setSelectedResultsMentee(null); setSelectedProfileMentee(null);
     try {
-      // 1. Fetch Tracking Data
       const dashRes = await assignmentService.getMyMenteesDashboard(activeAcademicYear.id);
-      
-      // 2. Fetch Detailed Profiles safely and independently
       try {
         const profilesRes = await counsellingService.getMyDetailedMentees();
         setMenteeProfiles(profilesRes.data);
-      } catch (profErr) {
-        console.error("Failed to load detailed profiles", profErr);
-      }
+      } catch (profErr) { console.error("Failed to load secondary data", profErr); }
       
-      // 3. Process Original Tracking Data
       if (dashRes.data.has_mentees) {
         const processedMentees = dashRes.data.mentees.map(s => {
           let s_fail = false; let s_risk = false; let s_pending = true; let s_on_track = false;
@@ -89,6 +91,20 @@ const MyMenteesDashboard = () => {
     finally { setLoading(false); }
   };
 
+  // 2. Fetch Communications Data
+  useEffect(() => {
+    if (activeAcademicYear && activeTab === 'communications') {
+      const fetchComms = async () => {
+        const [year, month] = reportMonth.split('-');
+        try {
+          const res = await assignmentService.getMenteeCommunications(activeAcademicYear.id, activeTerm, month, year);
+          setCommunications(res.data);
+        } catch (err) { console.error(err); }
+      };
+      fetchComms();
+    }
+  }, [activeAcademicYear, activeTerm, activeTab, reportMonth]);
+
   if (!activeAcademicYear || loading) return <div className="spinner" style={{ margin: "5rem auto" }}></div>;
 
   if (!data?.has_mentees && menteeProfiles.length === 0) {
@@ -103,7 +119,6 @@ const MyMenteesDashboard = () => {
     );
   }
 
-  // --- FILTERING FOR TRACKING DATA ---
   const filteredMentees = (data?.mentees || []).filter(s => 
     s.name.toLowerCase().includes(search.toLowerCase()) || s.roll_number.toLowerCase().includes(search.toLowerCase())
   );
@@ -116,7 +131,6 @@ const MyMenteesDashboard = () => {
     "Alumni": filteredMentees.filter(s => !s.is_active)
   };
 
-  // --- FILTERING FOR DETAILED PROFILES DATA ---
   const filteredProfiles = menteeProfiles.filter(m => {
     const matchSearch = m.full_name.toLowerCase().includes(search.toLowerCase()) || 
                         m.roll_number.toLowerCase().includes(search.toLowerCase()) ||
@@ -132,6 +146,30 @@ const MyMenteesDashboard = () => {
     return acc;
   }, {});
 
+const sendWhatsAppMessage = (student, phoneTarget) => {
+    if (!phoneTarget) {
+      alert("No valid contact number selected. Please update the Mentee Profile.");
+      return;
+    }
+
+    let phone = phoneTarget.replace(/\D/g, '');
+    if (phone.length === 10) phone = `91${phone}`;
+
+    const message = student.whatsapp_message;
+    const url = `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`;
+    window.open(url, '_blank');
+
+    setNotifiedSet(prev => new Set(prev).add(student.id));
+  };
+
+  // 🚀 NEW: Smart Tab Changer (Resets Alumni filter if leaving the profile tab)
+  const handleTabChange = (newTab) => {
+    setActiveTab(newTab);
+    if (newTab !== "profiles" && yearFilter === "Alumni") {
+      setYearFilter("ALL");
+    }
+  };
+
   return (
     <div className="mentees-container fade-in">
       <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "1rem", marginBottom: "1rem" }}>
@@ -146,15 +184,17 @@ const MyMenteesDashboard = () => {
              <option value="SE">SE Students</option>
              <option value="TE">TE Students</option>
              <option value="BE">BE Students</option>
-             <option value="Alumni">Graduated</option>
+             {/* 🚀 NEW: Hide Alumni option unless we are on the Profiles tab */}
+             {activeTab === 'profiles' && <option value="Alumni">Graduated</option>}
            </select>
         </div>
       </div>
 
       <div className="mentee-tabs-container">
-        <button className={`mentee-tab-btn ${activeTab === 'profiles' ? 'active' : ''}`} onClick={() => setActiveTab('profiles')}><UserCircle size={18}/> Mentee Profiles</button>
-        <button className={`mentee-tab-btn ${activeTab === 'attendance' ? 'active' : ''}`} onClick={() => setActiveTab('attendance')}><Activity size={18}/> Attendance Tracker</button>
-        <button className={`mentee-tab-btn ${activeTab === 'results' ? 'active' : ''}`} onClick={() => setActiveTab('results')}><TrendingUp size={18}/> Internal Results</button>
+        <button className={`mentee-tab-btn ${activeTab === 'profiles' ? 'active' : ''}`} onClick={() => handleTabChange('profiles')}><UserCircle size={18}/> Mentee Profiles</button>
+        <button className={`mentee-tab-btn ${activeTab === 'attendance' ? 'active' : ''}`} onClick={() => handleTabChange('attendance')}><Activity size={18}/> Attendance Tracker</button>
+        <button className={`mentee-tab-btn ${activeTab === 'results' ? 'active' : ''}`} onClick={() => handleTabChange('results')}><TrendingUp size={18}/> Internal Results</button>
+        <button className={`mentee-tab-btn ${activeTab === 'communications' ? 'active' : ''}`} onClick={() => handleTabChange('communications')}><MessageCircle size={18}/> Parent Communications</button>
       </div>
 
       <div className="search-bar premium-search" style={{ maxWidth: "400px", margin: "1.5rem 0" }}>
@@ -194,19 +234,20 @@ const MyMenteesDashboard = () => {
       {/* ===================== ATTENDANCE TAB ===================== */}
       {activeTab === "attendance" && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
-          {["FE", "SE", "TE", "BE", "Alumni"].map(year => {
+          {/* 🚀 NEW: Removed "Alumni" from the map array entirely */}
+          {["FE", "SE", "TE", "BE"].map(year => {
             if (yearFilter !== "ALL" && yearFilter !== year) return null;
             if (!groupedMentees[year] || groupedMentees[year].length === 0) return null;
             
             return (
               <div key={year} style={{ marginBottom: "2rem" }}>
-                <h3 style={{ color: year === "Alumni" ? "var(--text-secondary)" : "var(--primary-color)", borderBottom: "2px solid var(--border-color)", paddingBottom: "6px", marginBottom: "1rem", fontSize: "1.1rem" }}>
-                  {year === "Alumni" ? "Graduated / Alumni" : `${year} Students`} ({groupedMentees[year].length})
+                <h3 style={{ color: "var(--primary-color)", borderBottom: "2px solid var(--border-color)", paddingBottom: "6px", marginBottom: "1rem", fontSize: "1.1rem" }}>
+                  {year} Students ({groupedMentees[year].length})
                 </h3>
                 
                 <div className="mentee-grid">
                   {groupedMentees[year].map(student => (
-                    <motion.div key={student.id} className="mentee-card glass-panel" whileHover={{ y: -4, scale: 1.02 }} onClick={() => year !== "Alumni" && setSelectedMentee(student)} style={{ cursor: year === "Alumni" ? "default" : "pointer", opacity: year === "Alumni" ? 0.7 : 1 }}>
+                    <motion.div key={student.id} className="mentee-card glass-panel" whileHover={{ y: -4, scale: 1.02 }} onClick={() => setSelectedMentee(student)} style={{ cursor: "pointer" }}>
                       <div className="mentee-header">
                         <div className="avatar-circle">{student.name.charAt(0)}</div>
                         <div>
@@ -214,12 +255,10 @@ const MyMenteesDashboard = () => {
                           <span className="text-muted text-sm">{student.roll_number} • Sem {student.semester}</span>
                         </div>
                       </div>
-                      {year !== "Alumni" && (
-                        <div className="mentee-stats">
-                          <div className="stat-box"><span className="stat-label">Attendance</span><span className="stat-value" style={{ color: student.percentage < 75 ? "#ef4444" : "var(--text-primary)" }}>{student.percentage}%</span></div>
-                          <div className="stat-box" style={{ alignItems: "flex-end" }}><span className="stat-label">Status</span><span className="badge" style={{ background: student.status === "Safe" ? "rgba(16, 185, 129, 0.1)" : student.status === "At Risk" ? "rgba(245, 158, 11, 0.1)" : "rgba(239, 68, 68, 0.1)", color: student.status === "Safe" ? "#10b981" : student.status === "At Risk" ? "#f59e0b" : "#ef4444" }}>{student.status}</span></div>
-                        </div>
-                      )}
+                      <div className="mentee-stats">
+                        <div className="stat-box"><span className="stat-label">Attendance</span><span className="stat-value" style={{ color: student.percentage < 75 ? "#ef4444" : "var(--text-primary)" }}>{student.percentage}%</span></div>
+                        <div className="stat-box" style={{ alignItems: "flex-end" }}><span className="stat-label">Status</span><span className="badge" style={{ background: student.status === "Safe" ? "rgba(16, 185, 129, 0.1)" : student.status === "At Risk" ? "rgba(245, 158, 11, 0.1)" : "rgba(239, 68, 68, 0.1)", color: student.status === "Safe" ? "#10b981" : student.status === "At Risk" ? "#f59e0b" : "#ef4444" }}>{student.status}</span></div>
+                      </div>
                     </motion.div>
                   ))}
                 </div>
@@ -232,31 +271,30 @@ const MyMenteesDashboard = () => {
       {/* ===================== RESULTS TAB ===================== */}
       {activeTab === "results" && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
-          {["FE", "SE", "TE", "BE", "Alumni"].map(year => {
+          {/* 🚀 NEW: Removed "Alumni" from the map array entirely */}
+          {["FE", "SE", "TE", "BE"].map(year => {
             if (yearFilter !== "ALL" && yearFilter !== year) return null;
             if (!groupedMentees[year] || groupedMentees[year].length === 0) return null;
             
             return (
               <div key={`res-${year}`} style={{ marginBottom: "2rem" }}>
-                <h3 style={{ color: year === "Alumni" ? "var(--text-secondary)" : "var(--primary-color)", borderBottom: "2px solid var(--border-color)", paddingBottom: "6px", marginBottom: "1rem", fontSize: "1.1rem" }}>
-                  {year === "Alumni" ? "Graduated / Alumni" : `${year} Students`} ({groupedMentees[year].length})
+                <h3 style={{ color: "var(--primary-color)", borderBottom: "2px solid var(--border-color)", paddingBottom: "6px", marginBottom: "1rem", fontSize: "1.1rem" }}>
+                  {year} Students ({groupedMentees[year].length})
                 </h3>
                 
                 <div className="mentee-grid">
                   {groupedMentees[year].map(student => {
                     const badgeStyle = getStatusColor(student.overall_mark_status);
                     return (
-                      <motion.div key={`res-card-${student.id}`} className="mentee-card glass-panel" whileHover={{ y: -4, scale: 1.02 }} onClick={() => year !== "Alumni" && setSelectedResultsMentee(student)} style={{ cursor: year === "Alumni" ? "default" : "pointer", opacity: year === "Alumni" ? 0.7 : 1 }}>
+                      <motion.div key={`res-card-${student.id}`} className="mentee-card glass-panel" whileHover={{ y: -4, scale: 1.02 }} onClick={() => setSelectedResultsMentee(student)} style={{ cursor: "pointer" }}>
                         <div className="mentee-header">
                           <div className="avatar-circle">{student.name.charAt(0)}</div>
                           <div><h4 style={{ margin: 0, fontSize: "1rem" }}>{student.name}</h4><span className="text-muted text-sm">{student.roll_number} • Sem {student.semester}</span></div>
                         </div>
-                        {year !== "Alumni" && (
-                          <div className="mentee-stats">
-                            <div className="stat-box"><span className="stat-label">Average</span><span className="stat-value" style={{ color: "var(--text-primary)" }}>{student.overall_avg} <span style={{fontSize:'0.75rem', color:'var(--text-secondary)'}}>/ 25</span></span></div>
-                            <div className="stat-box" style={{ alignItems: "flex-end" }}><span className="stat-label">Status</span><span className="badge premium-status-badge" style={{ background: badgeStyle.bg, color: badgeStyle.text, border: `1px solid ${badgeStyle.bg}` }}>{student.overall_mark_status}</span></div>
-                          </div>
-                        )}
+                        <div className="mentee-stats">
+                          <div className="stat-box"><span className="stat-label">Average</span><span className="stat-value" style={{ color: "var(--text-primary)" }}>{student.overall_avg} <span style={{fontSize:'0.75rem', color:'var(--text-secondary)'}}>/ 25</span></span></div>
+                          <div className="stat-box" style={{ alignItems: "flex-end" }}><span className="stat-label">Status</span><span className="badge premium-status-badge" style={{ background: badgeStyle.bg, color: badgeStyle.text, border: `1px solid ${badgeStyle.bg}` }}>{student.overall_mark_status}</span></div>
+                        </div>
                       </motion.div>
                     );
                   })}
@@ -267,10 +305,121 @@ const MyMenteesDashboard = () => {
         </motion.div>
       )}
 
+      {/* ===================== COMMUNICATIONS TAB ===================== */}
+      {activeTab === "communications" && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
+          <div className="glass-panel" style={{ padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border-color)', marginTop: '1.5rem' }}>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
+              <div>
+                <h3 style={{ margin: '0 0 5px 0', color: 'var(--primary-color)' }}>Automated WhatsApp Reports</h3>
+                <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Send targeted attendance updates to parents.</p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--bg-card)', padding: '8px 16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                <Calendar size={18} color="var(--primary-color)" />
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>Select Target Month:</span>
+                <input 
+                  type="month" 
+                  className="premium-select" 
+                  value={reportMonth} 
+                  onChange={(e) => setReportMonth(e.target.value)}
+                  style={{ border: 'none', background: 'var(--bg-input)', height: '32px' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ overflowX: 'auto' }}>
+              <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
+                    <th style={{ padding: '12px', color: 'var(--text-muted)' }}>Student Name</th>
+                    <th style={{ padding: '12px', color: 'var(--text-muted)' }}>Target Parent / Contact</th>
+                    <th style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)' }}>{communications[0]?.current_month_name || "Target Month"}</th>
+                    <th style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)' }}>Overall Term</th>
+                    <th style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {communications.filter(c => {
+                    const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) || 
+                                        c.roll_number.toLowerCase().includes(search.toLowerCase());
+                    const matchYear = yearFilter === "ALL" || getYearLevel(c.semester) === yearFilter;
+                    return matchSearch && matchYear;
+                  }).map((student, idx) => {
+                    const contacts = student.contacts || [];
+                    const selectedIdx = student.selectedContactIndex || 0;
+                    const hasContact = contacts.length > 0;
+
+                    return (
+                      <tr key={idx} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }} className="premium-row">
+                        <td style={{ padding: '12px' }}>
+                          <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{student.name}</div>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Roll No: {student.roll_number}</div>
+                        </td>
+                        
+                        <td style={{ padding: '12px' }}>
+                          {hasContact ? (
+                            <select 
+                              className="premium-select" 
+                              style={{ width: '100%', padding: '6px 10px', height: 'auto' }}
+                              value={selectedIdx}
+                              onChange={(e) => {
+                                const newComms = [...communications];
+                                newComms[idx].selectedContactIndex = e.target.value;
+                                setCommunications(newComms);
+                              }}
+                            >
+                              {contacts.map((c, i) => (
+                                <option key={i} value={i}>{c.type}: {c.name} ({c.phone})</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span style={{ color: '#ef4444', fontSize: '0.85rem', fontWeight: 600, background: 'rgba(239, 68, 68, 0.1)', padding: '4px 8px', borderRadius: '6px' }}>Missing Profile Data</span>
+                          )}
+                        </td>
+
+                        <td style={{ padding: '12px', textAlign: 'center', fontWeight: 'bold', color: student.month_percentage < 75 ? '#ef4444' : 'var(--text-primary)' }}>
+                          {student.month_percentage}%
+                        </td>
+                        <td style={{ padding: '12px', textAlign: 'center' }}>
+                          <span className="badge" style={{ background: student.overall_percentage < 75 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', color: student.overall_percentage < 75 ? '#ef4444' : '#10b981' }}>
+                            {student.overall_percentage}%
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px', textAlign: 'center' }}>
+                          <button 
+                            onClick={() => sendWhatsAppMessage(student, contacts[selectedIdx]?.phone)}
+                            disabled={!hasContact}
+                            style={{
+                              // Change to a darker green if already notified
+                              background: hasContact ? (notifiedSet.has(student.id) ? '#10b981' : '#25D366') : 'var(--bg-input)',
+                              color: hasContact ? 'white' : 'var(--text-muted)',
+                              border: 'none', borderRadius: '8px', padding: '8px 16px', fontWeight: 600,
+                              cursor: hasContact ? 'pointer' : 'not-allowed',
+                              display: 'inline-flex', alignItems: 'center', gap: '8px',
+                              boxShadow: hasContact ? (notifiedSet.has(student.id) ? '0 4px 10px rgba(16, 185, 129, 0.3)' : '0 4px 10px rgba(37, 211, 102, 0.3)') : 'none',
+                              transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={e => { if(hasContact) e.currentTarget.style.transform = 'translateY(-2px)'}}
+                            onMouseLeave={e => { if(hasContact) e.currentTarget.style.transform = 'translateY(0)'}}
+                          >
+                            {/* Swap icon and text if notified */}
+                            {notifiedSet.has(student.id) ? <CheckCircle size={16} /> : <MessageCircle size={16} />}
+                            {hasContact ? (notifiedSet.has(student.id) ? 'Sent' : 'Notify') : 'Unavailable'}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
       {/* ===================== MODALS ===================== */}
       <AnimatePresence>
-        
-        {/* NEW: PROFILE MODAL WITH ENROLLMENT NO */}
         {selectedProfileMentee && (
             <div className="modal-overlay" onClick={() => setSelectedProfileMentee(null)}>
                 <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="full-profile-modal" onClick={e => e.stopPropagation()}>

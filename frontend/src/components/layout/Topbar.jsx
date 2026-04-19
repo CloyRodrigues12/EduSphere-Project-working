@@ -151,7 +151,7 @@ const Topbar = ({ title, onMenuClick }) => {
   return (
     <header className="topbar glass-panel">
       <div className="topbar-left">
-        <button className="icon-btn menu-trigger" onClick={onMenuClick}><Menu size={24} /></button>
+        <button className="icon-btn menu-trigger mobile-only" onClick={onMenuClick}><Menu size={24} /></button>
         
         {/* --- MOBILE SPECIFIC LOGO --- */}
         <div className="mobile-only mobile-logo-container">

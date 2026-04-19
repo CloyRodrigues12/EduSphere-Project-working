@@ -4,7 +4,7 @@ from .views import (
     ClassTeacherStudentListView,
     MyClassDashboardView,
     MyMenteesDashboardView,      
-    MenteeSubjectAttendanceView  
+    MenteeSubjectAttendanceView,MenteeParentCommunicationView  
 )
 
 urlpatterns = [
@@ -15,4 +15,6 @@ urlpatterns = [
     # --- RESTORED DASHBOARD ROUTES FOR FACULTY ---
     path('my-mentees/', MyMenteesDashboardView.as_view(), name='my-mentees-dashboard'),
     path('my-mentees/subjects/', MenteeSubjectAttendanceView.as_view(), name='mentee-subject-attendance'),
+# COMMUNICATION ENDPOINT
+    path('my-mentees/communications/', MenteeParentCommunicationView.as_view(), name='mentee-communications'),
 ]

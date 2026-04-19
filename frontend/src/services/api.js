@@ -215,6 +215,9 @@ export const assignmentService = {
   // MENTOR DASHBOARD CALLS (Used by standard faculty to view their mentees)
   getMyMenteesDashboard: (ayId) => api.get(`/assignments/my-mentees/?academic_year=${ayId}`),
   getMenteeSubjectAttendance: (studentId, ayId) => api.get(`/assignments/my-mentees/subjects/?student_id=${studentId}&academic_year=${ayId}`),
+   
+  getMenteeCommunications: (ayId, term, month, year) => 
+    api.get(`/assignments/my-mentees/communications/?academic_year=${ayId}&term=${term}&month=${month}&year=${year}`),
 };
 
 // --- DEDICATED COUNSELLING SERVICE ---
