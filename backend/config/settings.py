@@ -55,6 +55,8 @@ INSTALLED_APPS = [
     'student_portal',
     'counselling',
     'results',
+    
+    'chatbot',
 
     # --- 3rd Party Auth Apps ---
     'rest_framework.authtoken',

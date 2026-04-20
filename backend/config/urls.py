@@ -145,6 +145,8 @@ path('api/dashboard/advanced/', AdvancedDashboardView.as_view(), name='advanced_
     
     path('api/institute/directory/', InstituteDirectoryView.as_view(), name='institute-directory'),
     path('api/institute/student-360/<int:student_id>/', Student360View.as_view(), name='student-360'),
+    
+    path('api/chatbot/', include('chatbot.urls')),
 ]
 
 # This allows Django to serve uploaded images during development

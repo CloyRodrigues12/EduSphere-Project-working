@@ -32,6 +32,7 @@ import InternalAssessment from './pages/InternalAssessment';
 import MenteeDirectory from "./pages/Counselling/MenteeDirectory";
 import StudentProfile from "./pages/StudentPortal/StudentProfile";
 import InstituteDashboard from "./pages/Administration/InstituteDashboard";
+import ChatBot from "./components/chatbot/ChatBot";
 
 // Placeholder Component
 const Placeholder = ({ title }) => (
@@ -178,6 +179,7 @@ const AppLayout = () => {
           </Routes>
         </div>
       </div>
+      <ChatBot />
     </div>
   );
 };
