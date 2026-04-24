@@ -1,6 +1,7 @@
 import axios from "axios";
 
-const API_URL = "http://127.0.0.1:8000/api";
+// 🚀 Dynamically use the IP address from your .env file
+const API_URL = `${import.meta.env.VITE_API_URL}/api`;
 
 const api = axios.create({
   baseURL: API_URL,
@@ -22,7 +23,7 @@ api.interceptors.request.use((config) => {
     config.headers["X-Department-ID"] = savedDeptId;
   }
 
-  // --- NEW: Automatically attach the target Term (Odd/Even) ---
+  // --- Automatically attach the target Term (Odd/Even) ---
   const savedTerm = localStorage.getItem("edusphere_saved_term");
   if (savedTerm) {
     config.headers["X-Term"] = savedTerm;
@@ -31,8 +32,43 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-export const staffService = {
+// 🚀 Catch 401 Unauthorized errors and auto-refresh the token
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      localStorage.getItem("refresh_token") &&
+      !originalRequest.url.includes("token/refresh")
+    ) {
+      originalRequest._retry = true;
+      try {
+        const refreshToken = localStorage.getItem("refresh_token");
+        const res = await axios.post(
+          `${import.meta.env.VITE_API_URL}/api/auth/token/refresh/`,
+          { refresh: refreshToken }
+        );
+        const newAccess = res.data.access;
+        localStorage.setItem("access_token", newAccess);
+        originalRequest.headers.Authorization = `Bearer ${newAccess}`;
+        
+        // Retry the original request with the new token
+        return api(originalRequest); 
+      } catch (refreshError) {
+        console.error("Session expired.", refreshError);
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("refresh_token");
+        window.location.href = "/login"; // Kick back to login if refresh fails
+        return Promise.reject(refreshError);
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
+export const staffService = {
   // Inside staffService:
   getOrganizationFaculties: () => api.get('/core/faculties/'),          
   // --- Departments ---
@@ -46,7 +82,6 @@ export const staffService = {
   deleteStaff: (id) => api.delete(`/staff/?id=${id}`),
 
   getFaculty: () => api.get("/faculty/"),
-  getOrganizationFaculties: () => api.get("/faculty/?global=true"),
   addFaculty: (formData) =>
     api.post("/faculty/", formData, {
       headers: { "Content-Type": "multipart/form-data" },

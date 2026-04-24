@@ -194,7 +194,7 @@ const DashboardHome = () => {
           <h1>Welcome back, <span>{user_name}</span> 👋</h1>
           <p>Here's a breakdown of your institution's real-time performance.</p>
         </div>
-        <div className="global-filters" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        <div  className="header-actions">
           <select className="premium-select" value={termFilter} onChange={(e) => setTermFilter(e.target.value)}>
             <option value="CURRENT">Current Term (Auto)</option>
             <option value="ODD">Odd Term Only</option>

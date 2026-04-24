@@ -1,0 +1,58 @@
+/* Bot message row */
+.mb-bot-row {
+  display: flex;
+  align-items: flex-end; /* Align to bottom for a solid base */
+  gap: 10px;
+}
+
+.mb-bot-avatar {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1e1b4b, #4338ca);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(67, 56, 202, 0.2);
+}
+
+.mb-bot-content {
+  max-width: 85%;
+}
+
+.mb-bot-bubble {
+  background: white;
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 18px 18px 18px 4px;
+  padding: 10px 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  font-size: 0.85rem;
+  color: #334155;
+  line-height: 1.5;
+}
+
+/* User message row */
+.mb-user-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.mb-user-bubble {
+  max-width: 85%;
+  background: linear-gradient(135deg, #4338ca, #3730a3);
+  color: white;
+  border-radius: 18px 18px 4px 18px;
+  padding: 10px 16px;
+  box-shadow: 0 4px 12px rgba(67, 56, 202, 0.25);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+/* Custom Markdown bolding */
+.mb-bot-bubble strong, .mb-user-bubble strong {
+  font-weight: 700;
+  color: inherit;
+}

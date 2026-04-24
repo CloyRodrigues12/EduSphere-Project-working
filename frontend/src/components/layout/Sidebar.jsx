@@ -93,14 +93,16 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
 
   const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || "User")}&background=6366f1&color=fff&bold=true`;
 
-  return (
+return (
     <>
-      <div className={`mobile-backdrop ${mobileOpen ? "open" : ""}`} onClick={() => setMobileOpen(false)} />
+      {/* 🚀 NEW: The Mobile Backdrop Overlay */}
+      <div 
+        className={`sidebar-overlay ${mobileOpen ? "visible" : ""}`} 
+        onClick={() => setMobileOpen(false)}
+      />
 
       <aside className={`sidebar ${collapsed ? "collapsed" : ""} ${mobileOpen ? "mobile-open" : ""}`}>
-        
-        {/* Desktop Header */}
-        <div className="sidebar-header desktop-only">
+        <div className="sidebar-header">
           <div className="logo-icon"><img src="/logo.png" alt="EduSphere Logo" className="brand-logo-img" /></div>
           {(!collapsed || mobileOpen) && (
             <div style={{ display: "flex", alignItems: "center", flex: 1, justifyContent: "space-between" }}>

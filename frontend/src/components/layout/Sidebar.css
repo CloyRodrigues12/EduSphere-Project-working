@@ -445,3 +445,204 @@
   from { transform: scale(0.95); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
 }
+
+/* =========================================
+   MOBILE RESPONSIVENESS: APP DRAWER
+========================================= */
+.sidebar-overlay {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  /* The blurred background layer */
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+
+  .sidebar-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* The actual Sidebar Drawer */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: -100%; /* Hide completely off-screen */
+    bottom: 0;
+    height: 100vh;
+    width: 280px !important; /* Fixed native width */
+    z-index: 1001; /* Must sit above the overlay */
+    border-radius: 0;
+    border-right: 1px solid rgba(0,0,0,0.05);
+    background: rgba(255, 255, 255, 0.95);
+    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    padding: 1rem;
+  }
+
+  .sidebar.mobile-open {
+    left: 0; /* Slide in! */
+    box-shadow: 10px 0 40px rgba(0, 0, 0, 0.15);
+  }
+
+  /* Force icons and text to show normally in drawer */
+  .nav-item span {
+    display: inline-flex !important;
+  }
+}
+
+/* =========================================
+   DARK MODE OPTIMIZATION
+========================================= */
+[data-theme="dark"] .sidebar {
+  background: rgba(30, 41, 59, 0.7);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Nav Items Dark Mode */
+[data-theme="dark"] .nav-item {
+  color: #94a3b8; /* Light slate for unselected text */
+}
+
+[data-theme="dark"] .nav-item:hover:not(.active):not(.logout-btn) {
+  background: rgba(255, 255, 255, 0.05);
+  color: #818cf8; /* Soft indigo for hover */
+}
+
+[data-theme="dark"] .nav-item.active {
+  background: #4f46e5;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+}
+
+/* Nav Section Headers Dark Mode */
+[data-theme="dark"] .nav-section-title {
+  color: #64748b;
+}
+
+/* Logout Button Dark Mode */
+[data-theme="dark"] .logout-btn {
+  color: #f87171;
+}
+
+[data-theme="dark"] .logout-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
+}
+
+[data-theme="dark"] .collapse-btn {
+  background: rgba(255, 255, 255, 0.05);
+  color: #cbd5e1;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .collapse-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+/* =========================================
+   DARK MODE: LOGOUT MODAL
+========================================= */
+[data-theme="dark"] .logout-modal {
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .logout-icon-container {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+[data-theme="dark"] .logout-modal h3 {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .logout-modal p {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .cancel-btn {
+  background: transparent;
+  color: #cbd5e1;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="dark"] .cancel-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Mobile Drawer Background Fix for Dark Mode */
+@media (max-width: 768px) {
+  [data-theme="dark"] .sidebar {
+    background: rgba(15, 23, 42, 0.95); /* Deeper, solid background for mobile slide-in */
+  }
+}
+/* =========================================
+   FIXED FOOTER & SMOOTH SCROLLING (App Shell)
+========================================= */
+
+/* 1. Lock the sidebar height using dvh (Dynamic Viewport Height) to fix the mobile URL bar issue */
+.sidebar {
+  height: 100dvh !important; /* dvh perfectly calculates the height avoiding mobile browser UI */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden !important; /* Stop the entire sidebar from scrolling */
+}
+
+/* 2. Pin the Header */
+.sidebar-header {
+  flex-shrink: 0;
+}
+
+/* 3. Make the middle navigation section smoothly scrollable */
+.sidebar-nav {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  
+  /* Hardware-accelerated momentum scrolling for native mobile feel */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain; /* Prevents "pull-to-refresh" bouncing when scrolling the sidebar */
+  
+  padding-bottom: 20px; /* Breathing room at the bottom of the links */
+}
+
+/* 4. Hide ugly scrollbars for a clean native app look */
+.sidebar-nav::-webkit-scrollbar {
+  display: none;
+}
+.sidebar-nav {
+  scrollbar-width: none; /* Firefox */
+}
+
+/* 5. Pin the Footer/Logout button to the bottom */
+.sidebar-footer {
+  flex-shrink: 0;
+  margin-top: auto;
+  padding-top: 16px;
+  padding-bottom: env(safe-area-inset-bottom, 16px); /* Respects the iPhone home indicator bar */
+  background: inherit;
+  border-top: 1px solid rgba(0,0,0,0.05);
+  z-index: 10;
+}
+
+/* Dark mode border adjustment for the pinned footer */
+[data-theme="dark"] .sidebar-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}

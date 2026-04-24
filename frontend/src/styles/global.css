@@ -199,3 +199,79 @@ body {
   scrollbar-width: thin;
   scrollbar-color: #94a3b8 var(--bg-main);
 }
+
+/* global.css */
+
+/* Make sure all images and media scale down */
+img, video, canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Global Mobile Overrides */
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 12px;
+  }
+  
+  .page-title {
+    font-size: 1.5rem !important;
+  }
+  
+  /* Convert any generic grids to single column */
+  .grid-2, .grid-3, .grid-4 {
+    grid-template-columns: 1fr !important;
+  }
+  
+  /* Reduce heavy padding on mobile screens */
+  .main-content {
+    padding: 10px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .mobile-card-table, 
+  .mobile-card-table tbody, 
+  .mobile-card-table tr, 
+  .mobile-card-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .mobile-card-table thead {
+    display: none; /* Hide table headers on mobile */
+  }
+
+  .mobile-card-table tr {
+    margin-bottom: 1rem;
+    background: var(--bg-card, #fff);
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    border: 1px solid var(--border-color);
+  }
+
+  .mobile-card-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 4px !important;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    text-align: right;
+  }
+
+  .mobile-card-table td:last-child {
+    border-bottom: none;
+  }
+
+  /* Use HTML data attributes to inject labels on mobile */
+  .mobile-card-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--text-muted);
+    text-align: left;
+    padding-right: 15px;
+  }
+}
