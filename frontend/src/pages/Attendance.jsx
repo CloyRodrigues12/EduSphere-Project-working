@@ -720,7 +720,7 @@ const Attendance = () => {
     <div id="attendance-engine-root" className="fade-in">
       <div className="att-header-section with-back">
         <button className="att-back-btn" onClick={() => { if (activeSession) { setActiveSession(null); setIsCreatingNew(false); } else { navigate("/attendance"); } }}><ArrowLeft size={24} /></button>
-        <div><h1 className="att-title">{subjectName}</h1><p className="att-subtitle">{groupName} • Attendance & Grading</p></div>
+        <div><h1 className="att-title">{subjectName}</h1><p className="att-subtitle">{groupName} • Attendance </p></div>
       </div>
 
       {activeSession ? (
@@ -773,6 +773,73 @@ const Attendance = () => {
           </div>
         )}
 
+        {showAnalyticsModal && (
+          <div className="att-modal-overlay">
+            <motion.div className="att-modal-content" style={{ maxWidth: "850px", width: "95%" }} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}>
+              <div className="att-modal-header">
+                <div><h3>Defaulter Radar & Analytics</h3><p>Real-time calculation of student safety zones.</p></div>
+                <button onClick={() => setShowAnalyticsModal(false)} className="att-close-btn">&times;</button>
+              </div>
+
+              <div className="att-analytics-filters">
+                <div>
+                  <label className="att-analytics-label">Start Date</label>
+                  <input type="date" className="att-analytics-input" value={analyticsFilter.start} onChange={(e) => setAnalyticsFilter({ ...analyticsFilter, start: e.target.value })} />
+                </div>
+                <div>
+                  <label className="att-analytics-label">End Date</label>
+                  <input type="date" className="att-analytics-input" value={analyticsFilter.end} onChange={(e) => setAnalyticsFilter({ ...analyticsFilter, end: e.target.value })} />
+                </div>
+                {/* Semester/Subject filters automatically hidden here because allocationId exists! */}
+              </div>
+
+              {analyticsData ? (
+                <div className="att-analytics-layout">
+                  <div className="att-chart-section">
+                    <h4 style={{ margin: "0 0 10px 0", color: "var(--text-primary)" }}>Total Students: {analyticsData.totalStudents}</h4>
+                    <div style={{ width: "100%", height: "280px" }}>
+                      <ResponsiveContainer>
+                        <PieChart>
+                          <Pie data={analyticsData.chartData} cx="50%" cy="50%" innerRadius={65} outerRadius={100} paddingAngle={5} dataKey="value" onClick={(data, index) => { if (index === 0) setSelectedZone("Safe"); if (index === 1) setSelectedZone("At Risk"); if (index === 2) setSelectedZone("Defaulters"); }} style={{ cursor: "pointer", outline: "none" }}>
+                            {analyticsData.chartData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.fill} stroke="rgba(0,0,0,0)" />))}
+                          </Pie>
+                          <Tooltip contentStyle={{ borderRadius: "8px", background: "var(--bg-card)", border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.15)", color: "var(--text-primary)" }} />
+                          <Legend verticalAlign="bottom" height={36} wrapperStyle={{ color: "var(--text-secondary)", fontSize: "0.9rem" }} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <button onClick={downloadDefaultersPDF} className="att-btn" style={{ background: "#ef4444", color: "white", border: "none", marginTop: "1rem", width: "100%" }}><Download size={18} /> Download Defaulters List</button>
+                  </div>
+
+                  <div className="att-list-section">
+                    <h4 style={{ margin: "0 0 15px 0", borderBottom: "2px solid", paddingBottom: "10px", borderColor: selectedZone === "Defaulters" ? "#ef4444" : selectedZone === "At Risk" ? "#f59e0b" : "#10b981", color: selectedZone === "Defaulters" ? "#ef4444" : selectedZone === "At Risk" ? "#f59e0b" : "#10b981" }}>
+                      {selectedZone} Zone
+                    </h4>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                      {(selectedZone === "Defaulters" ? analyticsData.defaulters : selectedZone === "At Risk" ? analyticsData.atRisk : analyticsData.safe).map((student) => (
+                        <div key={student.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg-card)", padding: "10px 12px", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
+                          <div>
+                            <span style={{ fontWeight: 600, color: "var(--text-primary)", display: "block", fontSize: "0.95rem" }}>{student.name}</span>
+                            <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontFamily: "monospace" }}>{student.roll_number}</span>
+                          </div>
+                          <div style={{ textAlign: "right" }}>
+                            <span style={{ fontWeight: "bold", fontSize: "1.1rem", color: selectedZone === "Defaulters" ? "#ef4444" : selectedZone === "At Risk" ? "#f59e0b" : "#10b981" }}>{student.percentage}%</span>
+                            <span style={{ display: "block", fontSize: "0.75rem", color: "var(--text-muted)" }}>{student.ta} / {student.tc}</span>
+                          </div>
+                        </div>
+                      ))}
+                      {(selectedZone === "Defaulters" ? analyticsData.defaulters : selectedZone === "At Risk" ? analyticsData.atRisk : analyticsData.safe).length === 0 && (
+                        <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-muted)" }}>No students in this zone! 🎉</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="spinner" style={{ margin: "3rem auto" }}></div>
+              )}
+            </motion.div>
+          </div>
+        )}
         {showNewModal && (
           <div className="att-modal-overlay">
             <motion.div className="att-modal-content" initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }}>

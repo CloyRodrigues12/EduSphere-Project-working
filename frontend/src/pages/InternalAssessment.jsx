@@ -266,7 +266,7 @@ const InternalAssessment = () => {
       <div className="att-header-section with-back" style={{ marginBottom: '2rem' }}>
         <button className="att-back-btn" onClick={() => setSelectedClass(null)}><ArrowLeft size={24} /></button>
         <div style={{ flex: 1 }}>
-          <h1 className="att-title" style={{ margin: 0 }}>{selectedClass.subject_name} Marks Entry</h1>
+          <h1 className="att-title" style={{ margin: 0 }}>{selectedClass.subject_name} </h1>
           <p className="att-subtitle" style={{ margin: 0 }}>
             {selectedClass.class_name && selectedClass.class_name !== "undefined" 
               ? selectedClass.class_name 
@@ -286,6 +286,12 @@ const InternalAssessment = () => {
       {loading ? (
         <div className="loader">Loading students...</div>
       ) : (
+        <>
+          {/* --- NEW SWIPE HINT --- */}
+          <div className="mobile-swipe-hint">
+            <span>← Swipe table to view all columns →</span>
+          </div>
+        
         <div className="table-wrapper">
           <table className="marks-table">
             <thead>
@@ -368,10 +374,13 @@ const InternalAssessment = () => {
               })}
             </tbody>
           </table>
-        </div>
+        </div></>
       )}
     </div>
+    
   );
+  
 };
+
 
 export default InternalAssessment;

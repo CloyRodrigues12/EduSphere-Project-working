@@ -80,6 +80,7 @@ export const staffService = {
   getStaff: () => api.get("/staff/"),
   inviteStaff: (data) => api.post("/staff/", data),
   deleteStaff: (id) => api.delete(`/staff/?id=${id}`),
+  getOrganizationFaculties: () => api.get("/faculty/?global=true"),
 
   getFaculty: () => api.get("/faculty/"),
   addFaculty: (formData) =>
