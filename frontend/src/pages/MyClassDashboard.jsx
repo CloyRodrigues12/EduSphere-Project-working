@@ -66,7 +66,8 @@ const MyClassDashboard = () => {
                s_total_score += evalRes.final_score;
                s_subjects++;
                
-               if (["FAILING", "FAILED"].includes(evalRes.status)) s_fail = true;
+              
+if (["FAILING", "FAILED"].includes(evalRes.status)) s_fail = true;
                else if (["NEEDS EFFORT", "CRITICAL"].includes(evalRes.status)) s_risk = true;
                else if (evalRes.status === "ON TRACK") s_on_track = true;
            } else {
@@ -301,12 +302,27 @@ const MyClassDashboard = () => {
       </div>
 
       <div className="tabs-container" style={{ marginBottom: "1.5rem" }}>
-        <button className={`tab-btn ${activeTab === "attendance" ? "active" : ""}`} onClick={() => { setActiveTab("attendance"); setSearch(""); }}>
-          <Activity size={18} /> Attendance Overview
-        </button>
-        <button className={`tab-btn ${activeTab === "marks" ? "active" : ""}`} onClick={() => { setActiveTab("marks"); setSearch(""); }}>
-          <BookOpen size={18} /> Internal Test Marks
-        </button>
+        {/* --- DESKTOP TABS --- */}
+        <div className="desktop-tabs" style={{ display: "flex", gap: "10px" }}>
+          <button className={`tab-btn ${activeTab === "attendance" ? "active" : ""}`} onClick={() => { setActiveTab("attendance"); setSearch(""); }}>
+            <Activity size={18} /> Attendance Overview
+          </button>
+          <button className={`tab-btn ${activeTab === "marks" ? "active" : ""}`} onClick={() => { setActiveTab("marks"); setSearch(""); }}>
+            <BookOpen size={18} /> Internal Test Marks
+          </button>
+        </div>
+
+        {/* --- MOBILE DROPDOWN TAB --- */}
+        <div className="mobile-tabs">
+          <select 
+            className="premium-select mobile-tab-select" 
+            value={activeTab} 
+            onChange={(e) => { setActiveTab(e.target.value); setSearch(""); }}
+          >
+            <option value="attendance">📊 View: Attendance Overview</option>
+            <option value="marks">📝 View: Internal Test Marks</option>
+          </select>
+        </div>
       </div>
 
       {activeTab === "attendance" && (
@@ -321,11 +337,10 @@ const MyClassDashboard = () => {
           <div className="dashboard-grid" style={{ display: "grid", gridTemplateColumns: "1fr 2.5fr", gap: "1.5rem" }}>
             <motion.div className="glass-panel premium-panel" variants={itemVariants}>
               <div style={{ textAlign: "center", marginBottom: "0.5rem" }}><h3>Class Health Radar</h3><p className="text-muted text-sm">Click slice to filter table</p></div>
-              <div style={{ height: "250px" }}>
+              <div className="chart-wrapper" style={{ height: "280px", position: "relative", width: "100%" }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={attChartData} innerRadius="55%" outerRadius="80%" paddingAngle={4} dataKey="value" onClick={(entry) => {
-                         const status = entry.payload?.rawStatus || entry.rawStatus;
+                    <Pie data={attChartData} innerRadius="50%" outerRadius="70%" paddingAngle={3} dataKey="value" onClick={(entry) => {const status = entry.payload?.rawStatus || entry.rawStatus;
                          setActiveAttFilter(prev => prev === status ? null : status);
                       }} style={{ cursor: "pointer", outline: "none" }}>
                       {attChartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} opacity={activeAttFilter === null || activeAttFilter === entry.rawStatus ? 1 : 0.25} />)}
@@ -351,15 +366,15 @@ const MyClassDashboard = () => {
                   <Search size={16} className="text-muted" /><input type="text" placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} />
                 </div>
               </div>
-              <div className="scrollable-table-container premium-scroll" style={{ maxHeight: "300px", overflowY: "auto", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
-                <table className="data-table">
+              <div className="mobile-swipe-hint"><span>← Swipe table to view all columns →</span></div>
+              <div className="scrollable-table-container premium-scroll" style={{ maxHeight: "300px", overflowY: "auto", borderRadius: "8px", border: "1px solid var(--border-color)" }}><table className="data-table">
                   <thead style={{ position: "sticky", top: 0, zIndex: 1, background: "var(--bg-card)" }}>
                     <tr>
                       <th>Roll No</th>
                       <th>Name</th>
                       <th className="text-center">%</th>
                       <th>Status</th>
-                      <th>Mentor</th> {/* 🚨 ADDED MENTOR COLUMN HEADER */}
+                      <th>Mentor</th> 
                     </tr>
                   </thead>
                   <tbody>
@@ -373,7 +388,7 @@ const MyClassDashboard = () => {
                             <span className="badge" style={{ background: "rgba(239, 68, 68, 0.1)", color: "#ef4444" }}>{s.status}</span>
                           )}
                         </td>
-                        <td className="text-muted text-sm">{s.mentor_name || "Unassigned"}</td> {/* 🚨 ADDED MENTOR NAME CELL */}
+                        <td className="text-muted text-sm">{s.mentor_name || "Unassigned"}</td> 
                       </tr>
                     ))}
                   </tbody>
@@ -409,33 +424,36 @@ const MyClassDashboard = () => {
             {/* Subject Averages */}
             <motion.div className="glass-panel premium-panel" variants={itemVariants}>
               <h3 className="text-center">Subject Averages</h3>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={subjectAverages} margin={{ top: 20, right: 30, left: -20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
-                  <XAxis dataKey="name" tick={{fontSize: 11}} />
-                  <YAxis domain={[0, 25]} tick={{fontSize: 11}} />
-                  <RechartsTooltip cursor={{fill: 'transparent'}} formatter={(value, name, props) => [value, props.payload.fullName]} />
-                  <Bar dataKey="avg" fill="#4f46e5" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <div className="chart-wrapper" style={{ height: "260px", position: "relative", width: "100%" }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={subjectAverages} margin={{ top: 20, right: 10, left: -10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
+                    <XAxis dataKey="name" tick={{fontSize: 11}} />
+                    <YAxis domain={[0, 25]} tick={{fontSize: 11}} />
+                    <RechartsTooltip cursor={{fill: 'transparent'}} formatter={(value, name, props) => [value, props.payload.fullName]} />
+                    <Bar dataKey="avg" fill="#4f46e5" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </motion.div>
 
             {/* Overall Class Performance */}
             <motion.div className="glass-panel premium-panel" variants={itemVariants}>
               <h3 className="text-center">Overall Class Status</h3>
               <p className="text-muted text-sm text-center" style={{marginTop: "-5px", marginBottom: "5px"}}>Click slice to filter table</p>
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie data={marksPieData} innerRadius="55%" outerRadius="80%" paddingAngle={4} dataKey="value" onClick={(entry) => {
-                       const status = entry.payload?.rawStatus || entry.rawStatus;
-                       setActiveMarksFilter(prev => prev === status ? null : status);
-                    }} style={{ cursor: "pointer", outline: "none" }}>
-                    {marksPieData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} opacity={activeMarksFilter === null || activeMarksFilter === entry.rawStatus ? 1 : 0.25} />)}
-                  </Pie>
-                  <RechartsTooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
+              <div className="chart-wrapper" style={{ height: "280px", position: "relative", width: "100%" }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={marksPieData} innerRadius="50%" outerRadius="70%" paddingAngle={4} dataKey="value" onClick={(entry) => {const status = entry.payload?.rawStatus || entry.rawStatus;
+                         setActiveMarksFilter(prev => prev === status ? null : status);
+                      }} style={{ cursor: "pointer", outline: "none" }}>
+                      {marksPieData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} opacity={activeMarksFilter === null || activeMarksFilter === entry.rawStatus ? 1 : 0.25} />)}
+                    </Pie>
+                    <RechartsTooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
             </motion.div>
           </div>
 
@@ -457,8 +475,8 @@ const MyClassDashboard = () => {
               </div>
             </div>
             
-            <div className="scrollable-table-container premium-scroll" style={{ overflowY: "auto", borderRadius: "10px", border: "1px solid var(--border-color)" }}>
-              <table className="data-table" style={{ minWidth: "800px" }}>
+            <div className="mobile-swipe-hint"><span>← Swipe table to view all columns →</span></div>
+            <div className="scrollable-table-container premium-scroll" style={{ overflowY: "auto", borderRadius: "10px", border: "1px solid var(--border-color)" }}><table className="data-table" style={{ minWidth: "800px" }}>
                 <thead style={{ position: "sticky", top: 0, zIndex: 1, background: "var(--bg-card)", boxShadow: "0 2px 4px rgba(0,0,0,0.05)" }}>
                   <tr>
                     <th style={{ padding: "1rem" }}>Roll No</th>
@@ -523,8 +541,8 @@ const StudentMarksModal = ({ student, onClose }) => {
           <div><h3 style={{ margin: 0 }}>{student.name}</h3><p className="text-muted" style={{ margin: 0 }}>{student.roll_number}</p></div>
           <button onClick={onClose} className="close-btn" style={{ background: "none", border: "none", cursor: "pointer" }}><X size={24} /></button>
         </div>
-        <div className="scrollable-table-container premium-scroll" style={{ maxHeight: "400px", overflowY: "auto" }}>
-          <table className="data-table" style={{ width: "100%" }}>
+        <div className="mobile-swipe-hint"><span>← Swipe table to view all columns →</span></div>
+        <div className="scrollable-table-container premium-scroll" style={{ maxHeight: "400px", overflowY: "auto" }}><table className="data-table" style={{ width: "100%" }}>
             <thead style={{ position: "sticky", top: 0, background: "var(--bg-card)" }}>
               <tr>
                 <th style={{ textAlign: "left" }}>Subject</th>
@@ -589,8 +607,8 @@ const StudentDrilldownModal = ({ student, ayId, onClose }) => {
            <Activity size={32} color={student.percentage < 75 ? "#ef4444" : "#10b981"} />
            <div><p className="text-muted text-sm" style={{ margin: 0 }}>Overall Attendance</p><h2 style={{ margin: 0 }}>{student.percentage}%</h2></div>
         </div>
-        <div className="scrollable-table-container premium-scroll" style={{ maxHeight: "300px", overflowY: "auto" }}>
-          {loading ? <p className="text-center text-muted">Loading subjects...</p> : (
+        <div className="mobile-swipe-hint"><span>← Swipe table to view all columns →</span></div>
+        <div className="scrollable-table-container premium-scroll" style={{ maxHeight: "300px", overflowY: "auto" }}>{loading ? <p className="text-center text-muted">Loading subjects...</p> : (
             <table className="data-table" style={{ width: "100%" }}>
               <thead style={{ position: "sticky", top: 0, background: "var(--bg-card)" }}>
                 <tr><th style={{ textAlign: "left" }}>Subject</th><th>TA</th><th>TC</th><th>%</th></tr>

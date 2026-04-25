@@ -194,3 +194,201 @@
 .premium-scroll .data-table th:nth-child(5) { width: 11%; } /* Overall % */
 .premium-scroll .data-table th:nth-child(6) { width: 18%; } /* Mentor */
 .premium-scroll .data-table th:nth-child(7) { width: 15%; } /* Status */
+
+/* =========================================
+   TAB SWITCHING LOGIC (Desktop vs Mobile)
+========================================= */
+.mobile-tabs {
+  display: none; /* Hidden on desktop */
+}
+
+/* --- Desktop Hidden Swipe Hint --- */
+.mobile-swipe-hint {
+  display: none !important;
+}
+
+/* =========================================
+   MOBILE RESPONSIVENESS (Absolute Lock-Down)
+========================================= */
+@media (max-width: 768px) {
+  /* 1. Global Shell */
+  .assignments-container {
+    padding: 12px 12px 80px 12px !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+
+/* 2. Header & Top Buttons Stack */
+  .page-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+  }
+
+  .page-header > div:last-child {
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: row !important; 
+    gap: 8px !important;
+  }
+
+  .page-header button {
+    flex: 1 1 50% !important; 
+    width: 50% !important;
+    justify-content: center !important;
+    padding: 10px 4px !important;
+    font-size: 0.8rem !important; 
+    text-align: center !important;
+    white-space: nowrap !important;
+  }
+
+  /* 3. The Tab Switcher Magic */
+  .desktop-tabs {
+    display: none !important; 
+  }
+  
+  .mobile-tabs {
+    display: block !important; /* Show dropdown */
+    width: 100% !important;
+  }
+
+  .mobile-tab-select {
+    width: 90% !important;
+    padding: 0px 24px !important;
+    font-size: 1rem !important;
+    border-radius: 10px !important;
+    background-color: var(--bg-card) !important;
+    border: 2px solid var(--primary-color) !important;
+    color: var(--text-primary) !important;
+    font-weight: 700 !important;
+  }
+
+  /* 4. Strictly 2x2 Metric Grid */
+  .metrics-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important; /* Forces 2 columns */
+    gap: 10px !important;
+  }
+
+  .metric-card {
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    padding: 12px 8px !important;
+    gap: 8px !important;
+  }
+
+  /* 5. Force 1-Column Layout for Panels */
+  .dashboard-grid {
+    grid-template-columns: 1fr !important; 
+    gap: 1rem !important;
+  }
+
+  .premium-panel {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    padding: 16px !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+
+  /* Prevent Search bar from overflowing panel */
+  .premium-panel > div:first-child {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+  }
+  .premium-search {
+    max-width: 100% !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* 6. Swipeable Tables */
+  .scrollable-table-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important; 
+    -webkit-overflow-scrolling: touch !important; /* Smooth momentum scrolling */
+  }
+
+  .data-table {
+    min-width: 600px !important; /* Forces table to stay wide so user can swipe horizontally */
+  }
+
+  /* 7. Recharts Overflow Fixes & Chart Boundaries */
+  .chart-wrapper {
+    width: 100% !important;
+    height: 250px !important; /* Forces chart area to shrink slightly on phones */
+    position: relative !important;
+    overflow: hidden !important;
+  }
+  
+  .recharts-responsive-container {
+    position: absolute !important; /* Removes chart from flexbox math to stop clipping */
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  .premium-panel .recharts-wrapper {
+    margin: 0 auto !important; /* Centers the SVGs nicely */
+  }
+
+  /* 8. FIX: Badge Wrapping in Tables */
+  .data-table .badge {
+    white-space: nowrap !important; /* Forces "Defaulter" to stay on one line */
+    display: inline-block !important;
+    text-align: center !important;
+    min-width: 60px !important; /* Gives the background a consistent shape */
+  }
+
+  /* 9. Native Bottom-Sheet Modals */
+  .modal-overlay {
+    align-items: flex-end !important;
+    justify-content: center !important;
+    padding: 0 !important;
+  }
+
+  .modal-content {
+    width: 100% !important;
+    max-width: 100vw !important;
+    height: 85vh !important;
+    margin: 0 !important;
+    border-radius: 24px 24px 0 0 !important;
+    padding: 20px !important;
+    bottom: 0 !important;
+    position: relative !important;
+    box-sizing: border-box !important;
+  }
+
+  /* 10. Mobile Swipe Hints */
+  .mobile-swipe-hint {
+    display: flex !important; /* Overrides the desktop 'none' rule */
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin: 4px 0 8px 0;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    animation: pulseHint 2s infinite;
+    width: 100%;
+  }
+
+  @keyframes pulseHint {
+    0% { opacity: 0.5; }
+    50% { opacity: 1; color: var(--primary-color); }
+    100% { opacity: 0.5; }
+  }
+}
+
+@media (max-width: 380px) {
+  .metric-card h3 { font-size: 1.1rem !important; }
+  .metric-label { font-size: 0.75rem !important; }
+}
