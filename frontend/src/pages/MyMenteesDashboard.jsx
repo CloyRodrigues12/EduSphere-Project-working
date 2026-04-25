@@ -42,9 +42,9 @@ const MyMenteesDashboard = () => {
   });
   const [notifiedSet, setNotifiedSet] = useState(new Set());
 
-  // 1. Fetch Main Profiles & Tracking Data
   useEffect(() => {
     if (activeAcademicYear) fetchDashboard();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeAcademicYear, activeTerm]);
 
   const fetchDashboard = async () => {
@@ -91,7 +91,6 @@ const MyMenteesDashboard = () => {
     finally { setLoading(false); }
   };
 
-  // 2. Fetch Communications Data
   useEffect(() => {
     if (activeAcademicYear && activeTab === 'communications') {
       const fetchComms = async () => {
@@ -127,8 +126,7 @@ const MyMenteesDashboard = () => {
     "FE": filteredMentees.filter(s => getYearLevel(s.semester) === "FE"),
     "SE": filteredMentees.filter(s => getYearLevel(s.semester) === "SE"),
     "TE": filteredMentees.filter(s => getYearLevel(s.semester) === "TE"),
-    "BE": filteredMentees.filter(s => getYearLevel(s.semester) === "BE"),
-    "Alumni": filteredMentees.filter(s => !s.is_active)
+    "BE": filteredMentees.filter(s => getYearLevel(s.semester) === "BE")
   };
 
   const filteredProfiles = menteeProfiles.filter(m => {
@@ -146,7 +144,7 @@ const MyMenteesDashboard = () => {
     return acc;
   }, {});
 
-const sendWhatsAppMessage = (student, phoneTarget) => {
+  const sendWhatsAppMessage = (student, phoneTarget) => {
     if (!phoneTarget) {
       alert("No valid contact number selected. Please update the Mentee Profile.");
       return;
@@ -162,7 +160,6 @@ const sendWhatsAppMessage = (student, phoneTarget) => {
     setNotifiedSet(prev => new Set(prev).add(student.id));
   };
 
-  // 🚀 NEW: Smart Tab Changer (Resets Alumni filter if leaving the profile tab)
   const handleTabChange = (newTab) => {
     setActiveTab(newTab);
     if (newTab !== "profiles" && yearFilter === "Alumni") {
@@ -184,17 +181,33 @@ const sendWhatsAppMessage = (student, phoneTarget) => {
              <option value="SE">SE Students</option>
              <option value="TE">TE Students</option>
              <option value="BE">BE Students</option>
-             {/* 🚀 NEW: Hide Alumni option unless we are on the Profiles tab */}
              {activeTab === 'profiles' && <option value="Alumni">Graduated</option>}
            </select>
         </div>
       </div>
 
-      <div className="mentee-tabs-container">
-        <button className={`mentee-tab-btn ${activeTab === 'profiles' ? 'active' : ''}`} onClick={() => handleTabChange('profiles')}><UserCircle size={18}/> Mentee Profiles</button>
-        <button className={`mentee-tab-btn ${activeTab === 'attendance' ? 'active' : ''}`} onClick={() => handleTabChange('attendance')}><Activity size={18}/> Attendance Tracker</button>
-        <button className={`mentee-tab-btn ${activeTab === 'results' ? 'active' : ''}`} onClick={() => handleTabChange('results')}><TrendingUp size={18}/> Internal Results</button>
-        <button className={`mentee-tab-btn ${activeTab === 'communications' ? 'active' : ''}`} onClick={() => handleTabChange('communications')}><MessageCircle size={18}/> Parent Communications</button>
+      <div className="tabs-container" style={{ marginBottom: "1.5rem" }}>
+        {/* --- DESKTOP TABS --- */}
+        <div className="desktop-tabs mentee-tabs-container" style={{ marginTop: 0 }}>
+          <button className={`mentee-tab-btn ${activeTab === 'profiles' ? 'active' : ''}`} onClick={() => handleTabChange('profiles')}><UserCircle size={18}/> Mentee Profiles</button>
+          <button className={`mentee-tab-btn ${activeTab === 'attendance' ? 'active' : ''}`} onClick={() => handleTabChange('attendance')}><Activity size={18}/> Attendance Tracker</button>
+          <button className={`mentee-tab-btn ${activeTab === 'results' ? 'active' : ''}`} onClick={() => handleTabChange('results')}><TrendingUp size={18}/> Internal Results</button>
+          <button className={`mentee-tab-btn ${activeTab === 'communications' ? 'active' : ''}`} onClick={() => handleTabChange('communications')}><MessageCircle size={18}/> Parent Communications</button>
+        </div>
+
+        {/* --- MOBILE DROPDOWN TAB --- */}
+        <div className="mobile-tabs" style={{ marginTop: "1.5rem" }}>
+          <select 
+            className="premium-select mobile-tab-select" 
+            value={activeTab} 
+            onChange={(e) => handleTabChange(e.target.value)}
+          >
+            <option value="profiles">👤 View: Mentee Profiles</option>
+            <option value="attendance">📈 View: Attendance Tracker</option>
+            <option value="results">📝 View: Internal Results</option>
+            <option value="communications">💬 View: Parent Communications</option>
+          </select>
+        </div>
       </div>
 
       <div className="search-bar premium-search" style={{ maxWidth: "400px", margin: "1.5rem 0" }}>
@@ -234,7 +247,6 @@ const sendWhatsAppMessage = (student, phoneTarget) => {
       {/* ===================== ATTENDANCE TAB ===================== */}
       {activeTab === "attendance" && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
-          {/* 🚀 NEW: Removed "Alumni" from the map array entirely */}
           {["FE", "SE", "TE", "BE"].map(year => {
             if (yearFilter !== "ALL" && yearFilter !== year) return null;
             if (!groupedMentees[year] || groupedMentees[year].length === 0) return null;
@@ -271,7 +283,6 @@ const sendWhatsAppMessage = (student, phoneTarget) => {
       {/* ===================== RESULTS TAB ===================== */}
       {activeTab === "results" && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
-          {/* 🚀 NEW: Removed "Alumni" from the map array entirely */}
           {["FE", "SE", "TE", "BE"].map(year => {
             if (yearFilter !== "ALL" && yearFilter !== year) return null;
             if (!groupedMentees[year] || groupedMentees[year].length === 0) return null;
@@ -315,7 +326,7 @@ const sendWhatsAppMessage = (student, phoneTarget) => {
                 <h3 style={{ margin: '0 0 5px 0', color: 'var(--primary-color)' }}>Automated WhatsApp Reports</h3>
                 <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Send targeted attendance updates to parents.</p>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--bg-card)', padding: '8px 16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px', background: 'var(--bg-card)', padding: '8px 16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
                 <Calendar size={18} color="var(--primary-color)" />
                 <span className="font-medium" style={{ color: 'var(--text-primary)' }}>Select Target Month:</span>
                 <input 
@@ -328,15 +339,18 @@ const sendWhatsAppMessage = (student, phoneTarget) => {
               </div>
             </div>
 
-            <div style={{ overflowX: 'auto' }}>
-              <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <div className="mobile-swipe-hint"><span>← Swipe table to view all columns →</span></div>
+            <div className="scrollable-table-container premium-scroll" style={{ overflowX: 'auto' }}>
+              {/* 🚨 FIX: Added tableLayout: 'fixed' to strictly enforce column boundaries */}
+              <table className="data-table" style={{ width: '100%', minWidth: '950px', borderCollapse: 'collapse', textAlign: 'left', tableLayout: 'fixed' }}>
                 <thead>
                   <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
-                    <th style={{ padding: '12px', color: 'var(--text-muted)' }}>Student Name</th>
-                    <th style={{ padding: '12px', color: 'var(--text-muted)' }}>Target Parent / Contact</th>
-                    <th style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)' }}>{communications[0]?.current_month_name || "Target Month"}</th>
-                    <th style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)' }}>Overall Term</th>
-                    <th style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)' }}>Action</th>
+                    {/* 🚨 FIX: Strict Pixel Widths instead of percentages */}
+                    <th style={{ padding: '12px', color: 'var(--text-muted)', width: '220px' }}>Student Name</th>
+                    <th style={{ padding: '12px', color: 'var(--text-muted)', width: '200px' }}>Target Parent / Contact</th>
+                    <th style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)', width: '140px' }}>{communications[0]?.current_month_name || "Target Month"}</th>
+                    <th style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)', width: '140px' }}>Overall Term</th>
+                    <th style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)', width: '150px' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -352,16 +366,17 @@ const sendWhatsAppMessage = (student, phoneTarget) => {
 
                     return (
                       <tr key={idx} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }} className="premium-row">
-                        <td style={{ padding: '12px' }}>
-                          <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{student.name}</div>
-                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Roll No: {student.roll_number}</div>
+                        {/* 🚨 FIX: Added overflow: hidden & textOverflow: ellipsis to slice long names */}
+                        <td style={{ padding: '12px', overflow: 'hidden' }}>
+                          <div style={{ fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{student.name}</div>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Roll No: {student.roll_number}</div>
                         </td>
                         
-                        <td style={{ padding: '12px' }}>
+                        <td style={{ padding: '12px', overflow: 'hidden' }}>
                           {hasContact ? (
                             <select 
                               className="premium-select" 
-                              style={{ width: '100%', padding: '6px 10px', height: 'auto' }}
+                              style={{ width: '100%', maxWidth: '100%', padding: '8px 10px', height: 'auto', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}
                               value={selectedIdx}
                               onChange={(e) => {
                                 const newComms = [...communications];
@@ -374,7 +389,7 @@ const sendWhatsAppMessage = (student, phoneTarget) => {
                               ))}
                             </select>
                           ) : (
-                            <span style={{ color: '#ef4444', fontSize: '0.85rem', fontWeight: 600, background: 'rgba(239, 68, 68, 0.1)', padding: '4px 8px', borderRadius: '6px' }}>Missing Profile Data</span>
+                            <span className="badge" style={{ color: '#ef4444', fontSize: '0.85rem', fontWeight: 600, background: 'rgba(239, 68, 68, 0.1)', padding: '4px 8px', borderRadius: '6px', whiteSpace: 'nowrap' }}>Missing Profile Data</span>
                           )}
                         </td>
 
@@ -382,7 +397,7 @@ const sendWhatsAppMessage = (student, phoneTarget) => {
                           {student.month_percentage}%
                         </td>
                         <td style={{ padding: '12px', textAlign: 'center' }}>
-                          <span className="badge" style={{ background: student.overall_percentage < 75 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', color: student.overall_percentage < 75 ? '#ef4444' : '#10b981' }}>
+                          <span className="badge" style={{ background: student.overall_percentage < 75 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', color: student.overall_percentage < 75 ? '#ef4444' : '#10b981', whiteSpace: 'nowrap' }}>
                             {student.overall_percentage}%
                           </span>
                         </td>
@@ -391,19 +406,19 @@ const sendWhatsAppMessage = (student, phoneTarget) => {
                             onClick={() => sendWhatsAppMessage(student, contacts[selectedIdx]?.phone)}
                             disabled={!hasContact}
                             style={{
-                              // Change to a darker green if already notified
                               background: hasContact ? (notifiedSet.has(student.id) ? '#10b981' : '#25D366') : 'var(--bg-input)',
                               color: hasContact ? 'white' : 'var(--text-muted)',
-                              border: 'none', borderRadius: '8px', padding: '8px 16px', fontWeight: 600,
+                              border: 'none', borderRadius: '8px', padding: '10px 16px', fontWeight: 600,
                               cursor: hasContact ? 'pointer' : 'not-allowed',
-                              display: 'inline-flex', alignItems: 'center', gap: '8px',
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                               boxShadow: hasContact ? (notifiedSet.has(student.id) ? '0 4px 10px rgba(16, 185, 129, 0.3)' : '0 4px 10px rgba(37, 211, 102, 0.3)') : 'none',
-                              transition: 'all 0.2s'
+                              transition: 'all 0.2s',
+                              whiteSpace: 'nowrap',
+                              minWidth: '125px'
                             }}
                             onMouseEnter={e => { if(hasContact) e.currentTarget.style.transform = 'translateY(-2px)'}}
                             onMouseLeave={e => { if(hasContact) e.currentTarget.style.transform = 'translateY(0)'}}
                           >
-                            {/* Swap icon and text if notified */}
                             {notifiedSet.has(student.id) ? <CheckCircle size={16} /> : <MessageCircle size={16} />}
                             {hasContact ? (notifiedSet.has(student.id) ? 'Sent' : 'Notify') : 'Unavailable'}
                           </button>
@@ -489,7 +504,7 @@ const sendWhatsAppMessage = (student, phoneTarget) => {
   );
 };
 
-// --- ATTENDANCE MODAL (Unchanged) ---
+// --- ATTENDANCE MODAL ---
 const MenteeDrilldownModal = ({ student, ayId, onClose }) => {
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -527,6 +542,7 @@ const MenteeDrilldownModal = ({ student, ayId, onClose }) => {
           )}
         </div>
 
+        <div className="mobile-swipe-hint"><span>← Swipe table to view all columns →</span></div>
         <div className="scrollable-table-container premium-scroll" style={{ maxHeight: "350px", overflowY: "auto", borderRadius: "10px", border: "1px solid var(--border-color)" }}>
           {loading ? <p className="text-center text-muted py-8">Loading detailed subjects...</p> : (
             <table className="data-table drilldown-table" style={{ fontSize: "0.9rem" }}>
@@ -552,7 +568,7 @@ const MenteeDrilldownModal = ({ student, ayId, onClose }) => {
   );
 };
 
-// --- RESULTS MODAL (Unchanged) ---
+// --- RESULTS MODAL ---
 const MenteeResultsModal = ({ student, onClose }) => {
   return (
     <div className="modal-overlay" style={{ zIndex: 1000 }} onClick={onClose}>
@@ -581,6 +597,7 @@ const MenteeResultsModal = ({ student, onClose }) => {
           )}
         </div>
 
+        <div className="mobile-swipe-hint"><span>← Swipe table to view all columns →</span></div>
         <div className="scrollable-table-container premium-scroll" style={{ maxHeight: "350px", overflowY: "auto", borderRadius: "10px", border: "1px solid var(--border-color)" }}>
           {(!student.subject_marks || student.subject_marks.length === 0) ? (
             <p className="text-center text-muted" style={{ padding: '2rem 0' }}>No tests recorded yet for this academic term.</p>
