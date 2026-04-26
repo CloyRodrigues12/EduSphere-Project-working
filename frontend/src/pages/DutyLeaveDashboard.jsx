@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
 import "./DutyLeaveDashboard.css"; 
 
-// --- STATUS BADGE (Cleaned up, no tooltip here anymore) ---
+// --- STATUS BADGE ---
 const StatusBadge = ({ role, status, name }) => {
     const isApproved = status === 'APPROVED';
     const isRejected = status === 'REJECTED';
@@ -95,11 +95,28 @@ const DutyLeaveDashboard = () => {
         </button>
       </div>
 
-      <div className="od-tabs-container">
+      <div className="tabs-container" style={{ marginBottom: "1.5rem" }}>
+        {/* --- DESKTOP TABS --- */}
+        <div className="desktop-tabs od-tabs-container" style={{ marginBottom: 0 }}>
           <button className={`od-tab-btn ${activeTab === 'ALL' ? 'active' : ''}`} onClick={() => setActiveTab('ALL')}>All Requests</button>
           <button className={`od-tab-btn ${activeTab === 'PENDING' ? 'active' : ''}`} onClick={() => setActiveTab('PENDING')}>Action Required / Live</button>
           <button className={`od-tab-btn ${activeTab === 'APPROVED' ? 'active' : ''}`} onClick={() => setActiveTab('APPROVED')}>History: Approved</button>
           <button className={`od-tab-btn ${activeTab === 'REJECTED' ? 'active' : ''}`} onClick={() => setActiveTab('REJECTED')}>History: Rejected</button>
+        </div>
+
+        {/* --- MOBILE DROPDOWN TAB --- */}
+        <div className="mobile-tabs">
+          <select 
+            className="premium-select mobile-tab-select" 
+            value={activeTab} 
+            onChange={(e) => setActiveTab(e.target.value)}
+          >
+            <option value="ALL">📁 View: All Requests</option>
+            <option value="PENDING">⏳ View: Action Required / Live</option>
+            <option value="APPROVED">✅ View: History - Approved</option>
+            <option value="REJECTED">❌ View: History - Rejected</option>
+          </select>
+        </div>
       </div>
 
       {loading ? (
@@ -167,7 +184,7 @@ const DutyLeaveDashboard = () => {
                               
                               {/* --- TOP RIGHT ABSOLUTE INFO BUTTON --- */}
                               {p.hod_status === 'APPROVED' && (
-                                  <div className="od-tooltip-wrapper" style={{ position: "absolute", top: "12px", right: "14px" }}>
+                                  <div className="od-tooltip-wrapper">
                                       <Info size={18} style={{ color: "#10b981", cursor: "pointer" }} />
                                       <div className="od-tooltip-content tooltip-right-align">
                                           <div style={{ fontWeight: "bold", borderBottom: "1px solid var(--border-color)", paddingBottom: "6px", marginBottom: "4px" }}>
@@ -318,12 +335,13 @@ const ApplicationModal = ({ onClose, onRefresh, user, isStudent }) => {
     <div className="od-modal-overlay fade-in">
       <motion.div className="od-modal-content" initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }}>
         
-        <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border-color)", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg-main)", borderRadius: "16px 16px 0 0" }}>
+        <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border-color)", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg-main)", borderRadius: "16px 16px 0 0", flexShrink: 0 }}>
           <div><h3 style={{ margin: "0 0 4px 0", color: "var(--text-primary)" }}>Submit Duty Request</h3><p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "0.85rem" }}>Fill details to route for approval.</p></div>
           <button onClick={onClose} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--text-muted)" }}><X size={24} /></button>
         </div>
         
-        <form onSubmit={handleSubmit} style={{ padding: "24px" }}>
+        {/* 🚨 FIX: Added overflowY: "auto" and flex: 1 so the form content scrolls correctly on mobile bottom sheets */}
+        <form onSubmit={handleSubmit} style={{ padding: "24px", overflowY: "auto", flex: 1 }}>
           <div style={{ marginBottom: "1.2rem" }}><label style={labelStyle}>Event Title</label><input type="text" required placeholder="e.g., Inter-College Football Tournament" className="od-input" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} /></div>
 
           <div style={{ marginBottom: "1.2rem", background: "var(--bg-main)", padding: "12px", borderRadius: "12px", border: "1px solid var(--border-color)" }}>
@@ -393,7 +411,7 @@ const ApplicationModal = ({ onClose, onRefresh, user, isStudent }) => {
             {showInChargeModal && (
                 <div className="od-modal-overlay" style={{ zIndex: 10001 }}>
                     <motion.div className="od-modal-content" style={{ maxWidth: "500px" }} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}>
-                        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-color)", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg-main)", borderRadius: "16px 16px 0 0" }}>
+                        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-color)", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg-main)", borderRadius: "16px 16px 0 0", flexShrink: 0 }}>
                             <h3 style={{ margin: 0, color: "var(--text-primary)", fontSize: "1.1rem" }}>Select Event In-Charge</h3>
                             <button type="button" onClick={() => { setShowInChargeModal(false); setInChargeSearch(""); }} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--text-muted)" }}><X size={20} /></button>
                         </div>
@@ -402,7 +420,7 @@ const ApplicationModal = ({ onClose, onRefresh, user, isStudent }) => {
                                 <Search size={18} style={{ color: "var(--text-muted)" }} /><input type="text" placeholder="Search by name or department..." value={inChargeSearch} onChange={(e) => setInChargeSearch(e.target.value)} style={{ border: "none", background: "transparent", width: "100%", padding: "10px", outline: "none", color: "var(--text-primary)" }} />
                             </div>
                         </div>
-                        <div style={{ padding: "20px", maxHeight: "55vh", overflowY: "auto" }}>
+                        <div style={{ padding: "20px", flex: 1, overflowY: "auto" }}>
                             {searchedFaculties.length === 0 ? ( <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-muted)", fontSize: "0.9rem" }}>No faculty found matching "{inChargeSearch}"</div> ) : (
                                 <>
                                     {sportsAndCounsellors.length > 0 && (
