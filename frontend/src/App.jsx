@@ -26,7 +26,6 @@ import ClassTeacherAssignments from "./pages/ClassTeacherAssignments";
 import CounsellorMentorManagement from "./pages/Counselling/CounsellorMentorManagement";
 import MyClassDashboard from "./pages/MyClassDashboard";
 import MyMenteesDashboard from "./pages/MyMenteesDashboard";
-import TimetableManager from "./pages/TimetableManager";
 import DutyLeaveDashboard from "./pages/DutyLeaveDashboard";
 import InternalAssessment from './pages/InternalAssessment';
 import MenteeDirectory from "./pages/Counselling/MenteeDirectory";
@@ -171,7 +170,6 @@ const AppLayout = () => {
               path="/my-mentees"
               element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD", "FACULTY"]}><MyMenteesDashboard /></ProtectedRoute>}
             />
-            <Route path="/timetable" element={<ProtectedRoute><TimetableManager /></ProtectedRoute>} />
             <Route
   path="/institute/directory"
   element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN", "HOD"]}><InstituteDashboard /></ProtectedRoute>}

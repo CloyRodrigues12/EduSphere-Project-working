@@ -70,7 +70,6 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
       { icon: ClipboardCheck, label: "Attendance", path: "/attendance" },
       { icon: ClipboardPen, label: "Int. Assessments ", path: "/internal-assessment" },
       { icon: CalendarClock, label: "Duty Leaves (OD)", path: "/duty-leave" },
-      { icon: CalendarDays, label: "Timetables", path: "/timetable" },
       { icon: Library, label: "Subject Catalog", path: "/subjects" },
       { icon: Users, label: "Dir & Batches", path: "/students" },
     ];
