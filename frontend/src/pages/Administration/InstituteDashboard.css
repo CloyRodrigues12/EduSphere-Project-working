@@ -1,16 +1,41 @@
 /* SCOPED CONTAINER TO PREVENT LEAKS */
+.institute-dashboard-page {
+  --primary-color: #4f46e5;
+  --primary-hover: #4338ca;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+  --bg-main: #f9fafb;
+  --bg-card: #ffffff;
+  --bg-input: #f3f4f6;
+  --bg-hover: #f3f4f6;
+  --border-color: #e5e7eb;
+}
+
+[data-theme="dark"] .institute-dashboard-page {
+  --text-primary: #f9fafb;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
+  --bg-main: #111827;
+  --bg-card: #1f2937;
+  --bg-input: #374151;
+  --bg-hover: #374151;
+  --border-color: #374151;
+}
+
 .institute-dashboard-page .institute-dashboard {
   padding: 1.5rem; 
-  max-width: 1600px; 
+  max-width: 1400px; 
   margin: 0 auto; 
   font-family: 'Inter', system-ui, sans-serif;
+  box-sizing: border-box;
 }
 
 /* --- HERO SEARCH (Compact & Dark Mode Ready) --- */
 .institute-dashboard-page .hero-search-container {
   background: linear-gradient(135deg, var(--primary-color), #6366f1);
   border-radius: 20px;
-  padding: 1.25rem 1.5rem;
+  padding: 2rem 1.5rem;
   text-align: center;
   color: white;
   margin-bottom: 2rem;
@@ -25,42 +50,86 @@
   pointer-events: none;
 }
 
-.institute-dashboard-page .hero-search-container h1 { margin: 0 0 0.25rem 0; font-size: 2.2rem; font-weight: 800; letter-spacing: -0.5px; position: relative; z-index: 1;}
+.institute-dashboard-page .hero-search-container h1 { margin: 0 0 0.5rem 0; font-size: 2.2rem; font-weight: 800; letter-spacing: -0.5px; position: relative; z-index: 1;}
 .institute-dashboard-page .hero-search-container p { margin: 0 0 1.5rem 0; opacity: 0.9; font-size: 1rem; position: relative; z-index: 1;}
 
 .institute-dashboard-page .massive-search-bar {
   max-width: 600px; margin: 0 auto;
-  background: var(--bg-card); /* Dark mode fix */
+  background: var(--bg-card); 
   border: 1px solid var(--border-color);
   border-radius: 16px;
-  padding: 0.2rem 1rem;
+  padding: 0.4rem 1.2rem;
   display: flex; align-items: center; gap: 0.75rem;
   box-shadow: 0 8px 20px rgba(0,0,0,0.1);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative; z-index: 1;
 }
 
-.institute-dashboard-page .massive-search-bar:focus-within { transform: translateY(-2px); box-shadow: 0 12px 25px rgba(0,0,0,0.15); border-color: var(--primary-color); }
+.institute-dashboard-page .massive-search-bar:focus-within { 
+  transform: translateY(-2px); 
+  box-shadow: 0 12px 25px rgba(0,0,0,0.15); 
+  border-color: var(--primary-color); 
+}
 .institute-dashboard-page .massive-search-bar input { 
   border: none; background: transparent; outline: none; width: 100%; 
   font-size: 1rem; padding: 0.8rem 0; color: var(--text-primary); font-weight: 500; 
 }
 .institute-dashboard-page .massive-search-bar input::placeholder { color: var(--text-muted); font-weight: 400; }
 
-/* --- DEPARTMENT CARDS (Scaled Down) --- */
-.institute-dashboard-page .dept-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
-.institute-dashboard-page .dept-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem; cursor: pointer; display: flex; align-items: center; gap: 12px; transition: all 0.2s ease; }
-.institute-dashboard-page .dept-card:hover { transform: translateY(-2px); box-shadow: 0 8px 16px rgba(0,0,0,0.04); border-color: var(--primary-color); }
-.institute-dashboard-page .dept-card.active { background: rgba(79, 70, 229, 0.05); border-color: var(--primary-color); box-shadow: 0 0 0 1px var(--primary-color); }
-.institute-dashboard-page .dept-icon { width: 50px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1rem; font-weight: bold; color: white; flex-shrink: 0; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2); }
+/* --- DEPARTMENT CARDS (Desktop Grid) --- */
+.institute-dashboard-page .dept-cards-grid { 
+  display: grid; 
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); 
+  gap: 1rem; 
+  margin-bottom: 1.5rem; 
+}
+.institute-dashboard-page .dept-card { 
+  background: var(--bg-card); 
+  border: 1px solid var(--border-color); 
+  border-radius: 12px; 
+  padding: 1rem; 
+  cursor: pointer; 
+  display: flex; 
+  align-items: center; 
+  gap: 12px; 
+  transition: all 0.2s ease; 
+}
+.institute-dashboard-page .dept-card:hover { 
+  transform: translateY(-2px); 
+  box-shadow: 0 8px 16px rgba(0,0,0,0.04); 
+  border-color: var(--primary-color); 
+}
+.institute-dashboard-page .dept-card.active { 
+  background: rgba(79, 70, 229, 0.05); 
+  border-color: var(--primary-color); 
+  box-shadow: 0 0 0 1px var(--primary-color); 
+}
+.institute-dashboard-page .dept-icon { 
+  width: 50px; height: 40px; border-radius: 10px; 
+  display: flex; align-items: center; justify-content: center; 
+  font-size: 1rem; font-weight: bold; color: white; flex-shrink: 0; 
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2); 
+}
 
-/* --- COHORT TABS --- */
-.institute-dashboard-page .cohort-tabs { display: flex; gap: 0.5rem; border-bottom: px solid var(--border-color); margin-bottom: 1rem; overflow-x: auto; padding-bottom: 0; }
-.institute-dashboard-page .cohort-tab { background: none; border: none; padding: 0.8rem 1.2rem; font-size: 0.95rem; font-weight: 600; color: var(--text-muted); cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap; margin-bottom: 2px; }
+/* --- COHORT TABS (Desktop) --- */
+.institute-dashboard-page .cohort-tabs { 
+  display: flex; gap: 0.5rem; border-bottom: 2px solid var(--border-color); 
+  margin-bottom: 1.5rem; overflow-x: auto; padding-bottom: 0; 
+}
+.institute-dashboard-page .cohort-tab { 
+  background: none; border: none; padding: 0.8rem 1.2rem; 
+  font-size: 0.95rem; font-weight: 600; color: var(--text-secondary); 
+  cursor: pointer; border-bottom: 3px solid transparent; 
+  transition: all 0.2s; white-space: nowrap; margin-bottom: -2px; 
+}
 .institute-dashboard-page .cohort-tab:hover { color: var(--text-primary); }
-.institute-dashboard-page .cohort-tab.active { color: var(--primary-color); border-bottom-color: var(--primary-color); }
+.institute-dashboard-page .cohort-tab.active { 
+  color: var(--primary-color); border-bottom-color: var(--primary-color); 
+}
 
-/* --- PREMIUM STUDENT GRID (More Compact) --- */
+.institute-dashboard-page .mobile-cohort-wrapper { display: none; }
+
+/* --- PREMIUM STUDENT GRID --- */
 .institute-dashboard-page .student-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
 .institute-dashboard-page .s-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem; display: flex; align-items: center; gap: 1rem; cursor: pointer; transition: all 0.2s ease; position: relative; overflow: hidden; }
 .institute-dashboard-page .s-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--primary-color); transform: scaleY(0); transition: transform 0.2s ease; }
@@ -68,11 +137,12 @@
 .institute-dashboard-page .s-card:hover::before { transform: scaleY(1); }
 .institute-dashboard-page .s-avatar { width: 45px; height: 45px; border-radius: 10px; background: linear-gradient(135deg, var(--bg-input), var(--border-color)); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.1rem; color: var(--text-primary); flex-shrink: 0; }
 .institute-dashboard-page .s-info h4 { margin: 0 0 2px 0; font-size: 1rem; color: var(--text-primary); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.institute-dashboard-page .s-info p { margin: 0; font-size: 0.8rem; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; }
+.institute-dashboard-page .s-info p { margin: 0; font-size: 0.8rem; color: var(--text-secondary); display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
 .institute-dashboard-page .s-badge { padding: 3px 6px; border-radius: 6px; background: var(--bg-main); font-weight: 600; font-size: 0.7rem; letter-spacing: 0.5px; border: 1px solid var(--border-color); }
 
+
 /* ==============================================================
-   CRM-STYLE 360 MODAL (Untouched Layout, Scoped Safely)
+   CRM-STYLE 360 MODAL
 ============================================================== */
 .institute-dashboard-page .modal-360-overlay {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -84,18 +154,18 @@
   border-radius: 24px; overflow: hidden; display: flex; flex-direction: column;
   box-shadow: 0 25px 50px rgba(0,0,0,0.4);
 }
-.institute-dashboard-page .modal-360-header { padding: 1.5rem 2rem; background: var(--bg-card); display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border-color); }
+.institute-dashboard-page .modal-360-header { padding: 1.5rem 2rem; background: var(--bg-card); display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
 .institute-dashboard-page .m-head-left { display: flex; gap: 1.25rem; align-items: center; }
-.institute-dashboard-page .m-avatar { width: 65px; height: 65px; border-radius: 16px; background: linear-gradient(135deg, var(--primary-color), #8b5cf6); color: white; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: 800; box-shadow: 0 8px 15px rgba(99,102,241,0.25); }
+.institute-dashboard-page .m-avatar { width: 65px; height: 65px; border-radius: 16px; background: linear-gradient(135deg, var(--primary-color), #8b5cf6); color: white; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: 800; box-shadow: 0 8px 15px rgba(99,102,241,0.25); flex-shrink: 0; }
 .institute-dashboard-page .m-title h2 { margin: 0 0 4px 0; font-size: 1.5rem; color: var(--text-primary); font-weight: 800; }
-.institute-dashboard-page .m-title p { margin: 0; display: flex; gap: 8px; align-items: center; }
+.institute-dashboard-page .m-title p { margin: 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
-.institute-dashboard-page .modal-360-layout { display: grid; grid-template-columns: 240px 1fr; height: calc(100% - 100px); }
+.institute-dashboard-page .modal-360-layout { display: grid; grid-template-columns: 240px 1fr; height: calc(100% - 100px); flex: 1; min-height: 0;}
 .institute-dashboard-page .m-sidebar { background: var(--bg-card); border-right: 1px solid var(--border-color); padding: 1.5rem 1rem; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
 .institute-dashboard-page .m-nav-item { padding: 10px 14px; border-radius: 10px; font-weight: 600; font-size: 0.9rem; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; gap: 10px; transition: all 0.2s; }
 .institute-dashboard-page .m-nav-item:hover { background: var(--bg-hover); color: var(--text-primary); }
 .institute-dashboard-page .m-nav-item.active { background: rgba(99, 102, 241, 0.1); color: var(--primary-color); }
-.institute-dashboard-page .m-content-area { padding: 2rem; overflow-y: auto; background: var(--bg-main); }
+.institute-dashboard-page .m-content-area { padding: 2rem; overflow-y: auto; background: var(--bg-main); flex: 1; }
 
 .institute-dashboard-page .fp-section { background: var(--bg-card); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; border: 1px solid var(--border-color); }
 .institute-dashboard-page .fp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; }
@@ -104,12 +174,160 @@
 .institute-dashboard-page .fp-value { font-size: 0.95rem; color: var(--text-primary); font-weight: 600; }
 
 .institute-dashboard-page .premium-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-.institute-dashboard-page .premium-table th { text-align: left; padding: 10px; color: var(--text-muted); font-weight: 600; border-bottom: 2px solid var(--border-color); }
+.institute-dashboard-page .premium-table th { text-align: left; padding: 10px; color: var(--text-muted); font-weight: 600; border-bottom: 2px solid var(--border-color); white-space: nowrap; }
 .institute-dashboard-page .premium-table td { padding: 12px 10px; border-bottom: 1px solid var(--border-color); color: var(--text-primary); vertical-align: middle; }
 .institute-dashboard-page .error-state { text-align: center; padding: 4rem; color: #ef4444; background: rgba(239,68,68,0.05); border-radius: 16px; margin: 2rem; border: 1px dashed rgba(239,68,68,0.2); }
 
-@media (max-width: 900px) {
-  .institute-dashboard-page .modal-360-layout { grid-template-columns: 1fr; }
-  .institute-dashboard-page .m-sidebar { flex-direction: row; overflow-x: auto; border-right: none; border-bottom: 1px solid var(--border-color); padding: 1rem; }
-  .institute-dashboard-page .m-nav-item { white-space: nowrap; }
+
+/* ==============================================================
+   🚨 MOBILE RESPONSIVENESS & ANIMATIONS
+============================================================== */
+
+@keyframes nudgeSlideHint {
+  0%, 75%, 100% { transform: translateX(0); }
+  85% { transform: translateX(-15px); }
+  90% { transform: translateX(5px); }
+  95% { transform: translateX(-5px); }
+}
+
+@media (max-width: 850px) {
+  .institute-dashboard-page .institute-dashboard {
+    padding: 12px 12px 80px 15px !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+  }
+
+  .institute-dashboard-page .hero-search-container {
+    padding: 1.5rem 1rem !important;
+    border-radius: 16px !important;
+    margin-bottom: 10px;
+  }
+  .institute-dashboard-page .hero-search-container h1 {
+    font-size: 1.6rem !important;
+  }
+
+  /* 🚨 1. Swipeable Department Drawer with Hint */
+  .institute-dashboard-page .dept-cards-grid {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    scroll-snap-type: x mandatory !important;
+    gap: 12px !important;
+    padding-top: 3px;
+    padding-left: 3px;
+    padding-bottom: 1px !important;
+    /* Hide scrollbar for a cleaner look */
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+  .institute-dashboard-page .dept-cards-grid::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .institute-dashboard-page .dept-card {
+    flex: 0 0 220px !important; /* Fixed width for swipeable cards */
+    scroll-snap-align: start !important;
+  }
+
+  /* Apply the nudge hint to the second card every 4 seconds */
+  .institute-dashboard-page .dept-card:nth-child(2) {
+    animation: nudgeSlideHint 10s infinite ease-in-out;
+  }
+
+  /* 🚨 2. Dropdown Cohort Tab Selector */
+  .institute-dashboard-page .cohort-tabs {
+    display: none !important;
+  }
+  
+  .institute-dashboard-page .mobile-cohort-wrapper {
+    display: block !important;
+    margin-bottom: 1.5rem !important;
+  }
+
+  .institute-dashboard-page .mobile-cohort-select {
+    width: 100% !important;
+    padding: 14px 16px !important;
+    font-size: 1.05rem !important;
+    border-radius: 12px !important;
+    background-color: var(--bg-card) !important;
+    border: 2px solid var(--primary-color) !important;
+    color: var(--text-primary) !important;
+    font-weight: 700 !important;
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%234F46E5%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1rem top 50%;
+    background-size: 0.85rem auto;
+  }
+
+  /* 🚨 3. Student Grid Refinements */
+  .institute-dashboard-page .student-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* 🚨 4. Native App Bottom-Sheet for 360 Modal */
+  .institute-dashboard-page .modal-360-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+
+  .institute-dashboard-page .modal-360-content {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 85dvh !important; /* Perfect height scaling */
+    max-height: calc(100vh - 60px) !important;
+    border-radius: 24px 24px 0 0 !important;
+    bottom: 0 !important;
+    position: relative !important;
+  }
+
+  .institute-dashboard-page .modal-360-header {
+    padding: 1.25rem 1.5rem !important;
+  }
+  .institute-dashboard-page .m-avatar {
+    width: 50px !important;
+    height: 50px !important;
+    font-size: 1.4rem !important;
+  }
+  .institute-dashboard-page .m-title h2 {
+    font-size: 1.2rem !important;
+  }
+
+  .institute-dashboard-page .modal-360-layout { 
+    grid-template-columns: 1fr !important; 
+    height: calc(100% - 80px) !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  /* Horizontal Scrolling Sidebar inside Modal */
+  .institute-dashboard-page .m-sidebar { 
+    flex-direction: row !important; 
+    overflow-x: auto !important; 
+    border-right: none !important; 
+    border-bottom: 1px solid var(--border-color) !important; 
+    padding: 0.8rem 1rem !important; 
+    flex-shrink: 0 !important;
+    /* Hide scrollbar */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .institute-dashboard-page .m-sidebar::-webkit-scrollbar {
+    display: none;
+  }
+  .institute-dashboard-page .m-nav-item { 
+    white-space: nowrap !important; 
+    padding: 8px 12px !important;
+  }
+
+  .institute-dashboard-page .m-content-area {
+    padding: 1.25rem !important;
+    flex: 1 !important;
+  }
+  
+  .institute-dashboard-page .fp-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .institute-dashboard-page .massive-search-bar input::placeholder {  font-weight: 400; font-size: 0.8rem; }
 }

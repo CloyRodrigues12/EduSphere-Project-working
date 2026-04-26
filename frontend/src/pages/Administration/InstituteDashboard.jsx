@@ -103,6 +103,7 @@ const InstituteDashboard = () => {
           </div>
         </div>
 
+        {/* 🚨 DEPARTMENT CARDS (NOW A SWIPEABLE DRAWER ON MOBILE) */}
         {data.user_role !== "HOD" && (
           <div className="dept-cards-grid">
             <div className={`dept-card ${selectedDept === "ALL" ? 'active' : ''}`} onClick={() => setSelectedDept("ALL")}>
@@ -118,6 +119,7 @@ const InstituteDashboard = () => {
           </div>
         )}
 
+        {/* 🚨 COHORT TABS (DESKTOP) */}
         <div className="cohort-tabs">
           {["All", "FE", "SE", "TE", "BE", "Alumni"].map(yr => (
             <button 
@@ -131,6 +133,25 @@ const InstituteDashboard = () => {
               {yr === "All" ? "All Active" : yr} {yr === "Alumni" || yr === "All" ? "" : "Students"}
             </button>
           ))}
+        </div>
+
+        {/* 🚨 COHORT DROPDOWN (MOBILE) */}
+        <div className="mobile-cohort-wrapper">
+          <select 
+            className="mobile-cohort-select" 
+            value={activeCohort} 
+            onChange={(e) => {
+              setActiveCohort(e.target.value);
+              setSearchTerm("");
+            }}
+          >
+            <option value="All">🎓 View: All Active Students</option>
+            <option value="FE">📖 View: FE Students</option>
+            <option value="SE">📖 View: SE Students</option>
+            <option value="TE">📖 View: TE Students</option>
+            <option value="BE">🎓 View: BE Students</option>
+            <option value="Alumni">🌟 View: Alumni Records</option>
+          </select>
         </div>
 
         <p style={{ color: "var(--text-muted)", marginBottom: "1rem", fontSize: "0.85rem" }}>
@@ -149,7 +170,6 @@ const InstituteDashboard = () => {
                 <div className="s-avatar">{s.name.charAt(0)}</div>
                 <div className="s-info">
                   <h4>{s.name}</h4>
-                  {/* --- ENHANCED GRID CARD INFO --- */}
                   <p>
                       <span className="s-badge">{s.roll_number}</span>
                       <span style={{ opacity: 0.4, margin: '0 4px' }}>•</span>
@@ -201,10 +221,10 @@ const InstituteDashboard = () => {
                 ) : (
                   <div className="modal-360-layout">
                     
-                    <div className="m-sidebar">
+                    <div className="m-sidebar " >
                       <div className={`m-nav-item ${modalTab === 'profile' ? 'active' : ''}`} onClick={() => setModalTab('profile')}><UserCircle size={16}/> Registration Profile</div>
                       <div className={`m-nav-item ${modalTab === 'marks' ? 'active' : ''}`} onClick={() => setModalTab('marks')}><FileText size={16}/> Internal Results</div>
-                      <div className={`m-nav-item ${modalTab === 'attendance' ? 'active' : ''}`} onClick={() => setModalTab('attendance')}><Activity size={16}/> Attendance Tracker</div>
+                      <div className={`m-nav-item  ${modalTab === 'attendance' ? 'active' : ''}`} onClick={() => setModalTab('attendance')}><Activity size={16}/> Attendance Tracker</div>
                       <div className={`m-nav-item ${modalTab === 'support' ? 'active' : ''}`} onClick={() => setModalTab('support')}><HeartHandshake size={16}/> Mentorship & Support</div>
                       <div className={`m-nav-item ${modalTab === 'duty' ? 'active' : ''}`} onClick={() => setModalTab('duty')}><Award size={16}/> Official Duty Logs</div>
                     </div>
@@ -214,7 +234,7 @@ const InstituteDashboard = () => {
                       {modalTab === 'profile' && selectedStudent.profile && (
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                           
-                          {/* --- NEW ENHANCED ENROLLMENT & ACADEMIC BLOCK --- */}
+                          {/* --- ACADEMIC BLOCK --- */}
                           <div className="fp-section" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05), rgba(139, 92, 246, 0.05))', borderColor: 'rgba(99, 102, 241, 0.2)' }}>
                             <h3 style={{ color: 'var(--primary-color)', margin: '0 0 1rem 0', borderBottom: '1px solid rgba(99, 102, 241, 0.1)', paddingBottom: '8px', fontSize:'1.05rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
                               <BookOpen size={18} /> Academic & Enrollment Details
