@@ -262,13 +262,12 @@
   }
 
   /* 2. Header & Top Buttons Stack */
-  .page-header {
+  .mentees-container .page-header {
     flex-direction: column !important;
-    align-items: flex-start !important;
     gap: 12px !important;
   }
 
-  .page-header > div:last-child {
+  .mentees-container .page-header > div:last-child {
     width: 100% !important;
     display: flex !important;
     flex-direction: column !important;

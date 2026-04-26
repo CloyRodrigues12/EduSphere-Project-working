@@ -301,6 +301,7 @@
     box-shadow: none;
     border-radius: 0; 
     padding: 0; /* Remove padding to let panel hit edges */
+   
   }
 
   .sidebar-nav {
@@ -492,6 +493,8 @@
     background: rgba(255, 255, 255, 0.95);
     transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     padding: 1rem;
+    border-top-right-radius: 15px;
+    border-bottom-right-radius: 15px;
   }
 
   .sidebar.mobile-open {
