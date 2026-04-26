@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   X,
   User,
+  ArrowLeft,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { staffService, academicService, studentService } from "../services/api";
@@ -20,7 +21,6 @@ import { useAcademic } from "../context/AcademicContext";
 import { useAuth } from "../context/AuthContext";
 
 const AllocationMatrix = () => {
-  // --- ADDED activeTerm ---
   const { activeAcademicYear, activeDepartment, activeTerm } = useAcademic();
   const { user } = useAuth();
 
@@ -52,7 +52,6 @@ const AllocationMatrix = () => {
     fetchFaculty();
   }, []);
 
-  // --- TRIGGER RE-FETCH WHEN TERM CHANGES ---
   useEffect(() => {
     if (selectedFaculty) fetchAllocations(selectedFaculty.id);
   }, [selectedFaculty, activeTerm, activeAcademicYear, activeDepartment]);
@@ -142,8 +141,8 @@ const AllocationMatrix = () => {
         </div>
 
         <div>
-          <div className="font-medium">{displayName}</div>
-          <div className="text-sm text-muted">
+          <div style={{ fontWeight: "600", color: "var(--text-primary)" }}>{displayName}</div>
+          <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: "2px" }}>
             {faculty.designation || "Faculty"} 
             {isExternal && <span style={{ color: "#d97706", fontWeight: "bold", marginLeft: "4px" }}>• {faculty.department_name || faculty.department}</span>}
           </div>
@@ -165,29 +164,39 @@ const AllocationMatrix = () => {
         <span>{toast.message}</span>
       </div>
 
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Teaching Allocation Matrix</h1>
-          <p className="page-subtitle">
+      {/* 🚨 ISOLATED AM-HEADER */}
+      <div className="am-page-header">
+        {selectedFaculty && (
+          <button className="am-header-back-btn" onClick={() => setSelectedFaculty(null)}>
+            <ArrowLeft size={20} />
+          </button>
+        )}
+        <div className="am-header-content">
+          <h1 className="am-page-title">Teaching Allocation Matrix</h1>
+          <p className="am-page-subtitle">
             Assign subjects and batches to faculty for {activeAcademicYear.name} ({activeTerm} Term)
           </p>
         </div>
       </div>
 
       <div className="split-layout">
-        <div className="left-pane glass-panel">
+        
+        {/* 🚨 LEFT PANE: Hidden on mobile if a faculty is selected */}
+        <div className={`left-pane ${selectedFaculty ? 'hide-on-mobile' : ''}`}>
           <div className="pane-header">
-            <h3 className="text-primary"> Faculty Members</h3>
+            <h3>Faculty Members</h3>
           </div>
 
-          <div className="search-bar" style={{ margin: "1rem", width: "auto" }}>
-            <Search size={18} className="search-icon" />
-            <input
-              type="text"
-              placeholder="Search faculty..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+          <div className="pane-search-wrapper">
+            <div className="search-bar">
+              <Search size={18} style={{ color: "var(--text-muted)" }} />
+              <input
+                type="text"
+                placeholder="Search faculty..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
           </div>
 
           <div className="faculty-scroll-list">
@@ -199,14 +208,14 @@ const AllocationMatrix = () => {
               ) : (
                 <>
                   {internalFaculties.length > 0 && (
-                    <div style={{ padding: "0.5rem 1rem", fontSize: "0.75rem", fontWeight: "bold", color: "var(--text-muted)", textTransform: "uppercase", background: "var(--bg-main)", borderBottom: "1px solid var(--border-color)", borderTop: "1px solid var(--border-color)" }}>
+                    <div className="department-divider">
                       📍 My Department
                     </div>
                   )}
                   {internalFaculties.map((faculty) => renderFacultyRow(faculty, false))}
 
                   {externalFaculties.length > 0 && (
-                    <div style={{ padding: "0.5rem 1rem", fontSize: "0.75rem", fontWeight: "bold", color: "var(--text-muted)", textTransform: "uppercase", background: "var(--bg-main)", borderBottom: "1px solid var(--border-color)", borderTop: "1px solid var(--border-color)", marginTop: "0.5rem" }}>
+                    <div className="department-divider" style={{ marginTop: "1rem" }}>
                       🌐 Other Departments
                     </div>
                   )}
@@ -217,22 +226,23 @@ const AllocationMatrix = () => {
           </div>
         </div>
 
-        <div className="right-pane">
+        {/* 🚨 RIGHT PANE: Hidden on mobile if NO faculty is selected */}
+        <div className={`right-pane ${!selectedFaculty ? 'hide-on-mobile' : ''}`}>
           {selectedFaculty ? (
             <>
-              <div className="workload-header glass-panel">
+              <div className="workload-header">
                 <div>
-                  <h2 className="text-primary">
-                    {selectedFaculty.full_name || selectedFaculty.name}'s
-                    Workload
+                  <h2 style={{ margin: "0 0 4px 0", color: "var(--text-primary)" }}>
+                    {selectedFaculty.full_name || selectedFaculty.name}'s Workload
                   </h2>
-                  <p className="text-muted">
+                  <p className="text-muted" style={{ margin: 0, fontSize: "0.9rem" }}>
                     {allocations.length} Classes Assigned in {activeTerm} Term
                   </p>
                 </div>
                 <button
                   className="btn-primary"
                   onClick={() => setShowModal(true)}
+                  style={{ whiteSpace: "nowrap" }}
                 >
                   <Plus size={18} /> Assign Class
                 </button>
@@ -250,17 +260,17 @@ const AllocationMatrix = () => {
                       <div className="class-card-header">
                         <span
                           className={`badge type-${alloc.subject_type.toLowerCase()}`}
+                          style={{ background: "rgba(79, 70, 229, 0.1)", color: "var(--primary-color)", padding: "4px 10px", borderRadius: "8px", fontSize: "0.75rem", fontWeight: "bold" }}
                         >
                           {alloc.subject_type.replace("_", " ")}
                         </span>
                         <button
                           className="btn-icon hover-red"
-                          onClick={() =>
-                            setDeleteTarget(alloc)
-                          } 
+                          style={{ background: "transparent", border: "none", color: "var(--text-secondary)", cursor: "pointer" }}
+                          onClick={() => setDeleteTarget(alloc)} 
                           title="Remove Class"
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={18} />
                         </button>
                       </div>
                       <h3 className="class-title">{alloc.subject_name}</h3>
@@ -278,89 +288,35 @@ const AllocationMatrix = () => {
                   ))
                 ) : (
                   <div
-                    className="empty-state glass-panel"
-                    style={{ gridColumn: "1 / -1" }}
+                    className="right-pane-empty fade-in"
+                    style={{ gridColumn: "1 / -1", height: "auto", minHeight: "300px" }}
                   >
-                    <BookOpen
-                      size={48}
-                      className="text-muted opacity-20 mb-2"
-                    />
-                    <p>No {activeTerm} Term classes assigned to this teacher yet.</p>
+                    <div className="empty-icon-wrapper" style={{ background: "transparent" }}>
+                      <BookOpen size={48} className="text-muted opacity-20" />
+                    </div>
+                    <p style={{ color: "var(--text-secondary)", margin: 0 }}>No {activeTerm} Term classes assigned to this teacher yet.</p>
                   </div>
                 )}
               </div>
             </>
           ) : (
-            <div
-              className="empty-state glass-panel"
-              style={{
-                height: "100%",
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "center",
-                alignItems: "center",
-                background: "var(--bg-card)",
-                border: "1px solid var(--border-color)",
-                borderRadius: "12px",
-              }}
-            >
-              <Briefcase size={42} className="text-muted opacity-40 mb-3" />
-              <h3
-                style={{
-                  marginBottom: "1.5rem",
-                  color: "var(--text-primary)",
-                  fontSize: "1.2rem",
-                }}
-              >
+            <div className="right-pane-empty fade-in">
+              <div className="empty-icon-wrapper">
+                <Briefcase size={36} />
+              </div>
+              <h3 style={{ margin: "0 0 0.5rem 0", color: "var(--text-primary)", fontSize: "1.3rem" }}>
                 Select a Faculty Member
               </h3>
+              <p style={{ color: "var(--text-secondary)", margin: 0 }}>Choose a teacher from the list to view or edit their assignments.</p>
 
-              <div
-                style={{
-                  maxWidth: "380px",
-                  textAlign: "left",
-                  background: "var(--bg-input)",
-                  padding: "1.2rem",
-                  borderRadius: "10px",
-                  border: "1px solid var(--border-color)",
-                }}
-              >
-                <h4
-                  style={{
-                    color: "var(--primary-color)",
-                    marginBottom: "10px",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    fontSize: "0.95rem",
-                  }}
-                >
-                  <Layers size={16} /> How to Allocate Workload:
-                </h4>
-                <ol
-                  style={{
-                    color: "var(--text-secondary)",
-                    fontSize: "0.85rem",
-                    lineHeight: "1.7",
-                    paddingLeft: "1.2rem",
-                    margin: 0,
-                  }}
-                >
-                  <li style={{ marginBottom: "4px" }}>
-                    Click on a <strong>teacher's name</strong> from the left
-                    panel.
-                  </li>
-                  <li style={{ marginBottom: "4px" }}>
-                    Click the <strong>+ Assign Class</strong> button.
-                  </li>
-                  <li style={{ marginBottom: "4px" }}>
-                    Select the <strong>Subject</strong> they will teach.
-                  </li>
-                  <li style={{ marginBottom: "4px" }}>
-                    Check the boxes for one or multiple{" "}
-                    <strong>Batches/Classes</strong>.
-                  </li>
-                  <li>Click Save to instantly assign the workload.</li>
+              <div className="instruction-box">
+                <h4><Layers size={16} /> Allocation Guide:</h4>
+                <ol>
+                  <li style={{ marginBottom: "6px" }}>Click on a <strong>teacher's name</strong>.</li>
+                  <li style={{ marginBottom: "6px" }}>Click the <strong>+ Assign Class</strong> button.</li>
+                  <li style={{ marginBottom: "6px" }}>Select the <strong>Subject</strong> they will teach.</li>
+                  <li style={{ marginBottom: "6px" }}>Check the boxes for one or multiple <strong>Batches</strong>.</li>
+                  <li>Click Save to assign the workload instantly.</li>
                 </ol>
               </div>
             </div>
@@ -373,7 +329,7 @@ const AllocationMatrix = () => {
           <AllocationModal
             faculty={selectedFaculty}
             ayId={activeAcademicYear.id}
-            activeTerm={activeTerm} // PASSING THE TERM PROP
+            activeTerm={activeTerm} 
             onClose={() => setShowModal(false)}
             onRefresh={() => fetchAllocations(selectedFaculty.id)}
             showToast={showToast}
@@ -386,24 +342,30 @@ const AllocationMatrix = () => {
               className="modal-content premium-modal delete-modal"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
+              style={{ maxWidth: "400px", padding: "2.5rem 2rem 2rem", textAlign: "center" }}
             >
               <div
                 className="delete-icon-wrapper"
                 style={{
                   display: "flex",
                   justifyContent: "center",
+                  alignItems: "center",
                   marginBottom: "1rem",
                   color: "#ef4444",
+                  background: "rgba(239, 68, 68, 0.1)",
+                  width: "64px",
+                  height: "64px",
+                  borderRadius: "50%",
+                  margin: "0 auto 1.5rem auto"
                 }}
               >
-                <AlertTriangle size={48} />
+                <AlertTriangle size={32} />
               </div>
-              <h3 style={{ textAlign: "center" }}>Remove Allocation?</h3>
+              <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "1.4rem" }}>Remove Allocation?</h3>
               <p
                 style={{
                   color: "var(--text-secondary)",
-                  marginBottom: "1.5rem",
-                  textAlign: "center",
+                  marginBottom: "2rem",
                 }}
               >
                 Are you sure you want to remove{" "}
@@ -418,15 +380,20 @@ const AllocationMatrix = () => {
               </p>
               <div
                 className="modal-actions"
-                style={{ justifyContent: "center", borderTop: "none" }}
+                style={{ justifyContent: "center", borderTop: "none", padding: 0, background: "transparent" }}
               >
                 <button
                   className="btn-secondary"
+                  style={{ padding: "0.8rem 1.8rem", borderRadius: "12px", border: "1px solid var(--border-color)", background: "var(--bg-input)", color: "var(--text-primary)", fontWeight: "600", cursor: "pointer" }}
                   onClick={() => setDeleteTarget(null)}
                 >
                   Cancel
                 </button>
-                <button className="btn-danger" onClick={confirmDelete}>
+                <button 
+                  className="btn-danger" 
+                  style={{ padding: "0.8rem 1.8rem", borderRadius: "12px", border: "none", background: "#ef4444", color: "white", fontWeight: "600", cursor: "pointer" }}
+                  onClick={confirmDelete}
+                >
                   Remove Class
                 </button>
               </div>
@@ -438,9 +405,8 @@ const AllocationMatrix = () => {
   );
 };
 
-// --- MODAL UPDATED WITH DYNAMIC TERM SEMESTERS ---
+// --- MODAL WITH BOTTOM-SHEET SCROLLING ---
 const AllocationModal = ({ faculty, ayId, activeTerm, onClose, onRefresh, showToast }) => {
-  // Determine allowed semesters based on Odd/Even Term
   const availableSemesters = activeTerm === "ODD" ? [1, 3, 5, 7] : [2, 4, 6, 8];
   
   const [filterSem, setFilterSem] = useState(availableSemesters[0]);
@@ -556,7 +522,7 @@ const AllocationModal = ({ faculty, ayId, activeTerm, onClose, onRefresh, showTo
           </button>
         </div>
 
-        <div className="filter-pill-bar">
+        <div className="filter-pill-bar" style={{ margin: "1.5rem 2rem 0 2rem", background: "transparent", padding: 0 }}>
           <span className="text-sm font-medium text-muted mr-2">
             {activeTerm} Term:
           </span>
@@ -572,108 +538,106 @@ const AllocationModal = ({ faculty, ayId, activeTerm, onClose, onRefresh, showTo
           ))}
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="premium-form"
-          style={{ marginTop: "1rem" }}
-        >
-          <div className="sinput-group">
-            <label>Select Subject</label>
-            <div className="subject-select-box">
-              {subjects.length > 0 ? (
-                subjects.map((sub) => (
-                  <div
-                    key={sub.id}
-                    className={`subject-select-item ${selectedSubject === sub.id ? "selected" : ""}`}
-                    onClick={() => handleSubjectSelect(sub.id)}
-                  >
-                    <div className="item-details">
-                      <span className="font-medium">
-                        {sub.code} - {sub.name}
-                      </span>
-                      <span className="text-sm text-muted">
-                        • {sub.subject_type.replace("_", " ")} • {sub.credits}{" "}
-                        Credits
-                      </span>
-                    </div>
-                    {selectedSubject === sub.id && (
-                      <CheckCircle size={18} className="text-primary" />
-                    )}
-                  </div>
-                ))
-              ) : (
-                <p className="text-muted text-sm p-3">
-                  No subjects defined for Sem {filterSem} yet.
-                </p>
-              )}
-            </div>
-          </div>
-
-          {selectedSubject && (
-            <div className="sinput-group mt-4">
-              <label>Select Target Audience (Batches / Classes)</label>
-              <div className="multi-select-box">
-                {groups.length > 0 ? (
-                  groups.map((group) => (
+        <form onSubmit={handleSubmit} className="modal-form">
+          <div className="premium-form">
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%" }}>
+              <label style={{ fontSize: "0.9rem", fontWeight: "600", color: "var(--text-primary)" }}>Select Subject</label>
+              <div className="subject-select-box">
+                {subjects.length > 0 ? (
+                  subjects.map((sub) => (
                     <div
-                      key={group.id}
-                      className={`multi-select-item ${selectedGroups.has(group.id) ? "selected" : ""}`}
-                      onClick={() => toggleGroup(group.id)}
+                      key={sub.id}
+                      className={`subject-select-item ${selectedSubject === sub.id ? "selected" : ""}`}
+                      onClick={() => handleSubjectSelect(sub.id)}
                     >
-                      {selectedGroups.has(group.id) ? (
-                        <CheckSquare size={18} className="text-primary" />
-                      ) : (
-                        <Square size={18} className="text-muted" />
-                      )}
                       <div className="item-details">
-                        <span className="font-medium">{group.name}</span>
-                        <span className="text-sm text-muted">
-                          {" "}
-                          • {group.student_count} Students • {group.type}
+                        <span className="font-medium" style={{ color: "var(--text-primary)" }}>
+                          {sub.code} - {sub.name}
+                        </span>
+                        <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: "4px" }}>
+                          • {sub.subject_type.replace("_", " ")} • {sub.credits}{" "}
+                          Credits
                         </span>
                       </div>
+                      {selectedSubject === sub.id && (
+                        <CheckCircle size={18} className="text-primary" />
+                      )}
                     </div>
                   ))
                 ) : (
-                  <p className="text-muted text-sm p-3">
-                    No groups created for Sem {filterSem} yet.
+                  <p className="text-muted text-sm p-3" style={{ padding: "1rem" }}>
+                    No subjects defined for Sem {filterSem} yet.
                   </p>
                 )}
               </div>
             </div>
-          )}
 
-          <AnimatePresence>
-            {conflictWarning && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="alert-danger"
-              >
-                <AlertTriangle size={24} style={{ flexShrink: 0 }} />
-                <div>
-                  <strong>Shared Load Warning!</strong>
-                  <div style={{ fontSize: "0.85rem", marginTop: "4px" }}>
-                    The following classes are already assigned to other
-                    teachers:
-                    <ul>
-                      {conflictingClasses.map((c, i) => (
-                        <li key={i}>
-                          <strong>{c.group_name}</strong> (Assigned to{" "}
-                          {c.faculty_name})
-                        </li>
-                      ))}
-                    </ul>
-                    Proceeding will create a <strong>shared workload</strong>{" "}
-                    where both teachers can access these batches.
-                  </div>
+            {selectedSubject && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%", marginTop: "1.5rem" }}>
+                <label style={{ fontSize: "0.9rem", fontWeight: "600", color: "var(--text-primary)" }}>Select Target Audience (Batches / Classes)</label>
+                <div className="multi-select-box">
+                  {groups.length > 0 ? (
+                    groups.map((group) => (
+                      <div
+                        key={group.id}
+                        className={`multi-select-item ${selectedGroups.has(group.id) ? "selected" : ""}`}
+                        onClick={() => toggleGroup(group.id)}
+                      >
+                        {selectedGroups.has(group.id) ? (
+                          <CheckSquare size={18} className="text-primary" />
+                        ) : (
+                          <Square size={18} className="text-muted" />
+                        )}
+                        <div className="item-details" style={{ marginLeft: "4px" }}>
+                          <span className="font-medium" style={{ color: "var(--text-primary)" }}>{group.name}</span>
+                          <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: "2px" }}>
+                            {" "}
+                            • {group.student_count} Students • {group.type}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-muted text-sm p-3" style={{ padding: "1rem" }}>
+                      No groups created for Sem {filterSem} yet.
+                    </p>
+                  )}
                 </div>
-              </motion.div>
+              </div>
             )}
-          </AnimatePresence>
 
-          <div className="modal-actions" style={{ marginTop: "2rem" }}>
-            <button type="button" onClick={onClose} className="btn-secondary">
+            <AnimatePresence>
+              {conflictWarning && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="alert-danger"
+                >
+                  <AlertTriangle size={24} style={{ flexShrink: 0 }} />
+                  <div>
+                    <strong>Shared Load Warning!</strong>
+                    <div style={{ fontSize: "0.85rem", marginTop: "4px" }}>
+                      The following classes are already assigned to other
+                      teachers:
+                      <ul>
+                        {conflictingClasses.map((c, i) => (
+                          <li key={i}>
+                            <strong>{c.group_name}</strong> (Assigned to{" "}
+                            {c.faculty_name})
+                          </li>
+                        ))}
+                      </ul>
+                      Proceeding will create a <strong>shared workload</strong>{" "}
+                      where both teachers can access these batches.
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <div className="modal-actions">
+            <button type="button" onClick={onClose} style={{ padding: "0.8rem 1.8rem", borderRadius: "12px", border: "1px solid var(--border-color)", background: "var(--bg-input)", color: "var(--text-primary)", fontWeight: "600", cursor: "pointer" }}>
               Cancel
             </button>
             <button
@@ -681,7 +645,16 @@ const AllocationModal = ({ faculty, ayId, activeTerm, onClose, onRefresh, showTo
               disabled={
                 loading || !selectedSubject || selectedGroups.size === 0
               }
-              className={conflictWarning ? "btn-danger" : "btn-primary"}
+              style={{
+                padding: "0.8rem 1.8rem", 
+                borderRadius: "12px", 
+                border: "none", 
+                background: conflictWarning ? "#ef4444" : "var(--primary-color)", 
+                color: "white", 
+                fontWeight: "600", 
+                cursor: (loading || !selectedSubject || selectedGroups.size === 0) ? "not-allowed" : "pointer",
+                opacity: (loading || !selectedSubject || selectedGroups.size === 0) ? 0.6 : 1
+              }}
             >
               {loading
                 ? "Assigning..."
