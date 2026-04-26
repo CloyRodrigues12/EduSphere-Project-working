@@ -15,13 +15,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { academicService } from "../services/api";
 import "./SubjectCatalog.css";
 import { useAuth } from "../context/AuthContext";
-import { useAcademic } from "../context/AcademicContext"; // <-- IMPORT ACADEMIC CONTEXT
+import { useAcademic } from "../context/AcademicContext"; 
 
 const SubjectCatalog = () => {
   const { user } = useAuth();
-  const { activeTerm } = useAcademic(); // <-- GET GLOBAL TERM
+  const { activeTerm } = useAcademic(); 
 
-  // Filters (Initialize based on the global active term)
+  // Filters
   const [term, setTerm] = useState(activeTerm ? activeTerm.toLowerCase() : "odd"); 
   const [activeSem, setActiveSem] = useState(term === "odd" ? 1 : 2);
   const [searchTerm, setSearchTerm] = useState("");
@@ -44,14 +44,12 @@ const SubjectCatalog = () => {
   const evenSems = [2, 4, 6, 8];
   const currentSems = term === "odd" ? oddSems : evenSems;
 
-  // --- NEW: Sync local term when global Topbar term changes ---
   useEffect(() => {
     if (activeTerm) {
       setTerm(activeTerm.toLowerCase());
     }
   }, [activeTerm]);
 
-  // Handle Term Switch (Updates the active semester pill)
   useEffect(() => {
     setActiveSem(term === "odd" ? 1 : 2);
   }, [term]);
@@ -66,7 +64,6 @@ const SubjectCatalog = () => {
     setTimeout(() => setToast({ show: false, message: "", type: "" }), 3000);
   };
 
-  // Role verification check
   const isAuthorizedToEdit = ["ORG_ADMIN", "SUPER_ADMIN", "HOD"].includes(user?.role_code);
   
   const fetchSubjects = async () => {
@@ -102,14 +99,8 @@ const SubjectCatalog = () => {
 
   return (
     <div className="catalog-container fade-in">
-      <div
-        className={`toast-notification ${toast.type} ${toast.show ? "show" : ""}`}
-      >
-        {toast.type === "success" ? (
-          <CheckCircle size={18} />
-        ) : (
-          <AlertTriangle size={18} />
-        )}
+      <div className={`toast-notification ${toast.type} ${toast.show ? "show" : ""}`}>
+        {toast.type === "success" ? <CheckCircle size={18} /> : <AlertTriangle size={18} />}
         <span>{toast.message}</span>
       </div>
 
@@ -120,7 +111,6 @@ const SubjectCatalog = () => {
             Define the curriculum and electives for the department.
           </p>
         </div>
-        {/* Wrap the Add Subject button */}
         {isAuthorizedToEdit && (
           <button className="btn-primary" onClick={() => setShowModal(true)}>
             <Plus size={18} /> Add Subject
@@ -128,30 +118,19 @@ const SubjectCatalog = () => {
         )}
       </div>
 
-      {/* Term & Semester Controls */}
-      <div className="curriculum-controls glass-panel">
+      <div className="curriculum-controls">
         <div className="term-toggle">
-          <button
-            className={`term-btn ${term === "odd" ? "active" : ""}`}
-            onClick={() => setTerm("odd")}
-          >
+          <button className={`term-btn ${term === "odd" ? "active" : ""}`} onClick={() => setTerm("odd")}>
             Odd Term (Jul-Dec)
           </button>
-          <button
-            className={`term-btn ${term === "even" ? "active" : ""}`}
-            onClick={() => setTerm("even")}
-          >
+          <button className={`term-btn ${term === "even" ? "active" : ""}`} onClick={() => setTerm("even")}>
             Even Term (Jan-Jun)
           </button>
         </div>
 
         <div className="semester-pills">
           {currentSems.map((sem) => (
-            <button
-              key={sem}
-              className={`sem-pill ${activeSem === sem ? "active" : ""}`}
-              onClick={() => setActiveSem(sem)}
-            >
+            <button key={sem} className={`sem-pill ${activeSem === sem ? "active" : ""}`} onClick={() => setActiveSem(sem)}>
               Semester {sem}
             </button>
           ))}
@@ -160,7 +139,7 @@ const SubjectCatalog = () => {
 
       <div className="toolbar">
         <div className="search-bar">
-          <Search size={18} className="search-icon" />
+          <Search size={18} style={{ color: 'var(--text-secondary)' }} />
           <input
             type="text"
             placeholder="Search subjects by code or name..."
@@ -170,7 +149,6 @@ const SubjectCatalog = () => {
         </div>
       </div>
 
-      {/* Data Table */}
       <div className="table-card">
         {loading ? (
           <div className="loading-state">
@@ -178,146 +156,101 @@ const SubjectCatalog = () => {
             <p>Loading Syllabus...</p>
           </div>
         ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Code</th>
-                <th>Subject Name</th>
-                <th>Type</th>
-                <th>Credits</th>
-                <th style={{ textAlign: "right" }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <AnimatePresence mode="wait">
-                {filteredSubjects.length > 0 ? (
-                  filteredSubjects.map((sub) => (
-                    <motion.tr
-                      key={sub.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                    >
-                      <td className="font-medium text-primary">{sub.code}</td>
-                      <td className="font-medium">
-                        {sub.name}
-                        {sub.is_open_elective && (
-                          <span className="badge badge-open">
-                            Open Elective
-                          </span>
-                        )}
-                      </td>
-                      <td>
-                        <span
-                          className={`badge type-${sub.subject_type.toLowerCase()}`}
-                        >
-                          {sub.subject_type.replace("_", " ")}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="credit-bubble">{sub.credits}</div>
-                      </td>
-                      {isAuthorizedToEdit ? (
-                        <td style={{ textAlign: "right" }}>
-                          <button
-                            className="btn-icon action-edit"
-                            onClick={() => setEditTarget(sub)}
-                            title="Edit Subject"
-                          >
-                            <Edit2 size={16} />
-                          </button>
-                          <button
-                            className="btn-icon action-delete"
-                            onClick={() => setDeleteTarget(sub)}
-                            title="Delete Subject"
-                          >
-                            <Trash2 size={16} />
-                          </button>
+          <>
+            <div className="mobile-swipe-hint"><span>← Swipe table to view all columns →</span></div>
+            <div className="table-responsive">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Code</th>
+                    <th>Subject Name</th>
+                    <th>Type</th>
+                    <th>Credits</th>
+                    <th style={{ textAlign: "right" }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <AnimatePresence mode="wait">
+                    {filteredSubjects.length > 0 ? (
+                      filteredSubjects.map((sub) => (
+                        <motion.tr key={sub.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                          <td className="font-medium text-primary">{sub.code}</td>
+                          <td className="font-medium">
+                            {sub.name}
+                            {sub.is_open_elective && (
+                              <span className="badge badge-open">Open Elective</span>
+                            )}
+                          </td>
+                          <td>
+                            <span className={`badge type-${sub.subject_type.toLowerCase()}`}>
+                              {sub.subject_type.replace("_", " ")}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="credit-bubble">{sub.credits}</div>
+                          </td>
+                          {isAuthorizedToEdit ? (
+                            <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                              <button className="btn-icon action-edit" onClick={() => setEditTarget(sub)} title="Edit Subject">
+                                <Edit2 size={16} />
+                              </button>
+                              <button className="btn-icon action-delete" onClick={() => setDeleteTarget(sub)} title="Delete Subject">
+                                <Trash2 size={16} />
+                              </button>
+                            </td>
+                          ) : (
+                            <td style={{ textAlign: "right" }}>
+                               <span className="text-muted" style={{ fontSize: "0.8rem", fontWeight: "600" }}>Read Only</span>
+                            </td>
+                          )}
+                        </motion.tr>
+                      ))
+                    ) : (
+                      <motion.tr>
+                        <td colSpan="5" className="empty-state" style={{ textAlign: 'center', padding: '4rem' }}>
+                          <BookOpen size={48} className="text-muted opacity-20 mb-2" style={{ margin: '0 auto 1rem auto' }} />
+                          <p style={{ color: 'var(--text-secondary)' }}>No subjects defined for Semester {activeSem}.</p>
                         </td>
-                      ) : (
-                        <td style={{ textAlign: "right" }}>
-                           <span className="text-muted" style={{ fontSize: "0.8rem" }}>Read Only</span>
-                        </td>
-                      )}
-                    </motion.tr>
-                  ))
-                ) : (
-                  <motion.tr>
-                    <td colSpan="5" className="empty-state">
-                      <BookOpen
-                        size={48}
-                        className="text-muted opacity-20 mb-2"
-                      />
-                      <p>No subjects defined for Semester {activeSem}.</p>
-                    </td>
-                  </motion.tr>
-                )}
-              </AnimatePresence>
-            </tbody>
-          </table>
+                      </motion.tr>
+                    )}
+                  </AnimatePresence>
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
-      {/* Add / Edit Modal */}
       <AnimatePresence>
         {(showModal || editTarget) && (
           <SubjectFormModal
             subjectData={editTarget}
             activeSem={activeSem}
-            onClose={() => {
-              setShowModal(false);
-              setEditTarget(null);
-            }}
+            onClose={() => { setShowModal(false); setEditTarget(null); }}
             onRefresh={fetchSubjects}
             showToast={showToast}
           />
         )}
       </AnimatePresence>
 
-      {/* Delete Lock/Confirmation Modal */}
       <AnimatePresence>
         {deleteTarget && (
           <div className="modal-overlay">
-            <motion.div
-              className="modal-content premium-modal delete-modal"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-            >
+            <motion.div className="modal-content premium-modal delete-modal" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
               <div className="delete-icon-wrapper">
                 <AlertTriangle size={32} />
               </div>
-              <h3>Delete Subject?</h3>
-              <p
-                style={{
-                  color: "var(--text-secondary)",
-                  marginBottom: "1.5rem",
-                }}
-              >
-                Are you sure you want to delete{" "}
-                <strong>
-                  {deleteTarget.code} - {deleteTarget.name}
-                </strong>
-                ?
-                <br />
-                <br />
-                <span className="text-error" style={{ fontSize: "0.85rem" }}>
-                  * If this subject is already allocated to a teacher, the
-                  system will block this deletion.
+              <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.4rem' }}>Delete Subject?</h3>
+              <p style={{ color: "var(--text-secondary)", marginBottom: "1.5rem" }}>
+                Are you sure you want to delete <strong>{deleteTarget.code} - {deleteTarget.name}</strong>?
+                <br /><br />
+                <span style={{ fontSize: "0.85rem", color: '#ef4444' }}>
+                  * If this subject is already allocated to a teacher, the system will block this deletion.
                 </span>
               </p>
-              <div
-                className="modal-actions"
-                style={{ justifyContent: "center", borderTop: "none" }}
-              >
-                <button
-                  className="btn-secondary"
-                  onClick={() => setDeleteTarget(null)}
-                >
-                  Cancel
-                </button>
-                <button className="btn-danger" onClick={confirmDelete}>
-                  Attempt Delete
-                </button>
+              <div className="modal-actions" style={{ justifyContent: "center", borderTop: "none", background: "transparent", padding: 0 }}>
+                <button className="btn-secondary" onClick={() => setDeleteTarget(null)}>Cancel</button>
+                <button className="btn-danger" onClick={confirmDelete}>Attempt Delete</button>
               </div>
             </motion.div>
           </div>
@@ -327,14 +260,8 @@ const SubjectCatalog = () => {
   );
 };
 
-// --- SUBJECT FORM MODAL ---
-const SubjectFormModal = ({
-  onClose,
-  onRefresh,
-  showToast,
-  activeSem,
-  subjectData = null,
-}) => {
+// --- SUBJECT FORM MODAL (Optimized with isolated inputs) ---
+const SubjectFormModal = ({ onClose, onRefresh, showToast, activeSem, subjectData = null }) => {
   const isEdit = !!subjectData;
   const [loading, setLoading] = useState(false);
 
@@ -347,7 +274,6 @@ const SubjectFormModal = ({
     is_open_elective: subjectData?.is_open_elective || false,
   });
 
-  // SMART LOGIC: Auto-assign credits and Elective status based on Type
   const handleTypeChange = (e) => {
     const newType = e.target.value;
     let newCredits = formData.credits;
@@ -359,12 +285,7 @@ const SubjectFormModal = ({
     if (newType === "OPEN_ELECTIVE") isOpenElective = true;
     else if (newType !== "PRO_ELECTIVE") isOpenElective = false;
 
-    setFormData({
-      ...formData,
-      subject_type: newType,
-      credits: newCredits,
-      is_open_elective: isOpenElective,
-    });
+    setFormData({ ...formData, subject_type: newType, credits: newCredits, is_open_elective: isOpenElective });
   };
 
   const handleSubmit = async (e) => {
@@ -372,10 +293,7 @@ const SubjectFormModal = ({
     setLoading(true);
     try {
       if (isEdit) {
-        await academicService.updateSubject({
-          id: subjectData.id,
-          ...formData,
-        });
+        await academicService.updateSubject({ id: subjectData.id, ...formData });
         showToast("Subject updated successfully!");
       } else {
         await academicService.addSubject(formData);
@@ -392,128 +310,71 @@ const SubjectFormModal = ({
 
   return (
     <div className="modal-overlay">
-      <motion.div
-        className="modal-content premium-modal"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
+      <motion.div className="modal-content premium-modal" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
         <div className="modal-header">
           <div>
             <h3>{isEdit ? "Edit Subject" : "Add New Subject"}</h3>
-            <p className="modal-subtitle">
-              Semester {formData.semester} Curriculum
-            </p>
+            <p className="modal-subtitle">Semester {formData.semester} Curriculum</p>
           </div>
-          <button onClick={onClose} className="close-btn">
-            <X size={20} />
-          </button>
+          <button onClick={onClose} className="close-btn"><X size={20} /></button>
         </div>
 
-        <form onSubmit={handleSubmit} className="premium-form">
-          <div className="input-row">
-            <div className="sinput-group">
-              <label>Subject Code</label>
-              <div className="input-wrapper">
-                <Zap size={18} className="input-icon" />
-                <input
-                  required
-                  type="text"
-                  placeholder="e.g. CS501"
-                  value={formData.code}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      code: e.target.value.toUpperCase(),
-                    })
-                  }
-                />
+        <form onSubmit={handleSubmit} className="modal-form">
+          <div className="premium-form">
+            
+            <div className="sc-form-grid">
+              <div className="sc-input-group">
+                <label>Subject Code</label>
+                <div className="sc-input-wrapper">
+                  <Zap size={18} className="sc-input-icon" />
+                  <input className="sc-input" required type="text" placeholder="e.g. CS501" value={formData.code} onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })} />
+                </div>
+              </div>
+              <div className="sc-input-group">
+                <label>Credits</label>
+                <div className="sc-input-wrapper">
+                  <Layers size={18} className="sc-input-icon" />
+                  <input className="sc-input" required type="number" min="1" max="6" value={formData.credits} onChange={(e) => setFormData({ ...formData, credits: parseInt(e.target.value) })} />
+                </div>
               </div>
             </div>
-            <div className="sinput-group">
-              <label>Credits</label>
-              <div className="input-wrapper">
-                <Layers size={18} className="input-icon" />
-                <input
-                  required
-                  type="number"
-                  min="1"
-                  max="6"
-                  value={formData.credits}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      credits: parseInt(e.target.value),
-                    })
-                  }
-                />
+
+            <div className="sc-input-group" style={{ marginTop: '1.5rem' }}>
+              <label>Subject Name</label>
+              <div className="sc-input-wrapper">
+                <BookOpen size={18} className="sc-input-icon" />
+                <input className="sc-input" required type="text" placeholder="e.g. Database Management Systems" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
               </div>
             </div>
-          </div>
 
-          <div className="sinput-group">
-            <label>Subject Name</label>
-            <div className="input-wrapper">
-              <BookOpen size={18} className="input-icon" />
-              <input
-                required
-                type="text"
-                placeholder="e.g. Database Management Systems"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-              />
+            <div className="sc-input-group" style={{ marginTop: '1.5rem' }}>
+              <label>Subject Type</label>
+              <div className="sc-input-wrapper">
+                <Layers size={18} className="sc-input-icon" />
+                <select className="sc-select" value={formData.subject_type} onChange={handleTypeChange}>
+                  <option value="THEORY">Theory (Compulsory)</option>
+                  <option value="LAB">Practical / Lab</option>
+                  <option value="PRO_ELECTIVE">Professional Elective</option>
+                  <option value="OPEN_ELECTIVE">Open Elective (Cross-Dept)</option>
+                  <option value="PRO_ELECTIVE_LAB">Professional Elective Lab</option>
+                </select>
+              </div>
             </div>
-          </div>
 
-          <div className="sinput-group">
-            <label>Subject Type</label>
-            <div className="input-wrapper">
-              <Layers size={18} className="input-icon" />
-              <select value={formData.subject_type} onChange={handleTypeChange}>
-                <option value="THEORY">Theory (Compulsory)</option>
-                <option value="LAB">Practical / Lab</option>
-                <option value="PRO_ELECTIVE">Professional Elective</option>
-                <option value="OPEN_ELECTIVE">
-                  Open Elective (Cross-Dept)
-                </option>
-                <option value="PRO_ELECTIVE_LAB">
-                  Professional Elective Lab
-                </option>
-              </select>
-            </div>
+            {(formData.subject_type === "PRO_ELECTIVE" || formData.subject_type === "OPEN_ELECTIVE") && (
+              <div className="custom-checkbox mt-4">
+                <label>
+                  <input type="checkbox" checked={formData.is_open_elective} onChange={(e) => setFormData({ ...formData, is_open_elective: e.target.checked })} disabled={formData.subject_type === "OPEN_ELECTIVE"} />
+                  <span>Allow students from other departments to enroll in this subject.</span>
+                </label>
+              </div>
+            )}
+            
           </div>
-
-          {(formData.subject_type === "PRO_ELECTIVE" ||
-            formData.subject_type === "OPEN_ELECTIVE") && (
-            <div className="custom-checkbox mt-4">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={formData.is_open_elective}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      is_open_elective: e.target.checked,
-                    })
-                  }
-                  disabled={formData.subject_type === "OPEN_ELECTIVE"}
-                />
-                <span>
-                  Allow students from other departments to enroll in this
-                  subject.
-                </span>
-              </label>
-            </div>
-          )}
 
           <div className="modal-actions">
-            <button type="button" onClick={onClose} className="btn-secondary">
-              Cancel
-            </button>
-            <button type="submit" disabled={loading} className="btn-primary">
-              {loading ? "Saving..." : isEdit ? "Save Changes" : "Add Subject"}
-            </button>
+            <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
+            <button type="submit" disabled={loading} className="btn-primary">{loading ? "Saving..." : isEdit ? "Save Changes" : "Add Subject"}</button>
           </div>
         </form>
       </motion.div>

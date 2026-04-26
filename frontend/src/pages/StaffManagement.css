@@ -65,7 +65,7 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding-bottom: 1rem;
+  padding-bottom: 0.5rem;
   background: none;
   border: none;
   color: var(--text-secondary);
@@ -74,6 +74,7 @@
   cursor: pointer;
   transition: color 0.2s;
   white-space: nowrap;
+  margin-bottom: 5px;
 }
 .tab-btn:hover {
   color: var(--primary-color);
