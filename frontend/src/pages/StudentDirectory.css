@@ -1,454 +1,327 @@
-/* --- SCOPED TO STUDENT DIRECTORY ONLY --- */
-.directory-container {
-  padding: 2rem;
+/* =========================================================
+   🚨 STRICT PAGE SCOPE
+   ========================================================= */
+.student-directory-scope {
+  --primary-color: #4f46e5;
+  --primary-hover: #4338ca;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --bg-main: #f9fafb;
+  --bg-card: #ffffff;
+  --bg-input: #f3f4f6;
+  --bg-hover: #f9fafb;
+  --border-color: #e5e7eb;
+  --danger-color: #ef4444;
+
+  padding: 1.5rem 2rem;
   max-width: 1400px;
   margin: 0 auto;
-  height: calc(100vh - 80px);
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
-}
-
-.directory-container .directory-toolbar {
-  margin-top: 0%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 1.5rem;
-  border-radius: 12px;
-  margin-bottom: 1rem;
-  background: var(--bg-card);
-}
-
-.directory-container .semester-tabs {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  overflow-x: auto;
-}
-
-.directory-container .sem-tab {
-  padding: 0.4rem 1rem;
-  border: 1px solid var(--border-color);
-  background: var(--bg-input);
-  border-radius: 20px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.directory-container .sem-tab:hover {
-  border-color: var(--primary-color);
-  color: var(--primary-color);
-}
-.directory-container .sem-tab.active {
-  background: var(--primary-color);
-  color: white;
-  border-color: var(--primary-color);
-}
-
-.directory-container .split-layout {
-  display: grid;
-  grid-template-columns: 1fr 400px;
-  gap: 1.5rem;
   flex: 1;
-  overflow: hidden;
-}
-
-.directory-container .left-pane,
-.directory-container .right-pane {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border-radius: 12px;
-}
-
-.directory-container .pane-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.2rem 1.5rem;
-  border-bottom: 1px solid var(--border-color);
-  background: var(--bg-card);
-}
-
-.directory-container .pane-header h3 {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 1.1rem;
-  margin: 0;
-  color: var(--text-primary);
-}
-
-.directory-container .count-badge {
-  background: var(--bg-input);
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.directory-container .table-wrapper {
-  flex: 1;
-  overflow-y: auto;
-  background: var(--bg-card);
-}
-
-.directory-container .roster-table {
+  min-height: 0; 
   width: 100%;
-  border-collapse: collapse;
 }
 
-.directory-container .roster-table th {
-  position: sticky;
-  top: 0;
-  background: var(--bg-input);
-  padding: 1rem;
-  text-align: left;
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  color: var(--text-secondary);
-  z-index: 10;
+[data-theme="dark"] .student-directory-scope {
+  --text-primary: #f9fafb;
+  --text-secondary: #9ca3af;
+  --bg-main: #111827;
+  --bg-card: #1f2937;
+  --bg-input: #374151;
+  --bg-hover: #374151;
+  --border-color: #374151;
 }
 
-.directory-container .roster-table td {
-  padding: 1rem;
-  border-bottom: 1px solid var(--border-color);
-  font-size: 0.95rem;
-  color: var(--text-primary);
+/* --- Headers --- */
+.student-directory-scope .sd-header-stack {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
+  margin-bottom: 1.5rem !important;
+  width: 100% !important;
+  gap: 6px !important;
+  flex-shrink: 0 !important;
 }
 
-.directory-container .selected-row td {
-  background: var(--bg-input);
-}
-.directory-container .selected-row td:first-child {
-  box-shadow: inset 4px 0 0 var(--primary-color);
-}
-
-.directory-container .checkbox-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
+.student-directory-scope .sd-header-stack h1 {
+  display: block !important;
+  font-size: 1.875rem !important;
+  font-weight: 700 !important;
+  margin: 0 !important;
+  color: var(--text-primary) !important;
+  line-height: 1.2 !important;
+  width: 100% !important;
 }
 
-.directory-container .bulk-action-bar {
-  background: var(--bg-card);
-  border-bottom: 1px solid var(--border-color);
-  padding: 10px 1.5rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  overflow: hidden;
+.student-directory-scope .sd-header-stack p {
+  display: block !important;
+  color: var(--text-secondary) !important;
+  margin: 0 !important;
+  font-size: 0.95rem !important;
+  line-height: 1.4 !important;
+  width: 100% !important;
 }
 
-.directory-container .selection-count {
-  font-weight: 600;
-  color: var(--primary-color);
+/* --- Tabs --- */
+.student-directory-scope .tabs-wrapper { margin-bottom: 1.5rem; flex-shrink: 0; }
+.student-directory-scope .desktop-tabs { display: flex; gap: 2rem; border-bottom: 2px solid var(--border-color); overflow-x: auto; }
+.student-directory-scope .tab-btn {
+  position: relative; display: flex; align-items: center; gap: 0.75rem;
+  padding-bottom: 1rem; background: none; border: none; color: var(--text-secondary);
+  font-weight: 600; font-size: 0.95rem; cursor: pointer; transition: color 0.2s; white-space: nowrap;
+}
+.student-directory-scope .tab-btn:hover, .student-directory-scope .tab-btn.active { color: var(--primary-color); }
+.student-directory-scope .active-tab-indicator { position: absolute; bottom: -2px; left: 0; right: 0; height: 3px; background: var(--primary-color); border-radius: 3px 3px 0 0; }
+.student-directory-scope .mobile-tabs { display: none; }
+
+/* --- Sub-Tabs --- */
+.student-directory-scope .group-sub-tabs {
+  display: flex; gap: 12px; border-bottom: 2px solid var(--bg-input);
+  margin-bottom: 1rem; overflow-x: auto; -ms-overflow-style: none; scrollbar-width: none; padding-bottom: 4px;
+  flex-shrink: 0;
+}
+.student-directory-scope .group-sub-tabs::-webkit-scrollbar { display: none; }
+.student-directory-scope .group-sub-btn {
+  padding: 0.75rem 1rem; background: transparent; border: none;
+  border-bottom: 2px solid transparent; font-weight: 600; cursor: pointer;
+  display: flex; align-items: center; gap: 8px; margin-bottom: -2px; transition: all 0.2s; white-space: nowrap;
 }
 
-.directory-container .bulk-actions {
-  display: flex;
-  gap: 10px;
+/* --- Toolbars & Search --- */
+.student-directory-scope .directory-toolbar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 1rem 1.5rem; border-radius: 12px; margin-bottom: 1.5rem;
+  background: var(--bg-card); border: 1px solid var(--border-color);
+  flex-wrap: wrap; gap: 1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.02); flex-shrink: 0;
 }
 
-.directory-container .btn-sm {
-  padding: 0.4rem 0.8rem;
-  font-size: 0.85rem;
+.student-directory-scope .search-bar {
+  display: flex; align-items: center; gap: 0.75rem; background: var(--bg-input);
+  padding: 0.7rem 1.25rem; border: 1px solid var(--border-color); border-radius: 12px;
+  flex: 1; min-width: 250px; max-width: 400px; transition: all 0.2s;
+}
+.student-directory-scope .search-bar:focus-within { border-color: var(--primary-color); background: var(--bg-card); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
+.student-directory-scope .search-bar input { border: none; background: transparent; width: 100%; color: var(--text-primary); font-size: 0.95rem; outline: none; }
+
+/* =========================================================
+   🚨 BULLETPROOF RESPONSIVE TABLES
+   ========================================================= */
+.student-directory-scope .table-card,
+.student-directory-scope .glass-panel {
+  background: var(--bg-card) !important; 
+  border-radius: 16px !important;
+  border: 1px solid var(--border-color) !important; 
+  display: flex !important;
+  flex-direction: column !important;
+  min-width: 0 !important; 
+  width: 100% !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
 }
 
-.directory-container .groups-grid {
-  flex: 1;
-  overflow-y: auto;
-  padding: 1.5rem 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+.student-directory-scope .glass-panel { padding: 1.5rem !important; }
+
+/* 🚨 FIX: Strict border-box stops the table from overshooting its container */
+.student-directory-scope .sd-table-wrapper {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  display: block !important;
+  box-sizing: border-box !important; 
 }
 
-.directory-container .group-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 1.2rem;
-  transition: all 0.3s;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+/* 1. Base Table Setup */
+.student-directory-scope .sd-strict-table {
+  display: table !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  border-collapse: collapse !important;
+  min-width: 0 !important; 
 }
 
-.directory-container .group-card.assignment-mode {
-  border-color: var(--primary-color);
-  background: var(--bg-input);
+.student-directory-scope .sd-strict-table th, 
+.student-directory-scope .sd-strict-table td {
+  display: table-cell !important; 
+  visibility: visible !important;
+  text-align: left !important;
+  padding: 0.5rem 0.5rem !important;
+  border-bottom: 1px solid var(--border-color) !important;
+  vertical-align: middle !important;
 }
 
-.directory-container .group-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1rem;
+.student-directory-scope .sd-strict-table th {
+  background: var(--bg-input) !important;
+  color: var(--text-secondary) !important;
+  font-weight: 700 !important;
+  font-size: 0.8rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
 }
 
-.directory-container .group-card-header h4 {
-  margin: 0 0 5px 0;
-  font-size: 1.1rem;
-  color: var(--text-primary);
+.student-directory-scope .sd-strict-table tbody tr { transition: background 0.2s !important; }
+.student-directory-scope .sd-strict-table tbody tr:hover { background: var(--bg-hover) !important; }
+.student-directory-scope .sd-strict-table tbody tr.selected-row { background: rgba(79, 70, 229, 0.05) !important; }
+.student-directory-scope .inactive-row td { opacity: 0.6 !important; }
+
+/* =========================================================
+   🚨 TABLE 1: MASTER DIRECTORY FIX (Scrollable)
+   ========================================================= */
+.student-directory-scope .sd-strict-table.master-table {
+  min-width: 1050px !important; 
+  table-layout: fixed !important;
+}
+.student-directory-scope .sd-strict-table.master-table th,
+.student-directory-scope .sd-strict-table.master-table td {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.student-directory-scope .sd-strict-table.master-table th:nth-child(1) { width: 45px !important; text-align: center !important; }
+.student-directory-scope .sd-strict-table.master-table th:nth-child(2) { width: 80px !important; }
+.student-directory-scope .sd-strict-table.master-table th:nth-child(3) { width: 300px !important; }
+.student-directory-scope .sd-strict-table.master-table th:nth-child(4) { width: 200px !important; }
+.student-directory-scope .sd-strict-table.master-table th:nth-child(5) { width: 120px !important; }
+.student-directory-scope .sd-strict-table.master-table th:nth-child(6) { width: 120px !important; }
+.student-directory-scope .sd-strict-table.master-table th:nth-child(7) { width: 80px !important; text-align: right !important; }
+.student-directory-scope .sd-strict-table.master-table td:nth-child(7) { text-align: right !important; }
+
+
+/* =========================================================
+   🚨 TABLE 2: BATCHES/ELECTIVES FIX (Never scrolls on Desktop)
+   ========================================================= */
+.student-directory-scope .sd-strict-table.group-table {
+  min-width: 100% !important; 
+  table-layout: fixed !important; /* Locks width completely */
 }
 
-.directory-container .student-count {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
+.student-directory-scope .sd-strict-table.group-table th,
+.student-directory-scope .sd-strict-table.group-table td {
+  white-space: normal !important; /* Prevents text from forcing horizontal scroll */
+  word-wrap: break-word !important;
+  overflow-wrap: anywhere !important;
 }
 
-.directory-container .btn-assign {
-  width: 100%;
-  margin-top: 1rem;
-  background: var(--primary-color);
-  color: white;
-  border: none;
-  padding: 0.8rem;
-  border-radius: 8px;
-  font-weight: 600;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  transition: background 0.2s;
+/* Perfect alignment percentages so the table looks clean on Desktop */
+.student-directory-scope .sd-strict-table.group-table th:nth-child(1) { width: 40% !important; }
+.student-directory-scope .sd-strict-table.group-table th:nth-child(2) { width: 20% !important; }
+.student-directory-scope .sd-strict-table.group-table th:nth-child(3) { width: 25% !important; }
+.student-directory-scope .sd-strict-table.group-table th:nth-child(4) { width: 15% !important; text-align: right !important; }
+.student-directory-scope .sd-strict-table.group-table td:nth-child(4) { text-align: right !important; }
+
+/* ========================================================= */
+
+/* Massive Touch Target for Checkboxes */
+.student-directory-scope .touch-target {
+  display: flex !important; align-items: center !important; justify-content: center !important;
+  width: 48px !important; height: 48px !important; cursor: pointer !important;
+  border-radius: 8px !important; margin: -10px auto !important;
+}
+.student-directory-scope .touch-target:active { background: rgba(0,0,0,0.05) !important; }
+
+/* --- Badges & Buttons --- */
+.student-directory-scope .badge { padding: 6px 12px; border-radius: 8px; font-size: 0.75rem; font-weight: 700; display: inline-block; white-space: nowrap; }
+.student-directory-scope .badge-role { background: rgba(79, 70, 229, 0.1); color: var(--primary-color); }
+.student-directory-scope .badge-designation { background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border-color); }
+.student-directory-scope .badge-open { background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); }
+
+.student-directory-scope .btn-primary { background: var(--primary-color); color: white; border: none; padding: 10px 20px; border-radius: 10px; font-weight: 600; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; }
+.student-directory-scope .btn-primary:hover:not(:disabled) { background: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(79,70,229,0.3); }
+.student-directory-scope .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+.student-directory-scope .btn-secondary { background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border-color); padding: 10px 20px; border-radius: 10px; font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.student-directory-scope .btn-secondary:hover { background: var(--border-color); }
+.student-directory-scope .btn-warning { background: var(--warning-color); color: white; border: none; padding: 10px 20px; border-radius: 10px; font-weight: 600; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; }
+.student-directory-scope .btn-warning:hover:not(:disabled) { filter: brightness(0.9); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3); }
+.student-directory-scope .btn-warning:disabled { opacity: 0.5; cursor: not-allowed; background: var(--border-color); color: var(--text-muted); }
+.student-directory-scope .btn-danger { background: var(--danger-color); color: white; border: none; padding: 10px 20px; border-radius: 10px; font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.student-directory-scope .btn-danger:hover { background: #dc2626; transform: translateY(-2px); }
+.student-directory-scope .btn-icon { background: transparent; border: none; padding: 8px; border-radius: 8px; cursor: pointer; color: var(--text-secondary); transition: 0.2s; }
+.student-directory-scope .btn-icon:hover { background: var(--bg-input); color: var(--primary-color); }
+
+/* --- Isolated Form Inputs --- */
+.student-directory-scope .sd-input-group { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.student-directory-scope .sd-input-group label { font-size: 0.9rem; font-weight: 600; color: var(--text-primary); }
+.student-directory-scope .sd-input, .student-directory-scope .sd-select {
+  width: 100% !important; padding: 12px 16px !important; background: var(--bg-input) !important;
+  border: 1px solid var(--border-color) !important; border-radius: 12px !important;
+  color: var(--text-primary) !important; font-size: 0.95rem !important; font-weight: 500 !important;
+  box-sizing: border-box !important; height: auto !important; margin: 0 !important;
+}
+.student-directory-scope .sd-select {
+  appearance: none !important;
+  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%239CA3AF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E") !important;
+  background-repeat: no-repeat !important; background-position: right 1rem top 50% !important;
+  background-size: 0.75rem auto !important; padding-right: 2.5rem !important;
+}
+.student-directory-scope .sd-input:focus, .student-directory-scope .sd-select:focus { 
+  outline: none !important; border-color: var(--primary-color) !important; background: var(--bg-card) !important; 
+  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.15) !important; 
 }
 
-.directory-container .btn-assign:hover {
-  background: var(--primary-hover);
+/* --- Modals & Overlays --- */
+.student-directory-scope .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px); display: flex; justify-content: center; align-items: center; z-index: 9999; padding: 1rem; }
+.student-directory-scope .premium-modal { background: var(--bg-card); border-radius: 20px; width: 100%; max-width: 700px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4); border: 1px solid var(--border-color); display: flex; flex-direction: column; max-height: 90vh; overflow: hidden; }
+.student-directory-scope .modal-form { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+.student-directory-scope .modal-header { padding: 1.5rem 2rem; display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
+.student-directory-scope .modal-header h3 { margin: 0; font-size: 1.3rem; color: var(--text-primary); }
+.student-directory-scope .modal-subtitle { color: var(--text-secondary); margin: 0.4rem 0 0 0; font-size: 0.9rem; }
+.student-directory-scope .close-btn { background: var(--bg-input); border: none; color: var(--text-secondary); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; }
+.student-directory-scope .close-btn:hover { background: var(--border-color); color: var(--danger-color); }
+.student-directory-scope .premium-form { padding: 2rem; overflow-y: auto; flex: 1; }
+.student-directory-scope .modal-actions { display: flex; justify-content: flex-end; gap: 1rem; padding: 1.5rem 2rem; border-top: 1px solid var(--border-color); background: var(--bg-main); flex-shrink: 0; }
+
+.student-directory-scope .toast-notification { position: fixed; bottom: 30px; right: 30px; background: var(--bg-card); color: var(--text-primary); padding: 1rem 1.5rem; border-radius: 12px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15); display: flex; align-items: center; gap: 12px; font-weight: 600; z-index: 9999; border-left: 4px solid var(--primary-color); transform: translateY(100px); opacity: 0; transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
+.student-directory-scope .toast-notification.show { transform: translateY(0); opacity: 1; }
+
+.student-directory-scope .mobile-swipe-hint { display: none; }
+.student-directory-scope .mobile-controls-row { display: none; }
+
+/* ==========================================================================
+   🚨 MOBILE RESPONSIVENESS
+   ========================================================================== */
+@keyframes nudgeSlideHint { 0%, 75%, 100% { transform: translateX(0); } 85% { transform: translateX(-12px); } 90% { transform: translateX(4px); } 95% { transform: translateX(-4px); } }
+
+@media (max-width: 850px) {
+  .student-directory-scope { padding: 12px !important; width: 100vw !important; max-width: 100vw !important; overflow-x: hidden !important; height: auto !important; min-height: 100vh !important; }
+  .student-directory-scope .sd-header-stack { margin-bottom: 0.75rem !important; }
+  .student-directory-scope .sd-header-stack h1 { font-size: 1.45rem !important; }
+
+  /* Tab Swaps */
+  .student-directory-scope .desktop-tabs, .student-directory-scope .tabs-wrapper { display: none !important; }
+  .student-directory-scope .mobile-controls-row { display: grid !important; grid-template-columns: 2fr 1fr !important; gap: 10px !important; margin-bottom: 10px !important; width: 100% !important; }
+  .student-directory-scope .directory-toolbar { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; padding: 12px !important; margin-bottom: 12px !important; }
+  .student-directory-scope .directory-toolbar .search-bar, .student-directory-scope .directory-toolbar button { width: 100% !important; box-sizing: border-box !important; }
+  .student-directory-scope .directory-toolbar .sd-select { display: none !important; }
+
+  /* Swipe Hints */
+  .student-directory-scope .mobile-swipe-hint {
+    display: flex !important; align-items: center !important; justify-content: center !important;
+    font-size: 0.75rem !important; color: var(--text-secondary) !important; margin: 4px 0 8px 0 !important;
+    font-weight: 700 !important; text-transform: uppercase !important; letter-spacing: 0.5px !important;
+    animation: pulseHint 2s infinite !important; width: 100% !important;
+  }
+  @keyframes pulseHint { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; color: var(--primary-color); } }
+
+  .student-directory-scope .group-sub-tabs { flex-wrap: nowrap !important; gap: 8px !important; }
+  .student-directory-scope .group-sub-btn:nth-child(2) { animation: nudgeSlideHint 4s infinite ease-in-out !important; }
+
+  /* 🚨 MOBILE TABLE FIX: Force Horizontal Scroll on tiny phones */
+  .student-directory-scope .sd-strict-table.group-table {
+    min-width: 700px !important; 
+    table-layout: auto !important; 
+  }
+  .student-directory-scope .sd-strict-table.group-table th,
+  .student-directory-scope .sd-strict-table.group-table td {
+    white-space: nowrap !important; 
+  }
+
+  /* Modals */
+  .student-directory-scope .modal-overlay { align-items: flex-end !important; padding: 0 !important; }
+  .student-directory-scope .premium-modal { width: 100vw !important; max-width: 100vw !important; height: 85dvh !important; max-height: calc(100vh - 60px) !important; margin: 0 !important; border-radius: 24px 24px 0 0 !important; position: absolute !important; bottom: 0 !important; }
+  .student-directory-scope .auto-height-modal { height: auto !important; max-height: 90dvh !important; padding-bottom: 2rem !important; }
+  .student-directory-scope .modal-actions { padding-bottom: calc(1.5rem + env(safe-area-inset-bottom)) !important; flex-direction: column !important; }
+  .student-directory-scope .modal-actions button { width: 100% !important; }
 }
-
-.directory-container .btn-icon {
-  background: transparent;
-  border: none;
-  padding: 0.4rem;
-  border-radius: 6px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.directory-container .hover-primary:hover {
-  color: var(--primary-color);
-  background: rgba(79, 70, 229, 0.1);
-}
-.directory-container .hover-red:hover {
-  color: #ef4444;
-  background: rgba(239, 68, 68, 0.1);
-}
-
-.directory-container .standard-input {
-  width: 100%;
-  padding: 12px;
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-input);
-  color: var(--text-primary);
-  font-size: 0.95rem;
-  margin-top: 5px;
-}
-
-.directory-container .alert-danger {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-  padding: 12px;
-  border-radius: 8px;
-  margin-top: 1rem;
-  font-size: 0.9rem;
-  font-weight: 500;
-  border: 1px solid rgba(239, 68, 68, 0.2);
-}
-
-.directory-container .students-scroll-box {
-  max-height: 200px;
-  overflow-y: auto;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 0.5rem;
-  background: var(--bg-main);
-  margin-top: 0.5rem;
-}
-
-.directory-container .mini-student-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.5rem;
-  border-bottom: 1px solid var(--border-color);
-  font-size: 0.85rem;
-  color: var(--text-primary);
-}
-
-.directory-container .mini-student-row:last-child {
-  border-bottom: none;
-}
-
-.directory-container .btn-remove-student {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-  border: none;
-  border-radius: 6px;
-  padding: 4px 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.directory-container .btn-remove-student:hover {
-  background: #ef4444;
-  color: white;
-}
-
-.directory-container .glass-panel {
-  padding: 1rem;
-  border-radius: 8px;
-}
-
-.sinput-group {
-  padding: 15px;
-  width: 40%;
-}
-
-
-
-/* --- Student Accounts Dashboard --- */
-.student-accounts-dashboard {
-  display: flex;
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-  flex-wrap: wrap;
-}
-
-.domain-card {
-  flex: 1;
-  min-width: 250px;
-  padding: 1.5rem;
-  border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.domain-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 0.5rem;
-}
-
-.domain-header h3 {
-  margin: 0;
-  font-size: 1.2rem;
-  color: var(--text-primary);
-}
-
-.domain-text {
-  color: var(--text-secondary);
-  margin: 0 0 1.25rem 0;
-  font-size: 1rem;
-  font-family: monospace;
-  background: var(--bg-main);
-  padding: 0.5rem;
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
-  width: fit-content;
-}
-
-.sync-card {
-  flex: 1.5;
-  min-width: 350px;
-  padding: 1.5rem;
-  border-radius: 12px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 1.5rem;
-}
-
-.sync-card h3 {
-  margin: 0 0 1rem 0;
-  font-size: 1.2rem;
-  color: var(--text-primary);
-}
-
-.stats-row {
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.stat-pill {
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 0.85rem;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.stat-pill.neutral {
-  background: var(--bg-main);
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-}
-
-.stat-pill.success {
-  background: rgba(16, 185, 129, 0.1);
-  color: #059669;
-  border: 1px solid rgba(16, 185, 129, 0.2);
-}
-
-.stat-pill.danger {
-  background: rgba(239, 68, 68, 0.1);
-  color: #dc2626;
-  border: 1px solid rgba(239, 68, 68, 0.2);
-}
-
-.btn-sm {
-  padding: 0.4rem 0.8rem;
-  font-size: 0.85rem;
-}
-
-/* --- Premium Select Filters --- */
-.premium-filter-select {
-  background-color: var(--bg-input);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 0.5rem 1rem;
-  color: var(--text-primary);
-  font-size: 0.9rem;
-  outline: none;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-weight: 500;
-}
-
-.premium-filter-select:focus,
-.premium-filter-select:hover {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
-}
-
-.dept-breakdown-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px dashed var(--border-color);
-}
-

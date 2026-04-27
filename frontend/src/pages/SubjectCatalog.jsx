@@ -104,7 +104,7 @@ const SubjectCatalog = () => {
         <span>{toast.message}</span>
       </div>
 
-      <div className="page-header">
+      <div className=".sd-page-header">
         <div>
           <h1 className="page-title">Subject Catalog</h1>
           <p className="page-subtitle">
