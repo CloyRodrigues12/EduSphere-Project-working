@@ -14,7 +14,6 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   
-  // --- NEW: Contexts for Mobile Dropdowns ---
   const { activeAcademicYear, academicYears, setActiveAcademicYear, departments, activeDepartment, setActiveDepartment, activeTerm, setActiveTerm } = useAcademic();
   const [theme, setTheme] = useState(() => localStorage.getItem("edusphere_theme") || "light");
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -83,18 +82,27 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
       navItems.splice(9, 0, { icon: UploadCloud, label: "Upload Data", path: "/upload" });
       navItems.splice(11, 0, { icon: UserStar, label: "Class Teachers", path: "/assignments" });
       navItems.splice(3, 0, { icon:  Users, label: "Students", path: "/institute/directory" });
-      
     }
   }
 
-  const handleLogoutClick = () => { setShowLogoutConfirm(true); setMobileOpen(false); };
-  const confirmLogout = () => { localStorage.removeItem("access_token"); localStorage.removeItem("refresh_token"); navigate("/login"); };
+  // 🚨 Explicitly prevent default to ensure iOS/Android register the tap instantly
+  const handleLogoutClick = (e) => { 
+    e.preventDefault();
+    e.stopPropagation();
+    setShowLogoutConfirm(true); 
+    setMobileOpen(false); 
+  };
+  
+  const confirmLogout = () => { 
+    localStorage.removeItem("access_token"); 
+    localStorage.removeItem("refresh_token"); 
+    navigate("/login"); 
+  };
 
   const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || "User")}&background=6366f1&color=fff&bold=true`;
 
 return (
     <>
-      {/* 🚀 NEW: The Mobile Backdrop Overlay */}
       <div 
         className={`sidebar-overlay ${mobileOpen ? "visible" : ""}`} 
         onClick={() => setMobileOpen(false)}
