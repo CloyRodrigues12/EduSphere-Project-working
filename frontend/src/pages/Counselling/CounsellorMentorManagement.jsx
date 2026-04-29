@@ -4,7 +4,9 @@ import { useAcademic } from "../../context/AcademicContext";
 import { staffService, counsellingService } from "../../services/api";
 import { Users, Plus, Trash2, Search, CheckSquare, Square, X, AlertTriangle, CheckCircle, Shield } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import "../ClassTeacherAssignments.css";
+
+/* 🚨 IMPORT THE NEW SPECIFIC CSS FILE */
+import "./CounsellorMentorManagement.css";
 
 const getYearLevel = (sem) => {
   if (!sem) return "Unknown";
@@ -22,7 +24,7 @@ const getImageUrl = (path) => {
 
 const CounsellorMentorManagement = () => {
   const { user } = useAuth();
-  const { activeDepartment } = useAcademic(); // <-- NEW: Securely get HOD's department
+  const { activeDepartment } = useAcademic();
   const [loading, setLoading] = useState(true);
 
   // Data State
@@ -48,7 +50,7 @@ const CounsellorMentorManagement = () => {
   useEffect(() => {
     fetchInitialData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeDepartment]); // Re-run if department context loads
+  }, [activeDepartment]); 
 
   const fetchInitialData = async () => {
     setLoading(true);
@@ -62,10 +64,8 @@ const CounsellorMentorManagement = () => {
       setFaculties(facRes.data);
       setMentorSummary(sumRes.data);
       
-      // --- FIXED: HOD SANDBOXING LOGIC ---
       let availableDepts = deptRes.data;
       if (isHOD && activeDepartment) {
-          // Strictly filter departments down to just the HOD's active department
           availableDepts = availableDepts.filter(d => d.id === activeDepartment.id);
       }
       setDepartments(availableDepts);
@@ -86,21 +86,19 @@ const CounsellorMentorManagement = () => {
   );
 
   return (
-    <div className="assignments-container fade-in">
+    <div className="mentor-management-scope fade-in">
       <div className={`toast-notification ${toast.type} ${toast.show ? "show" : ""}`}>
         {toast.type === "success" ? <CheckCircle size={18} /> : <AlertTriangle size={18} />}
         <span>{toast.message}</span>
       </div>
 
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Mentor Allocation</h1>
-          <p className="page-subtitle">
-            {isHOD ? "Department Mentorship Overview" : "Counselling Department Overview"}
-          </p>
-        </div>
+      <div className="cm-header-stack">
+        <h1>Mentor Allocation</h1>
+        <p>
+          {isHOD ? "Department Mentorship Overview" : "Counselling Department Overview"}
+        </p>
         {!isCounsellor && (
-            <div className="read-only-badge" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-card)', padding: '0.5rem 1rem', borderRadius: '20px', fontSize: '0.85rem', color: 'var(--text-secondary)'}}>
+            <div className="read-only-badge">
                 <Shield size={16} /> {isHOD ? "HOD Read-Only View" : "Admin Read-Only View"}
             </div>
         )}
@@ -111,13 +109,11 @@ const CounsellorMentorManagement = () => {
       ) : (
         <div style={{ marginTop: "1rem" }}>
           
-          {/* --- FIXED: ALWAYS SHOW DEPARTMENT TABS --- */}
-          <div className="tabs-container" style={{ overflowX: "auto", display: "flex", gap: "10px", paddingBottom: "5px", marginBottom: "1.5rem" }}>
+          <div className="tabs-container">
             {departments.map((dept) => (
               <button
                 key={dept.id}
                 className={`tab-btn ${activeDept === dept.id ? "active" : ""}`}
-                style={{ whiteSpace: "nowrap" }}
                 onClick={() => setActiveDept(dept.id)}
               >
                 {dept.name} ({dept.code})
@@ -128,13 +124,13 @@ const CounsellorMentorManagement = () => {
             ))}
           </div>
 
-          <div className="toolbar" style={{ marginBottom: "1rem" }}>
+          <div className="cm-toolbar">
             <div style={{ display: "flex", gap: "1rem", alignItems: "center", flexWrap: "wrap" }}>
-              <h3 style={{ margin: 0 }}>
+              <h3 style={{ margin: 0, color: "var(--text-primary)", fontSize: "1.1rem" }}>
                   {departments.length === 1 ? `${departments[0].name} Mentors` : "Department Mentors"}
               </h3>
-              <div className="search-bar">
-                <Search size={18} className="search-icon" />
+              <div className="cm-search-bar">
+                <Search size={18} className="text-muted" />
                 <input 
                   type="text" 
                   placeholder="Search mentors..." 
@@ -157,7 +153,7 @@ const CounsellorMentorManagement = () => {
               return (
                 <motion.div 
                   key={mentor.mentor_id} 
-                  className="mentor-card glass-panel"
+                  className="mentor-card"
                   whileHover={{ scale: 1.02 }}
                   onClick={() => setSelectedMentorCard(mentor)}
                 >
@@ -165,12 +161,12 @@ const CounsellorMentorManagement = () => {
                     {mentor.profile_picture ? (
                       <img src={getImageUrl(mentor.profile_picture)} alt="Profile" className="avatar-circle-sm" style={{ objectFit: "cover" }} />
                     ) : (
-                      <div className="avatar-circle-sm" style={{ background: "var(--primary-color)" }}>
+                      <div className="avatar-circle-sm" style={{ background: "var(--primary-color)", borderColor: "var(--primary-color)" }}>
                         {mentor.mentor_name.charAt(0)}
                       </div>
                     )}
                     <div>
-                      <h4 style={{ margin: 0, fontSize: "1.1rem" }}>{mentor.mentor_name}</h4>
+                      <h4 style={{ margin: 0, fontSize: "1.1rem", color: "var(--text-primary)" }}>{mentor.mentor_name}</h4>
                       <span className="text-sm text-muted">{activeMenteesCount} Active Mentees</span>
                     </div>
                   </div>
@@ -182,9 +178,9 @@ const CounsellorMentorManagement = () => {
                 </motion.div>
               );
             }) : (
-              <div className="empty-state glass-panel" style={{ gridColumn: "1 / -1" }}>
-                <Users size={48} className="text-muted opacity-20 mb-2" />
-                <p>No mentors found in this department.</p>
+              <div className="empty-state" style={{ gridColumn: "1 / -1", padding: "4rem", textAlign: "center", background: "var(--bg-card)", borderRadius: "16px", border: "1px solid var(--border-color)" }}>
+                <Users size={48} className="text-muted opacity-20 mb-2" style={{ margin: "0 auto" }}/>
+                <p className="text-muted">No mentors found in this department.</p>
               </div>
             )}
           </div>
@@ -277,76 +273,84 @@ const AssignMenteesModal = ({ faculties, activeDept, onClose, onRefresh, showToa
     <div className="modal-overlay">
       <motion.div className="modal-content premium-modal large-modal" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}>
         <div className="modal-header">
-          <h3>Assign Mentees</h3>
+          <div>
+             <h3 style={{margin:0}}>Assign Mentees</h3>
+             <p className="text-muted" style={{margin:"4px 0 0 0", fontSize:"0.85rem"}}>Batch select students to assign to a mentor.</p>
+          </div>
           <button onClick={onClose} className="close-btn"><X size={20} /></button>
         </div>
         
-        <div style={{ display: "flex", gap: "1rem", marginBottom: "1rem" }} className="premium-form">
-          <div className="sinput-group" style={{ flex: 1, marginBottom: 0 }}>
-            <label>Select Mentor</label>
-            <select value={selectedFaculty} onChange={e => setSelectedFaculty(e.target.value)}>
-              <option value="">-- Choose Faculty --</option>
-              {filteredFaculties.map(f => <option key={f.id} value={f.id}>{f.full_name || f.name}</option>)}
-            </select>
-          </div>
-          <div className="sinput-group" style={{ flex: 1, marginBottom: 0 }}>
-            <label>Filter Students</label>
-            <select value={yearFilter} onChange={e => setYearFilter(e.target.value)}>
-              <option value="ALL">All Years</option>
-              <option value="FE">First Year (FE)</option>
-              <option value="SE">Second Year (SE)</option>
-              <option value="TE">Third Year (TE)</option>
-              <option value="BE">Final Year (BE)</option>
-            </select>
-          </div>
-        </div>
-        
-        <div className="search-bar" style={{ marginBottom: "1rem", width: "100%" }}>
-          <Search size={18} className="search-icon" />
-          <input 
-            type="text" 
-            placeholder="Search students to assign..." 
-            value={studentSearch} 
-            onChange={(e) => setStudentSearch(e.target.value)} 
-            style={{ width: "100%", background: "transparent", border: "none", outline: "none", marginLeft: "0.5rem", color: "var(--text-primary)" }}
-          />
-        </div>
+        <div className="modal-form">
+            <div className="premium-form" style={{ paddingBottom: "1rem" }}>
+                <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", marginBottom: "1rem" }}>
+                <div className="cm-input-group" style={{ flex: "1 1 250px", marginBottom: 0 }}>
+                    <label>Select Mentor</label>
+                    <select className="cm-select" value={selectedFaculty} onChange={e => setSelectedFaculty(e.target.value)}>
+                    <option value="">-- Choose Faculty --</option>
+                    {filteredFaculties.map(f => <option key={f.id} value={f.id}>{f.full_name || f.name}</option>)}
+                    </select>
+                </div>
+                <div className="cm-input-group" style={{ flex: "1 1 150px", marginBottom: 0 }}>
+                    <label>Filter Students</label>
+                    <select className="cm-select" value={yearFilter} onChange={e => setYearFilter(e.target.value)}>
+                    <option value="ALL">All Years</option>
+                    <option value="FE">First Year (FE)</option>
+                    <option value="SE">Second Year (SE)</option>
+                    <option value="TE">Third Year (TE)</option>
+                    <option value="BE">Final Year (BE)</option>
+                    </select>
+                </div>
+                </div>
+                
+                <div className="cm-search-bar" style={{ marginBottom: "1.5rem", width: "100%", maxWidth: "100%" }}>
+                <Search size={18} className="text-muted" />
+                <input 
+                    type="text" 
+                    placeholder="Search students to assign..." 
+                    value={studentSearch} 
+                    onChange={(e) => setStudentSearch(e.target.value)} 
+                />
+                </div>
 
-        <div className="scrollable-table-container" style={{ maxHeight: "300px", overflowY: "auto", border: "1px solid var(--border-color)", borderRadius: "8px" }}>
-          <table className="data-table">
-            <thead style={{ position: "sticky", top: 0, zIndex: 1, background: "var(--bg-main)" }}>
-              <tr>
-                <th style={{ width: "50px", textAlign: "center" }}>Select</th>
-                <th>Roll No</th>
-                <th>Name</th>
-                <th>Current Mentor</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredStudents.length === 0 ? (
-                <tr><td colSpan="4" className="text-center text-muted py-4">No students found in this department.</td></tr>
-              ) : filteredStudents.map(s => (
-                <tr key={s.id} onClick={() => toggleStudent(s.id)} style={{ cursor: "pointer", background: selectedStudents.has(s.id) ? "var(--bg-input)" : "transparent" }}>
-                  <td style={{ textAlign: "center" }}>
-                    {selectedStudents.has(s.id) ? <CheckSquare className="text-primary" size={18}/> : <Square className="text-muted" size={18}/>}
-                  </td>
-                  <td>{s.roll_number}</td>
-                  <td>{s.full_name}</td>
-                  <td><span className={`badge ${s.mentor_name === 'Unassigned' ? 'badge-role' : 'badge-designation'}`}>{s.mentor_name}</span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                <div className="cm-table-wrapper premium-scroll">
+                <table className="cm-strict-table">
+                    <thead>
+                    <tr>
+                        <th>Select</th>
+                        <th>Roll No</th>
+                        <th>Name</th>
+                        <th>Current Mentor</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {filteredStudents.length === 0 ? (
+                        <tr><td colSpan="4" className="text-center text-muted py-8">No students found in this department.</td></tr>
+                    ) : filteredStudents.map(s => (
+                        <tr key={s.id} onClick={() => toggleStudent(s.id)} style={{ cursor: "pointer" }} className={selectedStudents.has(s.id) ? "selected-row" : ""}>
+                        <td>
+                            <div className="touch-target" onClick={(e) => { e.stopPropagation(); toggleStudent(s.id); }}>
+                              {selectedStudents.has(s.id) ? <CheckSquare className="text-primary" size={24}/> : <Square className="text-muted" size={24}/>}
+                            </div>
+                        </td>
+                        <td className="text-muted font-medium">{s.roll_number}</td>
+                        <td className="font-medium text-primary">{s.full_name}</td>
+                        <td><span className={`badge ${s.mentor_name === 'Unassigned' ? 'badge-role' : 'badge-designation'}`}>{s.mentor_name}</span></td>
+                        </tr>
+                    ))}
+                    </tbody>
+                </table>
+                </div>
+            </div>
 
-        <div className="modal-actions" style={{ marginTop: "1rem" }}>
-          <span className="text-primary font-medium">{selectedStudents.size} Selected</span>
-          <div>
-            <button onClick={onClose} className="btn-secondary" style={{ marginRight: "10px" }}>Cancel</button>
-            <button onClick={handleAssignClick} className="btn-primary" disabled={saving || selectedStudents.size===0 || !selectedFaculty}>
-              {saving ? "Assigning..." : "Confirm Assignment"}
-            </button>
-          </div>
+            <div className="modal-actions">
+            <span className="text-primary font-medium" style={{ flex: 1 }}>{selectedStudents.size} Selected</span>
+            <div>
+                <button onClick={onClose} className="btn-secondary">Cancel</button>
+                <button onClick={handleAssignClick} className="btn-primary" disabled={saving || selectedStudents.size===0 || !selectedFaculty}>
+                {saving ? "Assigning..." : "Confirm Assignment"}
+                </button>
+            </div>
+            </div>
         </div>
 
         <AnimatePresence>
@@ -414,23 +418,24 @@ const ViewMenteesModal = ({ mentor, isCounsellor, onClose, onRefresh, showToast 
         <div className="modal-header">
           <div>
             <h3>{mentor.mentor_name}'s Mentees</h3>
-            <p className="text-muted text-sm">Total Record: {localMentees.length}</p>
+            <p className="text-muted text-sm" style={{ margin: "4px 0 0 0" }}>Total Record: {localMentees.length}</p>
           </div>
           <button onClick={onClose} className="close-btn"><X size={20} /></button>
         </div>
 
-        <div className="search-bar" style={{ margin: "1rem 0", width: "100%", border: "1px solid var(--border-color)", padding: "0.5rem 1rem", borderRadius: "8px", display: "flex", alignItems: "center", background: "var(--bg-input)" }}>
-          <Search size={18} className="text-muted" />
-          <input 
-            type="text" 
-            placeholder="Search mentees by name or roll number..." 
-            value={menteeSearch} 
-            onChange={(e) => setMenteeSearch(e.target.value)} 
-            style={{ width: "100%", background: "transparent", border: "none", outline: "none", marginLeft: "0.5rem", color: "var(--text-primary)" }}
-          />
+        <div style={{ padding: "1.5rem", borderBottom: "1px solid var(--border-color)", background: "var(--bg-main)" }}>
+          <div className="cm-search-bar" style={{ width: "100%", maxWidth: "100%" }}>
+            <Search size={18} className="text-muted" />
+            <input 
+              type="text" 
+              placeholder="Search mentees by name or roll number..." 
+              value={menteeSearch} 
+              onChange={(e) => setMenteeSearch(e.target.value)} 
+            />
+          </div>
         </div>
         
-        <div style={{ maxHeight: "350px", overflowY: "auto", paddingRight: "10px" }}>
+        <div className="premium-scroll" style={{ maxHeight: "350px", overflowY: "auto", padding: "1.5rem" }}>
           {searchedMentees.length === 0 ? (
             <p className="text-center text-muted py-4">No mentees found matching your search.</p>
           ) : ["FE", "SE", "TE", "BE", "Alumni"].map(year => {
@@ -441,7 +446,8 @@ const ViewMenteesModal = ({ mentor, isCounsellor, onClose, onRefresh, showToast 
                   color: year === "Alumni" ? "var(--text-secondary)" : "var(--primary-color)", 
                   borderBottom: "2px solid var(--border-color)", 
                   paddingBottom: "5px", 
-                  marginBottom: "10px" 
+                  marginBottom: "10px",
+                  fontSize: "1.05rem"
                 }}>
                   {year === "Alumni" ? "Alumni / Graduated" : `${year} Students`} ({groupedMentees[year].length})
                 </h4>
@@ -449,16 +455,16 @@ const ViewMenteesModal = ({ mentor, isCounsellor, onClose, onRefresh, showToast 
                   <AnimatePresence>
                     {groupedMentees[year].map(s => (
                       <motion.li key={s.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, scale: 0.9 }} 
-                        style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg-input)", padding: "10px 15px", borderRadius: "6px", opacity: year === "Alumni" ? 0.7 : 1 }}>
+                        style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg-input)", padding: "12px 16px", borderRadius: "12px", border: "1px solid var(--border-color)", opacity: year === "Alumni" ? 0.7 : 1 }}>
                         <div>
-                          <div className="font-medium" style={{ color: "var(--text-primary)" }}>
+                          <div className="font-medium" style={{ color: "var(--text-primary)", marginBottom: "4px" }}>
                               {s.name} {year === "Alumni" && <span style={{ fontSize: '0.7rem', color: '#f59e0b', marginLeft: '5px' }}>Inactive</span>}
                           </div>
                           <div className="text-muted text-sm">{s.roll_number}</div>
                         </div>
                         {isCounsellor && (
                           <button className="btn-icon action-delete" onClick={() => setRemoveTarget(s)} title="Remove Mentee">
-                            <Trash2 size={16} />
+                            <Trash2 size={18} />
                           </button>
                         )}
                       </motion.li>
@@ -476,8 +482,8 @@ const ViewMenteesModal = ({ mentor, isCounsellor, onClose, onRefresh, showToast 
             <div className="modal-overlay" style={{ zIndex: 1000 }}>
               <motion.div className="modal-content premium-modal delete-modal" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}>
                 <div className="delete-icon-wrapper"><Trash2 size={32} /></div>
-                <h3 style={{ textAlign: "center", marginBottom: "0.5rem" }}>Remove Mentee?</h3>
-                <p style={{ textAlign: "center", color: "var(--text-secondary)", marginBottom: "2rem" }}>
+                <h3 style={{ textAlign: "center", margin: "0 0 0.5rem 0" }}>Remove Mentee?</h3>
+                <p style={{ textAlign: "center", color: "var(--text-secondary)", marginBottom: "2rem", lineHeight: "1.5" }}>
                   Are you sure you want to remove <strong>{removeTarget.name}</strong> from this mentor's list?
                 </p>
                 <div className="modal-actions" style={{ justifyContent: "center", borderTop: "none", paddingTop: 0 }}>
