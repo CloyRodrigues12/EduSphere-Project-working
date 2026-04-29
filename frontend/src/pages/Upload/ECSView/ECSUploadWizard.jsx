@@ -4,12 +4,13 @@ import { staffService } from "../../../services/api";
 import {
   CloudUpload, Users, Receipt, Sparkles, Loader2, CheckCircle,
   XCircle, AlertTriangle, ArrowRight, Table, X, Maximize2,
-  Minimize2, Info, Download, FileText
+  Minimize2, Info, Download, FileText, MonitorSmartphone
 } from "lucide-react";
 import "./ECSUploadWizard.css";
 import axios from "axios";
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
+import { motion, AnimatePresence } from "framer-motion";
 
 const ECSUploadWizard = () => {
   const { user } = useAuth();
@@ -40,6 +41,17 @@ const ECSUploadWizard = () => {
   const [showSchemaInfo, setShowSchemaInfo] = useState(false);
   const [schemaData, setSchemaData] = useState({ mandatory: [], optional: [] });
   const [loadingSchema, setLoadingSchema] = useState(false);
+
+  // --- MOBILE DETECTION LOGIC ---
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobilePopupDismissed, setMobilePopupDismissed] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 850);
+    handleResize(); // Check immediately on mount
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const categories = [
     { id: "STUDENTS", label: "Students", icon: Users, color: "#4f46e5" },
@@ -98,7 +110,6 @@ const ECSUploadWizard = () => {
     e.preventDefault();
     e.stopPropagation();
 
-    // 1. Initialize a new Excel Workbook and Worksheet
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet(`${context.category} Template`);
 
@@ -106,28 +117,20 @@ const ECSUploadWizard = () => {
     const optionalHeaders = schemaData.optional || [];
     const allHeaders = [...mandatoryHeaders, ...optionalHeaders];
 
-    // 2. Add the Header Row
     const headerRow = worksheet.addRow(allHeaders);
-    headerRow.height = 25; // Give it some breathing room vertically
+    headerRow.height = 25; 
 
-    // 3. Style the Headers & Adjust Column Widths
     allHeaders.forEach((headerText, index) => {
       const cell = headerRow.getCell(index + 1);
       const isMandatory = index < mandatoryHeaders.length;
 
-      // Make text bold and centered
       cell.font = { bold: true, color: { argb: 'FF000000' } };
       cell.alignment = { vertical: 'middle', horizontal: 'center' };
-
-      // Apply Background Colors
       cell.fill = {
         type: 'pattern',
         pattern: 'solid',
-        // Mandatory: Darker Grey (B0BEC5), Optional: Lighter Grey (ECEFF1)
         fgColor: { argb: isMandatory ? 'FFB0BEC5' : 'FFECEFF1' } 
       };
-
-      // Add a thin border around header cells for a crisp look
       cell.border = {
         top: { style: 'thin', color: { argb: 'FF9E9E9E' } },
         left: { style: 'thin', color: { argb: 'FF9E9E9E' } },
@@ -135,15 +138,12 @@ const ECSUploadWizard = () => {
         right: { style: 'thin', color: { argb: 'FF9E9E9E' } }
       };
 
-      // Dynamically set column width based on the header text length
       const column = worksheet.getColumn(index + 1);
       column.width = Math.max(20, headerText.length + 5);
     });
 
-    // 4. Add an empty row just to ensure the formatting registers well in Excel
     worksheet.addRow([]);
 
-    // 5. Generate the file buffer and trigger download
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     saveAs(blob, `EduSphere_${context.category.toLowerCase()}_template.xlsx`);
@@ -217,16 +217,17 @@ const ECSUploadWizard = () => {
   // --- MODALS ---
   const renderSchemaModal = () => {
     return (
-      <div className="modal-overlay fade-in" style={{ zIndex: 1200 }} onClick={(e) => { e.stopPropagation(); setShowSchemaInfo(false); }}>
-        <div className="modal-content glass-panel" style={{ width: '600px' }} onClick={e => e.stopPropagation()}>
-          <div className="modal-header" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
+      // 🚨 Added .center-mobile to fix clipping on small devices
+      <div className="modal-overlay center-mobile fade-in" style={{ zIndex: 1200 }} onClick={(e) => { e.stopPropagation(); setShowSchemaInfo(false); }}>
+        <div className="modal-content small-modal glass-panel" onClick={e => e.stopPropagation()}>
+          <div className="modal-header">
             <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0, color: 'var(--text-primary)' }}>
               <FileText size={20} className="text-primary"/> Data Schema Requirements
             </h3>
             <button className="close-btn" onClick={() => setShowSchemaInfo(false)}><X size={20}/></button>
           </div>
           
-          <div className="modal-scroll-area" style={{ padding: '1.5rem', maxHeight: '60vh', overflowY: 'auto' }}>
+          <div className="modal-scroll-area">
             {loadingSchema ? (
               <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}><Loader2 className="animate-spin text-primary" size={32}/></div>
             ) : (
@@ -270,8 +271,8 @@ const ECSUploadWizard = () => {
               </>
             )}
           </div>
-          <div className="modal-footer" style={{ padding: '1rem 1.5rem', background: 'var(--bg-main)', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end' }}>
-            <button className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '8px' }} onClick={handleDownloadSample}>
+          <div className="modal-footer">
+            <button className="btn-primary" onClick={handleDownloadSample}>
               <Download size={18} /> Download Excel Template
             </button>
           </div>
@@ -281,10 +282,11 @@ const ECSUploadWizard = () => {
   };
 
   const renderPartialConfirmationModal = () => (
-    <div className="modal-overlay fade-in" style={{ zIndex: 1100 }}>
-      <div className="modal-content glass-panel" style={{ width: "500px", height: "auto" }}>
+    // 🚨 Added .center-mobile to fix clipping on small devices
+    <div className="modal-overlay center-mobile fade-in" style={{ zIndex: 1100 }}>
+      <div className="modal-content small-modal glass-panel">
         <div className="modal-header" style={{ borderBottom: "none", paddingBottom: 0 }}><h3 className="text-warning"><AlertTriangle size={22} /> Confirm Partial Upload</h3></div>
-        <div className="modal-scroll-area" style={{ overflow: "visible", padding: "1.5rem" }}>
+        <div className="modal-scroll-area" style={{ overflow: "visible" }}>
           <p style={{ fontSize: "1rem", marginBottom: "1.5rem", color: "var(--text-primary)" }}>You are about to insert <strong>{report.summary.valid_count}</strong> valid records into the database.</p>
           <div style={{ backgroundColor: "rgba(239, 68, 68, 0.1)", border: "1px solid rgba(239, 68, 68, 0.3)", borderRadius: "12px", padding: "1rem", marginBottom: "1rem" }}>
             <h4 style={{ color: "#ef4444", margin: "0 0 0.5rem 0", display: "flex", alignItems: "center", gap: "8px", fontSize: "0.95rem" }}><XCircle size={18} /> {report.summary.error_count} Records will be SKIPPED</h4>
@@ -307,20 +309,20 @@ const ECSUploadWizard = () => {
           <button className="close-btn" onClick={() => setStep("IDLE")}><X size={20} /></button>
         </div>
 
-        <div className="report-summary">
+        <div className="report-summary" style={{ marginTop: "1rem" }}>
           <div className="stat-box valid"><span className="stat-val">{report.summary.valid_count}</span><span className="stat-label">Valid Rows</span></div>
           <div className="stat-box error"><span className="stat-val">{report.summary.error_count}</span><span className="stat-label">Errors</span></div>
           <div className="stat-box total"><span className="stat-val">{report.summary.total_rows}</span><span className="stat-label">Total</span></div>
         </div>
 
-        {commitError && <div className="error-banner"><AlertTriangle size={18} /><span>{commitError}</span></div>}
+        {commitError && <div className="error-banner" style={{ margin: "0 1.5rem 1rem 1.5rem" }}><AlertTriangle size={18} /><span>{commitError}</span></div>}
 
-        <div className="modal-scroll-area">
+        <div className="modal-scroll-area" style={{ paddingTop: 0 }}>
           <div className="table-wrapper">
             <div className="table-header-row">
               <h4 className="table-title"><Table size={16} className="text-primary" /> Valid Data Preview</h4>
               <button className="expand-btn" onClick={() => setIsExpanded(!isExpanded)}>
-                {isExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />} {isExpanded ? " Collapse" : " View All Rows"}
+                {isExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />} <span className="desktop-only">{isExpanded ? "Collapse" : "View All"}</span>
               </button>
             </div>
             <div className="table-scroll" style={{ maxHeight: isExpanded ? "400px" : "auto" }}>
@@ -364,13 +366,20 @@ const ECSUploadWizard = () => {
 
   return (
     <div className="ecs-page-container fade-in">
+
+      {/* 🚨 MOBILE BANNER: Only visible on mobile CSS breakpoint */}
+      <div className="mobile-desktop-warning">
+          <MonitorSmartphone size={24} />
+          <span>For maximum efficiency and data safety, Excel ingestion is best performed on a Desktop device.</span>
+      </div>
+
       <div className="ecs-main-layout">
         
         {/* LEFT: CONFIGURATION */}
         <div className="ecs-config-side d_glass-panel">
           <div className="config-header">
             <div className="header-icon-bg"><Sparkles size={18} className="text-primary" /></div>
-            <div><h2 className="text-primary">Data Injection</h2></div>
+            <div><h2 className="text-primary" style={{ margin: 0, fontSize: "1.3rem" }}>Data Injection</h2></div>
           </div>
 
           <div className="config-section">
@@ -409,7 +418,10 @@ const ECSUploadWizard = () => {
           </div>
 
           <div className="config-section animate-slide-up">
-            <div className="sem-header"><label className="section-label">4. Target Semester</label><span className="level-indicator">{getYearLabel(context.semester)}</span></div>
+            <div className="sem-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <label className="section-label" style={{ margin: 0 }}>4. Target Semester</label>
+                <span className="level-indicator">{getYearLabel(context.semester)}</span>
+            </div>
             <div className="semester-modern-grid">
               {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
                 <button key={s} className={`sem-pill ${context.semester === s ? "active" : ""}`} onClick={() => setContext({ ...context, semester: s })}>Sem {s}</button>
@@ -423,8 +435,8 @@ const ECSUploadWizard = () => {
             
           {duplicateWarning ? (
             <div className="compact-glass-dropzone d_glass-panel border-warning fade-in">
-              <AlertTriangle size={64} className="text-warning" />
-              <h3>Duplicate File Detected</h3>
+              <AlertTriangle size={64} className="text-warning" style={{ marginBottom: "1rem" }} />
+              <h3 style={{ margin: "0 0 0.5rem 0", color: "var(--text-primary)" }}>Duplicate File Detected</h3>
               <p className="text-secondary text-center" style={{ maxWidth: "300px" }}>"{file?.name}" has been uploaded before for {context.startYear}-{context.endYear}. Do you want to process it again?</p>
               <div className="action-row">
                 <button className="btn-secondary" onClick={() => { setDuplicateWarning(false); setStep("IDLE"); setFile(null); }}>Cancel</button>
@@ -432,39 +444,34 @@ const ECSUploadWizard = () => {
               </div>
             </div>
           ) : step === "SUCCESS" ? (
-            <div className="compact-glass-dropzone d_glass-panel border-green">
-              <CheckCircle size={64} className="text-success" />
-              <h3>Ingestion Complete</h3>
-              <p>Data successfully merged into Master Records.</p>
+            <div className="compact-glass-dropzone d_glass-panel border-green fade-in">
+              <CheckCircle size={64} className="text-success" style={{ marginBottom: "1rem" }} />
+              <h3 style={{ margin: "0 0 0.5rem 0", color: "var(--text-primary)" }}>Ingestion Complete</h3>
+              <p className="text-secondary">Data successfully merged into Master Records.</p>
               <button className="upload-action-btn" onClick={() => setStep("IDLE")}>Upload Another</button>
             </div>
           ) : step === "ERROR" ? (
-            <div className="compact-glass-dropzone d_glass-panel border-red">
-              <XCircle size={64} className="text-error" />
-              <h3>Upload Failed</h3>
+            <div className="compact-glass-dropzone d_glass-panel border-red fade-in">
+              <XCircle size={64} className="text-error" style={{ marginBottom: "1rem" }} />
+              <h3 style={{ margin: "0 0 0.5rem 0", color: "var(--text-primary)" }}>Upload Failed</h3>
               <p className="error-msg">{report?.error || "An unexpected error occurred."}</p>
               <button className="upload-action-btn" onClick={() => setStep("IDLE")}>Try Again</button>
             </div>
           ) : (
             <div className={`compact-glass-dropzone d_glass-panel ${isDragging ? "dragging" : ""}`} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
               
-              {/* --- BUTTONS NOW INSIDE THE DASHED BOX --- */}
               <div style={{ position: 'absolute', top: '15px', right: '15px', display: 'flex', gap: '10px', zIndex: 10 }}>
                   <button 
                       onClick={(e) => { e.stopPropagation(); handleDownloadSample(e); }}
                       title="Download Excel Template"
-                      style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)', padding: '6px 12px', borderRadius: '8px', color: 'var(--text-secondary)', boxShadow: '0 2px 5px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s' }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-main)'}
+                      style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', padding: '6px 12px', borderRadius: '8px', color: 'var(--text-secondary)', boxShadow: '0 2px 5px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s' }}
                   >
                       <Download size={16} /> <span className="desktop-only">Template</span>
                   </button>
                   <button 
                       onClick={(e) => { e.stopPropagation(); setShowSchemaInfo(true); }}
                       title="View Schema Info"
-                      style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)', padding: '6px 12px', borderRadius: '8px', color: 'var(--primary-color)', boxShadow: '0 2px 5px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s' }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-main)'}
+                      style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', padding: '6px 12px', borderRadius: '8px', color: 'var(--primary-color)', boxShadow: '0 2px 5px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s' }}
                   >
                       <Info size={16} /> <span className="desktop-only">Rules</span>
                   </button>
@@ -474,7 +481,7 @@ const ECSUploadWizard = () => {
                 {step === "CHECKING" || step === "PREVIEW_LOADING" || step === "COMMITTING" ? (
                   <>
                     <Loader2 size={54} className="animate-spin text-primary" />
-                    <h3 style={{ marginTop: "15px" }}>Processing...</h3>
+                    <h3 style={{ marginTop: "15px", color: "var(--text-primary)" }}>Processing...</h3>
                     <p className="text-secondary">
                       {step === "CHECKING" && "Checking for duplicates..."}
                       {step === "PREVIEW_LOADING" && "Validating Schema..."}
@@ -485,7 +492,7 @@ const ECSUploadWizard = () => {
                   <>
                     <CloudUpload size={54} className="main-upload-icon" />
                     <div className="selection-preview">
-                      <h3 style={{ margin: 0 }}>{context.category} Ingestion</h3>
+                      <h3 style={{ margin: 0, color: "var(--text-primary)" }}>{context.category} Ingestion</h3>
                       <div className="preview-badges" style={{ marginTop: '0.5rem' }}>
                         <span className="badge-outline">{departments.find(d => d.id === context.department_id)?.code || "Dept"}</span>
                         <span className="badge-outline">{context.startYear}-{context.endYear}</span>
@@ -502,6 +509,26 @@ const ECSUploadWizard = () => {
           )}
         </div>
       </div>
+
+      {/* 🚨 MOBILE POPUP (Only shows once per session if on mobile) */}
+      <AnimatePresence>
+          {isMobile && !mobilePopupDismissed && (
+              <div className="modal-overlay center-mobile" style={{ zIndex: 9999 }}>
+                  <motion.div className="modal-content small-modal glass-panel" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} style={{ padding: "2rem", textAlign: "center" }}>
+                      <div style={{ width: "64px", height: "64px", background: "rgba(245, 158, 11, 0.1)", color: "#f59e0b", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.5rem auto" }}>
+                          <MonitorSmartphone size={32} />
+                      </div>
+                      <h3 style={{ margin: "0 0 10px 0", color: "var(--text-primary)" }}>Desktop Recommended</h3>
+                      <p style={{ color: "var(--text-secondary)", marginBottom: "2rem", lineHeight: "1.5" }}>
+                          Uploading and mapping Excel data requires precision. For the best experience and to avoid accidental data drops, please use a Desktop or Laptop browser.
+                      </p>
+                      <button className="upload-action-btn" style={{ width: "100%", margin: 0 }} onClick={() => setMobilePopupDismissed(true)}>
+                          I Understand, Continue Anyway
+                      </button>
+                  </motion.div>
+              </div>
+          )}
+      </AnimatePresence>
 
       {showSchemaInfo && renderSchemaModal()}
       {step === "PREVIEW" && report && renderPreviewModal()}
