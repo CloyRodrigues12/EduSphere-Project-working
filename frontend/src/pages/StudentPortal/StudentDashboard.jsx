@@ -25,7 +25,7 @@ const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
       <div className="glass-panel" style={{ padding: '10px', fontSize: '0.85rem' }}>
-        <p style={{ margin: '0 0 5px', fontWeight: 'bold', color: 'var(--text-primary)' }}>{payload[0].payload.fullName || label}</p>
+        <p style={{ margin: '0 0 5px', fontWeight: 'bold', color: 'var(--text-primary)' }}>{payload[0].payload.name || label}</p>
         <p style={{ margin: 0, color: payload[0].fill }}>
           {payload[0].name}: {payload[0].value}
         </p>
@@ -210,17 +210,17 @@ const StudentDashboard = () => {
   const itemVariants = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } };
 
   return (
-    <div className="student-dashboard-container fade-in">
+    <div className="student-dashboard-scope fade-in">
       
       {/* HEADER */}
       <div className="dashboard-header glass-panel">
         <div className="welcome-section">
           <h1>Welcome, <span>{student_info.name.split(' ')[0]}</span> 👋</h1>
           <p>{student_info.department} • Semester {student_info.semester} • {activeTerm} Term</p>
-          <span className="badge mt-2" style={{ background: 'var(--bg-input)', color: 'var(--text-secondary)' }}>
+          <span className="badge" style={{ background: 'var(--bg-input)', color: 'var(--text-secondary)' }}>
             Roll No: {student_info.roll_number}
             &nbsp;|&nbsp; Enrollment No: {student_info.enrollment_number}
-            </span>
+          </span>
         </div>
         <div className="support-box">
           <div className="support-item">
@@ -230,7 +230,7 @@ const StudentDashboard = () => {
               <p className="value">{support_system.mentor}</p>
             </div>
           </div>
-          <div className="support-item" style={{ marginBottom: 0 }}>
+          <div className="support-item">
             <div className="icon-box secondary"><Users size={20} /></div>
             <div>
               <p className="label">Class Teacher</p>
@@ -241,14 +241,10 @@ const StudentDashboard = () => {
       </div>
 
       {/* KPI GRID */}
-      <motion.div className="kpi-grid" variants={containerVariants} initial="hidden" animate="show" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
+      <motion.div className="kpi-grid" variants={containerVariants} initial="hidden" animate="show">
         
-        {/* Attendance KPI (Strict Height) */}
-        <motion.div 
-          className="glass-panel premium-kpi-card" 
-          variants={itemVariants}
-          style={{ height: '190px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}
-        >
+        {/* Attendance KPI */}
+        <motion.div className="glass-panel premium-kpi-card" variants={itemVariants}>
           <div className="kpi-header">
             <div className="kpi-icon-circle" style={{ background: overall_attendance.percentage < 75 ? "rgba(239, 68, 68, 0.1)" : "rgba(16, 185, 129, 0.1)", color: overall_attendance.percentage < 75 ? "#ef4444" : "#10b981" }}>
               <Activity size={24} />
@@ -257,16 +253,12 @@ const StudentDashboard = () => {
           </div>
           <div className="kpi-body">
             <h2 style={{ color: overall_attendance.percentage < 75 ? "#ef4444" : "var(--text-primary)" }}>{overall_attendance.percentage}%</h2>
-            <p className="text-muted">Overall Attendance ({overall_attendance.ta} / {overall_attendance.tc} hrs)</p>
+            <p>Overall Attendance ({overall_attendance.ta} / {overall_attendance.tc} hrs)</p>
           </div>
         </motion.div>
 
-        {/* Academic Marks KPI (Strict Height) */}
-        <motion.div 
-          className="glass-panel premium-kpi-card" 
-          variants={itemVariants}
-          style={{ height: '190px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}
-        >
+        {/* Academic Marks KPI */}
+        <motion.div className="glass-panel premium-kpi-card" variants={itemVariants}>
           <div className="kpi-header">
             <div className="kpi-icon-circle" style={{ background: `${statusColor}20`, color: statusColor }}>
               <Award size={24} />
@@ -274,17 +266,16 @@ const StudentDashboard = () => {
             <span className="status-pill" style={{ background: `${statusColor}20`, color: statusColor }}>{overall_mark_status}</span>
           </div>
           <div className="kpi-body">
-            <h2 style={{ color: "var(--text-primary)" }}>{overall_avg} <span style={{ fontSize: '1rem', color: 'var(--text-secondary)' }}>/ 25</span></h2>
-            <p className="text-muted">Average Internal Score</p>
+            <h2>{overall_avg} <span style={{ fontSize: '1rem', color: 'var(--text-secondary)' }}>/ 25</span></h2>
+            <p>Average Internal Score</p>
           </div>
         </motion.div>
 
-        {/* AUTO-FLIPPING SMART INSIGHTS CARD (Strict Height) */}
+        {/* AUTO-FLIPPING SMART INSIGHTS CARD */}
         <motion.div 
           className="glass-panel premium-kpi-card" 
           variants={itemVariants} 
           style={{ 
-            height: '190px', 
             padding: 0, overflow: 'hidden', perspective: "1000px",
             border: `1px solid rgba(${ActiveInsight?.rgb}, 0.3)`,
             boxShadow: `0 10px 30px -10px rgba(${ActiveInsight?.rgb}, 0.2)`,
@@ -322,7 +313,7 @@ const StudentDashboard = () => {
                 <h3 style={{ fontSize: '1.15rem', marginBottom: '6px', color: ActiveInsight?.color, fontWeight: 700 }}>
                   {ActiveInsight?.title}
                 </h3>
-                <p className="text-muted" style={{ fontSize: '0.85rem', lineHeight: '1.4', margin: 0 }}>
+                <p style={{ fontSize: '0.85rem', lineHeight: '1.4', margin: 0, color: 'var(--text-secondary)' }}>
                   {ActiveInsight?.desc}
                 </p>
               </div>
@@ -331,54 +322,73 @@ const StudentDashboard = () => {
         </motion.div>
       </motion.div>
 
-      {/* CHARTS GRID */}
+      {/* CHARTS GRID WITH 🚨 SCROLL WRAPPERS ADDED */}
       <motion.div className="chart-grid" variants={containerVariants} initial="hidden" animate="show">
+        
+        {/* Attendance Chart */}
         <motion.div className="glass-panel" variants={itemVariants}>
-          <h3>Attendance per Subject</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={mergedSubjects} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
-              <XAxis dataKey="shortName" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-              <RechartsTooltip content={<CustomTooltip />} cursor={{ fill: 'var(--bg-input)' }} />
-              <ReferenceLine y={75} stroke="#ef4444" strokeDasharray="3 3" label={{ position: 'top', value: '75%', fill: '#ef4444', fontSize: 10 }} />
-              <Bar dataKey="att_perc" name="Attendance %" radius={[4, 4, 0, 0]}>
-                {mergedSubjects.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.att_perc < 75 ? "#ef4444" : "#6366f1"} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          <h3 style={{ marginBottom: '0.5rem' }}>Attendance per Subject</h3>
+          <div className="mobile-swipe-hint"><span>← Swipe to view all subjects →</span></div>
+          
+          <div className="chart-scroll-wrapper">
+            {/* 🚨 FIX: Explicit Height 300px prevents Recharts from collapsing! */}
+            <div className="chart-inner-container">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={mergedSubjects} margin={{ top: 20, right: 10, left: -15, bottom: 40 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
+                  <XAxis dataKey="shortName" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} interval={0} />
+                  <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <RechartsTooltip content={<CustomTooltip />} cursor={{ fill: 'var(--bg-input)' }} />
+                  <ReferenceLine y={75} stroke="#ef4444" strokeDasharray="3 3" label={{ position: 'top', value: '75%', fill: '#ef4444', fontSize: 10 }} />
+                  <Bar dataKey="att_perc" name="Attendance %" radius={[4, 4, 0, 0]}>
+                    {mergedSubjects.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.att_perc < 75 ? "#ef4444" : "#6366f1"} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         </motion.div>
 
+        {/* Marks Chart */}
         <motion.div className="glass-panel" variants={itemVariants}>
-          <h3>Internal Marks per Subject</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={mergedSubjects} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
-              <XAxis dataKey="shortName" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis domain={[0, 25]} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-              <RechartsTooltip content={<CustomTooltip />} cursor={{ fill: 'var(--bg-input)' }} />
-              <ReferenceLine y={10} stroke="#f59e0b" strokeDasharray="3 3" label={{ position: 'top', value: 'Pass (10)', fill: '#f59e0b', fontSize: 10 }} />
-              <Bar dataKey="final_score" name="Marks / 25" radius={[4, 4, 0, 0]}>
-                {mergedSubjects.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.final_score < 10 && entry.conducted > 1 ? "#ef4444" : "#10b981"} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          <h3 style={{ marginBottom: '0.5rem' }}>Internal Marks per Subject</h3>
+          <div className="mobile-swipe-hint"><span>← Swipe to view all subjects →</span></div>
+          
+          <div className="chart-scroll-wrapper">
+            {/* 🚨 FIX: Explicit Height 300px prevents Recharts from collapsing! */}
+            <div className="chart-inner-container">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={mergedSubjects} margin={{ top: 20, right: 10, left: -15, bottom: 40 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
+                  <XAxis dataKey="shortName" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} interval={0} />
+                  <YAxis domain={[0, 25]} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <RechartsTooltip content={<CustomTooltip />} cursor={{ fill: 'var(--bg-input)' }} />
+                  <ReferenceLine y={10} stroke="#f59e0b" strokeDasharray="3 3" label={{ position: 'top', value: 'Pass (10)', fill: '#f59e0b', fontSize: 10 }} />
+                  <Bar dataKey="final_score" name="Marks / 25" radius={[4, 4, 0, 0]}>
+                    {mergedSubjects.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.final_score < 10 && entry.conducted > 1 ? "#ef4444" : "#10b981"} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         </motion.div>
       </motion.div>
 
       {/* COMPREHENSIVE UNIFIED ROSTER */}
       <motion.div className="glass-panel" variants={itemVariants} initial="hidden" animate="show" style={{ marginTop: '1.5rem', padding: '1.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.5rem' }}>
           <BookOpen size={20} className="text-primary" />
-          <h3 style={{ margin: 0 }}>Detailed Academic Progress</h3>
+          <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>Detailed Academic Progress</h3>
         </div>
         
-        <div className="premium-table-wrapper" style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-          <table className="data-table" style={{ width: '100%', minWidth: '1000px' }}>
+        <div className="mobile-swipe-hint"><span>← Swipe table to view all data →</span></div>
+        
+        <div className="premium-table-wrapper">
+          <table className="data-table">
             <thead style={{ background: 'var(--bg-card)' }}>
               <tr>
                 <th style={{ padding: '1rem', textAlign: 'left' }}>Subject</th>
@@ -386,24 +396,24 @@ const StudentDashboard = () => {
                 <th style={{ padding: '1rem', textAlign: 'center', background: 'rgba(99, 102, 241, 0.05)' }} colSpan={3}>Attendance</th>
                 <th style={{ padding: '1rem', textAlign: 'center', background: 'rgba(16, 185, 129, 0.05)' }} colSpan={6}>Internal Assessment (/ 25)</th>
               </tr>
-              <tr style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                <th style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--border-color)' }}></th>
-                <th style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--border-color)' }}></th>
-                <th style={{ textAlign: 'center', borderBottom: '1px solid var(--border-color)', background: 'rgba(99, 102, 241, 0.05)' }}>TA</th>
-                <th style={{ textAlign: 'center', borderBottom: '1px solid var(--border-color)', background: 'rgba(99, 102, 241, 0.05)' }}>TC</th>
-                <th style={{ textAlign: 'center', borderBottom: '1px solid var(--border-color)', background: 'rgba(99, 102, 241, 0.05)' }}>%</th>
-                <th style={{ textAlign: 'center', borderBottom: '1px solid var(--border-color)', background: 'rgba(16, 185, 129, 0.05)' }}>Tests</th>
-                <th style={{ textAlign: 'center', borderBottom: '1px solid var(--border-color)', background: 'rgba(16, 185, 129, 0.05)' }}>Final Avg</th>
-                <th style={{ textAlign: 'center', borderBottom: '1px solid var(--border-color)', background: 'rgba(16, 185, 129, 0.05)' }}>Rank</th>
-                <th style={{ textAlign: 'center', borderBottom: '1px solid var(--border-color)', background: 'rgba(16, 185, 129, 0.05)' }}>Target</th>
-                <th style={{ textAlign: 'center', borderBottom: '1px solid var(--border-color)', background: 'rgba(16, 185, 129, 0.05)' }}>Status</th>
+              <tr style={{ fontSize: '0.85rem' }}>
+                <th style={{ padding: '0.5rem 1rem' }}></th>
+                <th style={{ padding: '0.5rem 1rem' }}></th>
+                <th style={{ textAlign: 'center', background: 'rgba(99, 102, 241, 0.05)' }}>TA</th>
+                <th style={{ textAlign: 'center', background: 'rgba(99, 102, 241, 0.05)' }}>TC</th>
+                <th style={{ textAlign: 'center', background: 'rgba(99, 102, 241, 0.05)' }}>%</th>
+                <th style={{ textAlign: 'center', background: 'rgba(16, 185, 129, 0.05)' }}>Tests</th>
+                <th style={{ textAlign: 'center', background: 'rgba(16, 185, 129, 0.05)' }}>Final Avg</th>
+                <th style={{ textAlign: 'center', background: 'rgba(16, 185, 129, 0.05)' }}>Rank</th>
+                <th style={{ textAlign: 'center', background: 'rgba(16, 185, 129, 0.05)' }}>Target</th>
+                <th style={{ textAlign: 'center', background: 'rgba(16, 185, 129, 0.05)' }}>Status</th>
               </tr>
             </thead>
             <tbody>
               {mergedSubjects.map((sub, idx) => {
                 const badgeStyle = getStatusColor(sub.status);
                 return (
-                  <tr key={idx} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s', ':hover': { background: 'var(--bg-input)' } }}>
+                  <tr key={idx} style={{ transition: 'background 0.2s', ':hover': { background: 'var(--bg-input)' } }}>
                     <td style={{ padding: '1rem' }}>
                       <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{sub.name}</div>
                       <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{sub.code}</div>
@@ -420,9 +430,9 @@ const StudentDashboard = () => {
                     {/* Marks Columns */}
                     <td style={{ textAlign: 'center', padding: '1rem', background: 'rgba(16, 185, 129, 0.02)' }}>
                       <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
-                        <span style={{ padding: '2px 6px', background: 'var(--bg-card)', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.8rem' }}>{sub.it1 ?? '-'}</span>
-                        <span style={{ padding: '2px 6px', background: 'var(--bg-card)', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.8rem' }}>{sub.it2 ?? '-'}</span>
-                        <span style={{ padding: '2px 6px', background: 'var(--bg-card)', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.8rem' }}>{sub.it3 ?? '-'}</span>
+                        <span style={{ padding: '2px 6px', background: 'var(--bg-input)', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.8rem' }}>{sub.it1 ?? '-'}</span>
+                        <span style={{ padding: '2px 6px', background: 'var(--bg-input)', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.8rem' }}>{sub.it2 ?? '-'}</span>
+                        <span style={{ padding: '2px 6px', background: 'var(--bg-input)', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.8rem' }}>{sub.it3 ?? '-'}</span>
                       </div>
                     </td>
                     <td style={{ textAlign: 'center', padding: '1rem', fontWeight: 'bold', fontSize: '1.1rem', background: 'rgba(16, 185, 129, 0.02)' }}>
