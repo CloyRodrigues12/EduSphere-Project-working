@@ -6,7 +6,7 @@ import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import { 
   Search, Users, UserCircle, MapPin, Phone, Briefcase, 
-  Heart, Award, X, Edit3, Save, CheckCircle, Download, Upload, Loader2, AlertTriangle
+  Heart, Award, X, Edit3, Save, CheckCircle, Download, Upload, Loader2, AlertTriangle, MonitorSmartphone
 } from "lucide-react";
 import "./MenteeDirectory.css";
 
@@ -29,6 +29,17 @@ const MenteeDirectory = () => {
   const fileInputRef = useRef(null);
   const [isUploading, setIsUploading] = useState(false);
   const [previewData, setPreviewData] = useState(null);
+
+  // --- MOBILE DETECTION LOGIC ---
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobilePopupDismissed, setMobilePopupDismissed] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 850);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const getToken = () => localStorage.getItem("access_token");
   const getBaseUrl = () => import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
@@ -262,6 +273,12 @@ const MenteeDirectory = () => {
   return (
     <div className="mentee-directory-container fade-in">
       
+      {/* 🚨 MOBILE BANNER: Only visible on mobile CSS breakpoint */}
+      <div className="mobile-desktop-warning">
+          <MonitorSmartphone size={24} />
+          <span>For maximum efficiency and data safety, Exporting and Bulk Updating Excel files is best performed on a Desktop device.</span>
+      </div>
+
       {/* HEADER */}
       <div className="directory-header" style={{ position: 'relative' }}>
         {isUploading && !previewData && (
@@ -282,12 +299,13 @@ const MenteeDirectory = () => {
             <input type="text" placeholder="Search by name or roll no..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
           </div>
           
-          <div style={{ display: 'flex', gap: '10px' }}>
+          {/* 🚨 FIX: Replaced inline styles with a class so CSS can force them into a column on mobile! */}
+          <div className="header-action-buttons">
             <button className="btn btn-secondary" onClick={handleExportTemplate} title="Download a protected Excel sheet for offline editing">
-              <Download size={18} /> <span className="desktop-only">Export List</span>
+              <Download size={18} /> <span>Export List</span>
             </button>
             <button className="btn btn-primary" onClick={() => fileInputRef.current?.click()} title="Upload the filled Excel sheet">
-              <Upload size={18} /> <span className="desktop-only">Bulk Update</span>
+              <Upload size={18} /> <span>Bulk Update</span>
             </button>
             <input type="file" ref={fileInputRef} hidden accept=".xlsx" onChange={handleFileSelect} />
           </div>
@@ -354,8 +372,8 @@ const MenteeDirectory = () => {
       {/* PREVIEW MODAL */}
       <AnimatePresence>
         {previewData && (
-           <div className="modal-overlay fade-in" style={{ zIndex: 1500 }}>
-             <div className="modal-content glass-panel" style={{ width: '600px', padding: '1.5rem' }}>
+           <div className="modal-overlay center-mobile fade-in" style={{ zIndex: 1500 }}>
+             <div className="modal-content glass-panel">
                 <h3 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <CheckCircle className="text-primary" size={20} /> Review Bulk Update
                 </h3>
@@ -389,7 +407,7 @@ const MenteeDirectory = () => {
                     <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>No profile changes detected in the uploaded file.</div>
                 )}
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '1.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '1.5rem', flexWrap: 'wrap' }}>
                     <button className="btn btn-secondary" onClick={() => setPreviewData(null)}>Cancel</button>
                     {previewData.changes.length > 0 && (
                         <button className="btn btn-primary" onClick={confirmBulkUpload}>Confirm Upload</button>
@@ -398,6 +416,26 @@ const MenteeDirectory = () => {
              </div>
            </div>
         )}
+      </AnimatePresence>
+
+      {/* 🚨 MOBILE POPUP (Only shows once per session if on mobile) */}
+      <AnimatePresence>
+          {isMobile && !mobilePopupDismissed && (
+              <div className="modal-overlay center-mobile" style={{ zIndex: 9999 }}>
+                  <motion.div className="modal-content small-modal" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} style={{ padding: "2rem", textAlign: "center" }}>
+                      <div style={{ width: "64px", height: "64px", background: "rgba(245, 158, 11, 0.1)", color: "#f59e0b", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.5rem auto" }}>
+                          <MonitorSmartphone size={32} />
+                      </div>
+                      <h3 style={{ margin: "0 0 10px 0", color: "var(--text-primary)" }}>Desktop Recommended</h3>
+                      <p style={{ color: "var(--text-secondary)", marginBottom: "2rem", lineHeight: "1.5" }}>
+                          Exporting and Bulk Updating Excel data requires precision. For the best experience and to avoid accidental data overrides, please use a Desktop or Laptop browser.
+                      </p>
+                      <button className="btn btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={() => setMobilePopupDismissed(true)}>
+                          I Understand, Continue Anyway
+                      </button>
+                  </motion.div>
+              </div>
+          )}
       </AnimatePresence>
 
       {/* SLIDING DRAWER */}
@@ -413,7 +451,9 @@ const MenteeDirectory = () => {
                   <h2 style={{ margin: 0, fontSize: "1.2rem", color: "var(--text-primary)" }}>{selectedMentee.full_name}</h2>
                   <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>Registration Form</span>
                 </div>
-                <button className="icon-btn" onClick={closeProfile}><X size={22} /></button>
+                <button className="icon-btn" style={{ background: 'var(--bg-input)', border: 'none', borderRadius: '50%', padding: '6px', color: 'var(--text-secondary)', cursor: 'pointer' }} onClick={closeProfile}>
+                    <X size={22} />
+                </button>
               </div>
 
               <div className="drawer-content">

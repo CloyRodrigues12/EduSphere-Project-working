@@ -1,9 +1,16 @@
+/* =========================================================
+   🚨 RESTORED DESKTOP STYLING (Original Math & Layout)
+   ========================================================= */
+.mentee-directory-container,
+.mentee-directory-container * {
+  box-sizing: border-box !important;
+}
+
 .mentee-directory-container {
   padding: 1.5rem 2rem 4rem;
   max-width: 1600px;
   margin: 0 auto;
   width: 100%;
-  box-sizing: border-box;
   overflow-x: hidden;
 }
 
@@ -65,6 +72,12 @@
   width: 100%;
   color: var(--text-primary);
   font-size: 0.95rem;
+}
+
+.header-action-buttons {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 
 /* --- TABS --- */
@@ -185,29 +198,31 @@
 }
 
 .drawer-panel {
-  width: 100%; max-width: 600px; height: 100vh; background: var(--bg-card);
+  position: absolute; top: 0; bottom: 0; right: 0;
+  width: 100%; max-width: 600px; background: var(--bg-card);
   box-shadow: -10px 0 40px rgba(0, 0, 0, 0.2); display: flex; flex-direction: column;
 }
 
-.drawer-header { padding: 1.5rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: var(--bg-main); }
+.drawer-header { padding: 1.5rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: var(--bg-main); flex-shrink: 0; }
 .drawer-content { flex: 1; overflow-y: auto; padding: 1.5rem; display: flex; flex-direction: column; gap: 2rem; }
-.drawer-footer { padding: 1.5rem; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 1rem; background: var(--bg-main); }
+.drawer-footer { padding: 1.5rem; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 1rem; background: var(--bg-main); flex-shrink: 0; }
 
 .form-section-title { display: flex; align-items: center; gap: 8px; color: var(--primary-color); font-size: 1rem; font-weight: 700; border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.5px; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 .form-group { display: flex; flex-direction: column; gap: 6px; }
 .form-group.full-width { grid-column: 1 / -1; }
 .form-group label { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); }
-.form-group input, .form-group textarea { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary); font-size: 0.95rem; font-family: inherit; transition: all 0.2s; }
+.form-group input, .form-group textarea { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary); font-size: 0.95rem; font-family: inherit; transition: all 0.2s; width: 100%;}
 .form-group input:focus, .form-group textarea:focus { border-color: var(--primary-color); outline: none; }
 .form-group input:disabled, .form-group textarea:disabled { background: transparent; border-color: transparent; padding: 0; color: var(--text-primary); font-weight: 500; resize: none; }
 
 /* Buttons */
-.btn { padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s; border: none; }
+.btn { padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; justify-content: center; transition: all 0.2s; border: none; }
 .btn-primary { background: var(--primary-color); color: white; }
-.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3); }
+.btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3); }
+.btn-primary:disabled { opacity: 0.7; cursor: not-allowed; }
 .btn-secondary { background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border-color); }
-.btn-secondary:hover { background: var(--bg-hover); }
+.btn-secondary:hover:not(:disabled) { background: var(--bg-hover); }
 
 /* Preview Modal */
 .preview-table-wrapper {
@@ -219,7 +234,7 @@
 }
 
 .preview-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem; }
-.preview-table th { background: var(--bg-input); padding: 10px; font-weight: 600; color: var(--text-secondary); position: sticky; top: 0; }
+.preview-table th { background: var(--bg-input); padding: 10px; font-weight: 600; color: var(--text-secondary); position: sticky; top: 0; z-index: 10; }
 .preview-table td { padding: 10px; border-bottom: 1px solid var(--border-color); color: var(--text-primary); }
 
 .warning-box {
@@ -234,10 +249,169 @@
 .upload-loading-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(4px); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 50; border-radius: 16px; }
 [data-theme="dark"] .upload-loading-overlay { background: rgba(30, 41, 59, 0.8); }
 
-@media (max-width: 768px) {
-  .mentee-directory-container { padding: 1rem 0.75rem 5rem 0.75rem; }
-  .directory-header { flex-direction: column; align-items: stretch; }
-  .header-actions { flex-direction: column; align-items: stretch; }
-  .search-bar-wrapper { min-width: 100%; }
+/* Modals */
+.modal-overlay { position: fixed; inset: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 1000; animation: fadeIn 0.3s ease; }
+.modal-content { position: relative; width: 100%; max-width: 600px; max-height: 90vh; display: flex; flex-direction: column; padding: 1.5rem !important; border-radius: 20px; background: var(--bg-card) !important; border: var(--glass-border); box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2); }
+.small-modal { max-width: 400px; width: 100%; }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* --- MOBILE WARNING BANNER --- */
+.mobile-desktop-warning {
+  display: none;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid #f59e0b;
+  color: #d97706;
+  padding: 12px 16px;
+  border-radius: 12px;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.4;
+  width: 100%;
+}
+.mobile-desktop-warning svg { flex-shrink: 0; }
+.desktop-only { display: inline-flex; }
+
+/* ==========================================================================
+   🚨 AGGRESSIVE MOBILE FIXES
+   ========================================================================== */
+@media (max-width: 850px) {
+
+  /* Global Locks */
+  body, html, #root {
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+  }
+
+  .mentee-directory-container { 
+    padding: 16px !important; 
+    width: 100% !important;
+    max-width: 100vw !important;
+  }
+  
+  .mobile-desktop-warning { display: flex !important; }
+  .desktop-only { display: none !important; }
+
+  /* 🚨 1. Header Fix: Unbind Widths */
+  .directory-header { 
+    flex-direction: column !important; 
+    align-items: stretch !important; 
+    padding: 1.25rem !important; 
+    gap: 1rem !important; 
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .header-actions { 
+    flex-direction: column !important; 
+    align-items: stretch !important; 
+    width: 100% !important; 
+    gap: 12px !important;
+  }
+
+  .search-bar-wrapper { 
+    width: 100% !important; 
+    min-width: 0 !important; 
+    box-sizing: border-box !important;
+  }
+
+/* 🚨 Stack buttons side-by-side and split the width equally */
+  .header-action-buttons {
+    display: flex !important;
+    flex-direction: row !important;
+    width: 100% !important;
+    gap: 10px !important;
+  }
+
+  .header-action-buttons .btn {
+    flex: 1 !important;
+    padding: 12px 8px !important;
+    justify-content: center !important;
+    min-width: 0 !important;
+    font-size: 0.85rem !important;
+    white-space: nowrap !important;
+  }
+
+  /* 🚨 3. Tab Fix */
+  .md-tabs-container {
+    width: 100% !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding-bottom: 8px !important;
+    scrollbar-width: none;
+  }
+  .md-tabs-container::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* 🚨 4. Grid & Card Fix: Enable Wrapping */
+  .mentee-grid { 
+    grid-template-columns: 1fr !important; 
+    width: 100% !important;
+    margin: 0 !important;
+  }
+  
+  .mentee-card {
+    width: 100% !important;
+    min-width: 0 !important; /* Enables wrapping */
+  }
+
+  .mentee-card-top { 
+    align-items: flex-start !important; /* Keep avatar top */
+  }
+
+  .mentee-info {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .mentee-info h3, 
+  .mentee-info p {
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+  }
+
   .form-grid { grid-template-columns: 1fr; }
+
+  /* 🚨 5. Drawer Fix: Use absolute positioning instead of height */
+  .drawer-panel {
+    width: 100vw !important;
+    position: absolute !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    right: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  .drawer-footer {
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom)) !important;
+    flex-direction: column;
+  }
+  
+  .drawer-footer .btn {
+    width: 100%;
+    margin: 0;
+  }
+
+  /* Modals */
+  .modal-overlay.center-mobile {
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 16px !important;
+  }
+  
+  .modal-overlay.center-mobile .modal-content {
+    position: relative !important;
+    bottom: auto !important;
+    height: auto !important;
+    max-height: 90vh !important;
+    width: 100% !important;
+    border-radius: 20px !important;
+    padding: 1.25rem !important;
+  }
 }
